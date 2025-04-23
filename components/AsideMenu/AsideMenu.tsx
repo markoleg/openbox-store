@@ -2,10 +2,31 @@
 import { usePathname } from 'next/navigation';
 import styles from './AsideMenu.module.css'
 import Link from 'next/link';
-// import { usePathname } from 'next/navigation'
+import { useRealtimeSearches } from '@/hooks/useRealtimeSearches'
+import { useMemo } from 'react';
+import { useItems } from '@/context/ItemsProvider'
 
-export default function AsideMenu({ list, allItems }: { list: { name: string; path: string; id: number, items: number }[]; allItems: number }) {
+export default function AsideMenu() {
     const pathname = usePathname()
+    // const allItems = useRealtimeItems(undefined)
+    const allItems = useItems()
+    const searches = useRealtimeSearches()
+
+    const list = useMemo(() => {
+        return searches.map((search: any) => {
+            const items = allItems.filter((item: any) => item.search_parameter_id === search.id);
+            const { id, keywords, seller, condition } = search;
+            const searchCondition = condition === 1000 ? "New" : condition === 1500 ? "OpenBox" : "Used";
+            const searchName = `${seller ?? ""} ${keywords} ${searchCondition}`;
+            return {
+                name: searchName,
+                path: `/zhezhemon/${id}`,
+                id: id,
+                qty: items.length
+            };
+        })
+    }, [searches, allItems])
+
     return (
         <aside className={styles.aside}>
             <div className={styles.aside_menu}>
@@ -14,7 +35,7 @@ export default function AsideMenu({ list, allItems }: { list: { name: string; pa
                         All Searches
                     </span>
                     <span>
-                        {allItems}
+                        {allItems.length}
                     </span>
                 </Link>
                 {list.map((item, index) => (
@@ -30,7 +51,7 @@ export default function AsideMenu({ list, allItems }: { list: { name: string; pa
                             {item.name}
                         </span>
                         <span>
-                            {item.items}
+                            {item.qty}
                         </span>
                     </Link>
                 ))}

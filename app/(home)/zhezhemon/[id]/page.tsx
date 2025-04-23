@@ -1,19 +1,16 @@
 import FoundItems from '@/components/FoundItems/FoundItems';
-import React from 'react'
+import AsideMenu from '@/components/AsideMenu/AsideMenu'
 
-export default async function FoundItemsBySearchPage({ params }: { params: { id: string } }) {
+export default async function FoundItemsBySearchPage({ params }: { params: { id: number } }) {
     const { id } = await params;
-    const items = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/supabase/getItemsBySearch?searchId=${id}`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-        },
-    }).then((res) => res.json()).catch((err) => {
-        console.error("Error fetching data:", err);
-    });
+
     return (
-        <main className='content'>
-            <FoundItems items={items} />
-        </main>
+        <>
+            <AsideMenu />
+            <main className='content'>
+                <FoundItems id={id} />
+            </main>
+        </>
+
     )
 }

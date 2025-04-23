@@ -87,3 +87,20 @@ button {
 	flex: 1;
 	padding: 1rem;
 }
+
+/* custom-toast.css */
+.custom-toast {
+	background-color: red;
+	color: #fff;
+	font-family: "Inter", sans-serif;
+	font-size: 14px;
+	border-left: 4px solid var(--primary);
+}
+
+.custom-toast .Toastify__progress-bar {
+	background: var(--primary);
+	opacity: 1;
+}
+.Toastify__toast-icon svg {
+	fill: var(--primary);
+}

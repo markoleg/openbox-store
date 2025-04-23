@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 interface LoginFormProps {
 }
 
-const LoginForm: React.FC<LoginFormProps> = ({}) => {
+const LoginForm: React.FC<LoginFormProps> = ({ }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const router = useRouter();
@@ -21,7 +21,9 @@ const LoginForm: React.FC<LoginFormProps> = ({}) => {
                 body: JSON.stringify({ password })
             });
             if (response.ok) {
-                router.push('/');
+                window.location.href = '/';
+                // router.push('/');
+                // router.refresh();
             } else {
                 const data = await response.json();
                 setError(data.error || 'Login failed');
