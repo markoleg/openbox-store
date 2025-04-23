@@ -1,0 +1,95 @@
+.header {
+	border-bottom: var(--primary-o30) solid 1px;
+	background: var(--background);
+	position: sticky;
+	top: 0;
+	left: 0;
+	z-index: 100;
+	height: 65px;
+}
+.navbar_wrp {
+	display: flex;
+	align-items: center;
+	padding: 1rem;
+	gap: 2rem;
+}
+
+.brand {
+	display: flex;
+	align-items: center;
+	text-decoration: none;
+	font-size: 1rem;
+	line-height: 1;
+}
+.logo {
+	border-radius: 50%;
+	max-width: 30px;
+	max-height: 30px;
+	margin-right: 0.5rem;
+}
+
+.app_toggle_wrp {
+	position: relative;
+}
+.app_toggle {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	cursor: pointer;
+	padding: 0.5rem 1rem;
+	border-radius: var(--br-s);
+	background-color: var(--bg-gray-o50);
+	transition: all 0.1s ease-in-out;
+}
+.app_toggle:hover {
+	background-color: var(--bg-gray-o70);
+}
+.apps_list {
+	list-style: none;
+	position: absolute;
+	left: 0;
+	background-color: var(--bg-gray-o30);
+	border-radius: 4px;
+	z-index: 10;
+	width: 100%;
+}
+.apps_list button {
+	background-color: var(--bg-gray-o30);
+	width: 100%;
+	text-align: left;
+}
+.apps_list button.active {
+	background-color: var(--bg-gray-o50);
+}
+.apps_list button:hover {
+	background-color: var(--bg-gray-o70);
+}
+
+.logout {
+	outline: var(--primary) solid 1px;
+	outline-offset: -1px;
+	text-transform: uppercase;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	margin-left: auto;
+}
+.logout:hover {
+	background: var(--primary);
+	color: var(--background);
+}
+.logout svg {
+	/* transform: scale(0); */
+	width: 0px;
+	transition: all 0.2s ease-in-out;
+}
+.logout:hover svg {
+	width: 13px;
+	/* transform: scale(1); */
+}
+@media screen and (max-width: 768px) {
+	.brand span {
+		display: none;
+	}
+}
