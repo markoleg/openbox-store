@@ -8,20 +8,23 @@
 .aside_menu {
 	display: flex;
 	flex-direction: column;
+	gap: 2px;
 }
 .aside_menu a {
 	padding: 0.5rem 1rem;
 	display: flex;
+	background: var(--bg-gray-o30);
+	border-radius: var(--br-m);
 }
 .aside_menu a span:last-child {
 	margin-left: auto;
 	padding-left: 1rem;
 }
-.aside_menu a:hover {
-	background: var(--bg-gray-o70);
-}
-.active {
+.aside_menu a.active {
 	background: var(--bg-gray-o50);
 	color: var(--primary);
 	cursor: default;
+}
+.aside_menu a:hover {
+	background: var(--bg-gray-o70);
 }

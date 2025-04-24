@@ -6,7 +6,7 @@ export default async function FoundItemsBySearchPage({ params }: { params: { id:
 
     return (
         <>
-            <AsideMenu />
+            {/* <AsideMenu /> */}
             <main className='content'>
                 <FoundItems id={id} />
             </main>

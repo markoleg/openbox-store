@@ -3,8 +3,10 @@
 	--br-m: 10px;
 	--br-s: 5px;
 	--br-xs: 2px;
-	--background: #ffffff;
-	--foreground: #171717;
+	/* --background: #ffffff;
+	--foreground: #171717; */
+	--background: #111111;
+	--foreground: #ededed;
 	--primary: #fa7701;
 	--primary-o30: #fa77014f;
 	--primary-o50: #fa77017d;
@@ -81,7 +83,8 @@ button {
 }
 
 .page-wrp {
-	display: flex;
+	display: grid;
+	grid-template-columns: 1fr 3fr;
 }
 .content {
 	flex: 1;
@@ -103,4 +106,16 @@ button {
 }
 .Toastify__toast-icon svg {
 	fill: var(--primary);
+}
+
+@keyframes loader {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+.loader {
+	animation: loader 1s linear infinite;
 }

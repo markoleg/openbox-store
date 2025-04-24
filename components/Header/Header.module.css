@@ -38,7 +38,7 @@
 	cursor: pointer;
 	padding: 0.5rem 1rem;
 	border-radius: var(--br-s);
-	background-color: var(--bg-gray-o50);
+	background-color: var(--bg-gray-o30);
 	transition: all 0.1s ease-in-out;
 }
 .app_toggle:hover {

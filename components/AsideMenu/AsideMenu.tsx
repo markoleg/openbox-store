@@ -4,13 +4,14 @@ import styles from './AsideMenu.module.css'
 import Link from 'next/link';
 import { useRealtimeSearches } from '@/hooks/useRealtimeSearches'
 import { useMemo } from 'react';
-import { useItems } from '@/context/ItemsProvider'
+import { useItems, useItemsLoading } from '@/context/ItemsProvider'
+import { Loader } from 'lucide-react';
 
 export default function AsideMenu() {
     const pathname = usePathname()
-    // const allItems = useRealtimeItems(undefined)
     const allItems = useItems()
     const searches = useRealtimeSearches()
+    const loading = useItemsLoading()
 
     const list = useMemo(() => {
         return searches.map((search: any) => {
@@ -26,6 +27,9 @@ export default function AsideMenu() {
             };
         })
     }, [searches, allItems])
+    // if (loading) return (<aside className={styles.aside}>
+    //     <Loader color='var(--primary)' className="loader" />
+    // </aside>)
 
     return (
         <aside className={styles.aside}>
@@ -38,23 +42,25 @@ export default function AsideMenu() {
                         {allItems.length}
                     </span>
                 </Link>
-                {list.map((item, index) => (
-                    <Link
-                        href={item.path}
-                        key={index}
-                        className={pathname === item.path ? styles.active : ""}
-                    >
-                        <span>
-                            {item.id}.
-                        </span>
-                        <span>
-                            {item.name}
-                        </span>
-                        <span>
-                            {item.qty}
-                        </span>
-                    </Link>
-                ))}
+                {loading
+                    ? <Loader color='var(--primary)' className="loader" />
+                    : list.map((item, index) => (
+                        <Link
+                            href={item.path}
+                            key={index}
+                            className={pathname === item.path ? styles.active : ""}
+                        >
+                            <span>
+                                {item.id}.
+                            </span>
+                            <span>
+                                {item.name}
+                            </span>
+                            <span>
+                                {item.qty}
+                            </span>
+                        </Link>
+                    ))}
             </div>
         </aside>
     )

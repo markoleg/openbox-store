@@ -5,7 +5,7 @@ export default async function ZheZhemonPage() {
 
     return (
         <>
-            <AsideMenu />
+            {/* <AsideMenu /> */}
             <main className='content'>
                 <FoundItems id={undefined} />
             </main>
