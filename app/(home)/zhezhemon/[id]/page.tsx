@@ -1,13 +1,13 @@
 import FoundItems from '@/components/FoundItems/FoundItems';
-import AsideMenu from '@/components/AsideMenu/AsideMenu'
+import SearchForm from '@/components/SearchForm/SearchForm';
 
 export default async function FoundItemsBySearchPage({ params }: { params: { id: number } }) {
     const { id } = await params;
 
     return (
         <>
-            {/* <AsideMenu /> */}
             <main className='content'>
+                <SearchForm searchId={id} />
                 <FoundItems id={id} />
             </main>
         </>

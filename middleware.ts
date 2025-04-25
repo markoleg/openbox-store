@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-	const authCookie = request.cookies.get("auth");
+	const authCookie = request.cookies.get(process.env.PASSWORD_COOKIE_NAME!);
 	const path = request.nextUrl.pathname;
 
 	if (path.startsWith("/api/") || path === "/login") {

@@ -27,9 +27,7 @@ export default function AsideMenu() {
             };
         })
     }, [searches, allItems])
-    // if (loading) return (<aside className={styles.aside}>
-    //     <Loader color='var(--primary)' className="loader" />
-    // </aside>)
+
 
     return (
         <aside className={styles.aside}>

@@ -102,3 +102,27 @@
 .item_card:hover .btns_wrp button {
 	transform: translatex(0px);
 }
+
+.filters {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	align-items: center;
+}
+.filter_liked {
+	padding: 5px 5px 0;
+	border-radius: var(--br-s);
+	cursor: pointer;
+}
+.filter_liked:hover {
+	background-color: var(--bg-gray-o70);
+}
+
+.filter_liked input {
+	position: absolute;
+	visibility: hidden;
+	opacity: 0;
+}
+.filter_liked input:checked + svg {
+	fill: var(--foreground);
+}
