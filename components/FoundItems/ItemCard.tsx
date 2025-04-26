@@ -93,7 +93,7 @@ export default function ItemCard({ item }: { item: Item }) {
     if (!item) return null
     return (
         <div className={styles.item_card}>
-            <Link href={item.link}>
+            <Link href={item.link} target="_blank" rel="noopener noreferrer">
                 <Image
                     src={item.image_url !== 'No image' ? item.image_url : '/images/placeholder.png'}
                     alt={item.title}
@@ -104,7 +104,7 @@ export default function ItemCard({ item }: { item: Item }) {
             </Link>
             <div className={styles.item_info}>
                 <h2 className={styles.item_title}>
-                    <Link href={item.link}>
+                    <Link href={item.link} target="_blank" rel="noopener noreferrer">
                         {item.title}
                     </Link>
                     <small className={`${styles.item_condition} ${item.condition === 'New' ? styles.new : item.condition === 'OpenBox' ? styles.open_box : styles.used}`}>

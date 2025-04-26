@@ -1,8 +1,16 @@
+.found_items {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+.found_items_count {
+	padding-left: calc(0.5rem + 1px);
+}
 .items_grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
 	gap: 2px;
-	margin-top: 10px;
 }
 .item_card {
 	border: 1px solid var(--primary-o30);
@@ -108,9 +116,15 @@
 	gap: 10px;
 	flex-wrap: wrap;
 	align-items: center;
+	padding: 0.5rem;
+	border: 1px solid var(--primary-o30);
+	border-radius: var(--br-m);
+	background-color: var(--bg-gray-o30);
 }
 .filter_liked {
-	padding: 5px 5px 0;
+	display: flex;
+	justify-content: center;
+	padding: 5px;
 	border-radius: var(--br-s);
 	cursor: pointer;
 }
@@ -125,4 +139,54 @@
 }
 .filter_liked input:checked + svg {
 	fill: var(--foreground);
+}
+.filters label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.filters select {
+	padding: 0.5rem;
+	border-radius: var(--br-s);
+	border: 1px solid var(--primary-o30);
+	background-color: var(--bg-gray-o50);
+	color: var(--foreground);
+	font-size: 0.9em;
+	margin-left: 0.5rem;
+	cursor: pointer;
+}
+.filters select:hover {
+	box-shadow: 0 0 10px var(--primary-o30);
+}
+@media screen and (max-width: 768px) {
+	.items_grid {
+		grid-template-columns: 1fr;
+	}
+	.item_card {
+		display: grid;
+		grid-template-columns: auto 1fr;
+	}
+	.item_title {
+		font-size: 0.8rem;
+	}
+	.item_price {
+		font-size: 1rem;
+	}
+	.btns_wrp {
+		flex-direction: row;
+		justify-content: space-between;
+		width: 100%;
+		margin: 0;
+		grid-column: 1/-1;
+	}
+	.btns_wrp button {
+		padding: 0.5rem 0;
+		transform: translatex(0px);
+	}
+	.filters label {
+		width: 100%;
+	}
+	.filters select {
+		flex: 1;
+	}
 }

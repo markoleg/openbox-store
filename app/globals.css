@@ -87,8 +87,7 @@ button {
 	grid-template-columns: 1fr 3fr;
 }
 .content {
-	flex: 1;
-	padding: 1rem;
+	padding: 0.5rem;
 }
 
 /* custom-toast.css */
@@ -118,4 +117,13 @@ button {
 }
 .loader {
 	animation: loader 1s linear infinite;
+}
+
+@media screen and (max-width: 850px) {
+	.page-wrp {
+		grid-template-columns: 1fr;
+	}
+	/* .content {
+		padding: 0.5rem;
+	} */
 }

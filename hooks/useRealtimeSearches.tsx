@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/SupaBaseClient"; // Assuming you have a Supabase client setup
+import { supabase } from "@/lib/SupaBaseClient";
 
 
 

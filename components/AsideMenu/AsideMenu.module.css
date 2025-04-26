@@ -4,6 +4,8 @@
 	top: 66px;
 	border-right: var(--primary-o30) solid 1px;
 	overflow: auto;
+	padding: 0.5rem;
+	background-color: var(--background);
 }
 .aside_menu {
 	display: flex;
@@ -13,6 +15,7 @@
 .aside_menu a {
 	padding: 0.5rem 1rem;
 	display: flex;
+	align-items: center;
 	background: var(--bg-gray-o30);
 	border-radius: var(--br-m);
 }
@@ -27,4 +30,39 @@
 }
 .aside_menu a:hover {
 	background: var(--bg-gray-o70);
+}
+
+.aside_brg {
+	display: none;
+	cursor: pointer;
+}
+/* .aside_brg:hover {
+	background: var(--bg-gray-o70);
+} */
+@media screen and (max-width: 850px) {
+	.aside_brg {
+		display: block;
+		position: fixed;
+		z-index: 11;
+		bottom: 0;
+		width: 100%;
+		height: 40px;
+		background: var(--background);
+		padding: 0.5rem 0;
+	}
+	.aside {
+		position: fixed;
+		z-index: 10;
+		left: -100%;
+		transition: all 0.2s ease-in-out;
+		width: 100%;
+		height: calc(100dvh - 66px - 40px);
+		left: -100%;
+		bottom: 40px;
+		/* top: auto; */
+		/* bottom: -100%; */
+	}
+	.aside.open {
+		left: 0;
+	}
 }

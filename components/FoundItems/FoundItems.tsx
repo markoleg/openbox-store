@@ -60,8 +60,7 @@ export default function FoundItems({ id }: { id: number | undefined }) {
 
 
     return (
-        <div>
-
+        <div className={styles.found_items}>
             <div className={styles.filters}>
                 <label className={styles.filter_liked}>
                     <input
@@ -118,14 +117,14 @@ export default function FoundItems({ id }: { id: number | undefined }) {
 
             {filteredItems ?
                 (<>
-                    <h1>Found {filteredItems.length} items</h1>
+                    <h2 className={styles.found_items_count}>Found {filteredItems.length} items</h2>
                     <div className={styles.items_grid}>
                         {filteredItems.map((item, idx) => (
                             <ItemCard key={idx} item={item} />
                         ))}
                     </div>
                 </>)
-                : <h1>No items found</h1>
+                : <h2>No items found</h2>
             }
         </div>
     )
