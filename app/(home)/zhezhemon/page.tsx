@@ -1,12 +1,12 @@
 import FoundItems from "@/components/FoundItems/FoundItems";
-import AsideMenu from '@/components/AsideMenu/AsideMenu'
+import AddNewSearchForm from "@/components/SearchForm/AddNewSearchForm";
 
 export default async function ZheZhemonPage() {
 
     return (
         <>
-            {/* <AsideMenu /> */}
             <main className='content'>
+                <AddNewSearchForm />
                 <FoundItems id={undefined} />
             </main>
         </>

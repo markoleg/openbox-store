@@ -77,10 +77,11 @@
 	outline-offset: -1px;
 	text-transform: uppercase;
 	display: flex;
-	align-items: center;
+	align-items: baseline;
 	justify-content: center;
 	gap: 0.5rem;
 	margin-left: auto;
+	line-height: 1;
 }
 .logout:hover {
 	background: var(--primary);

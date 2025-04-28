@@ -1,14 +1,11 @@
 'use client'
 
 import { useTransition, useState, useEffect } from 'react'
-import { useRealtimeSearches } from '@/hooks/useRealtimeSearches'
-import { updateSearch } from '@/actions/updateSearchAction'
 import styles from './SearchForm.module.css'
-import { Loader, Settings } from 'lucide-react'
-import { deleteSearch } from '@/actions/deleteSearchAction'
+import { SquarePlus } from 'lucide-react'
+import { addSearch } from '@/actions/addSearchAction'
 
-export default function SearchForm({ searchId }: { searchId: number | undefined }) {
-    const search = useRealtimeSearches(searchId)[0]
+export default function AddNewSearchForm() {
     const [openForm, setOpenForm] = useState(false)
     const toggleForm = () => {
         setOpenForm(!openForm)
@@ -17,21 +14,6 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
     const [moreAspects, setMoreAspects] = useState<{ key: string; value: string }[]>([])
     const [bannedLinks, setBannedLinks] = useState<string[]>([])
 
-    useEffect(() => {
-        if (search?.more_aspects) {
-            const parsed = (search.more_aspects as string[]).map((item) => {
-                const [key, value] = item.split(':')
-                return { key: key?.trim() || '', value: value?.trim() || '' }
-            })
-            setMoreAspects(parsed)
-        }
-    }, [search])
-    useEffect(() => {
-        if (search?.banned) {
-            setBannedLinks(search.banned)
-        }
-    }, [search])
-    if (!search) return <Loader color='var(--primary)' className='loader' />
 
     const handleAddAspect = () => {
         setMoreAspects([...moreAspects, { key: '', value: '' }])
@@ -64,64 +46,64 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
             <h2 onClick={toggleForm} className={styles.form_title}>
                 <span>
 
-                    Search Parameters
+                    Add New Search
                 </span>
-                <Settings />
+                <SquarePlus />
             </h2>
             <form
                 action={(formData) => {
                     bannedLinks.forEach((link, index) => {
                         formData.append(`banned_link_${index}`, link)
                     })
-                    startTransition(() => updateSearch(formData))
+                    startTransition(() => addSearch(formData))
                 }}
                 className={styles.form}
             >
-                <input type="hidden" name="id" value={search.id} />
+                <input type="hidden" name="id" />
 
                 <label>
                     Category Id:
-                    <input type="text" name="categoryid" defaultValue={search.categoryid} />
+                    <input type="text" name="categoryid" />
                 </label>
 
                 <label>
                     Keywords:
-                    <input type="text" name="keywords" defaultValue={search.keywords} />
+                    <input type="text" name="keywords" />
                 </label>
 
                 <label>
                     Brand:
-                    <input type="text" name="brand" defaultValue={search.brand} />
+                    <input type="text" name="brand" />
                 </label>
 
                 <label>
                     Model:
-                    <input type="text" name="model" defaultValue={search.model} />
+                    <input type="text" name="model" />
                 </label>
 
                 <label>
                     Condition Id:
-                    <input type="text" name="condition" defaultValue={search.condition} />
+                    <input type="text" name="condition" />
                 </label>
 
                 <label>
                     Min Price:
-                    <input type="number" name="minprice" defaultValue={search.minprice} />
+                    <input type="number" name="minprice" />
                 </label>
 
                 <label>
                     Max Price:
-                    <input type="number" name="maxprice" defaultValue={search.maxprice} />
+                    <input type="number" name="maxprice" />
                 </label>
 
                 <label>
                     Rate:
-                    <input type="text" name="rate" defaultValue={search.rate} />
+                    <input type="text" name="rate" />
                 </label>
 
                 <label>
                     Seller:
-                    <input type="text" name="seller" defaultValue={search.seller} />
+                    <input type="text" name="seller" />
                 </label>
 
                 <fieldset className={styles.bannedLinks}>
@@ -177,21 +159,10 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
                         + Add Aspect
                     </button>
                 </fieldset>
-                <button
-                    type='button'
-                    onClick={() => {
-                        // ask for confirmation before deleting
-                        const confirmDelete = confirm('Are you sure you want to delete this search?')
-                        if (!confirmDelete) return
-                        deleteSearch(search.id)
-                    }}
-                    className={styles.delete_btn}
-                >
-                    Delete
-                </button>
+
 
                 <button type="submit" disabled={isPending}>
-                    {isPending ? 'Saving...' : 'Save'}
+                    {isPending ? 'Adding...' : 'Add New Search'}
                 </button>
             </form>
         </div>

@@ -87,7 +87,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                             {" "}
                             <span style={{ color: 'var(--bg-gray-o70)' }}>
                                 {(payload.new as Item).shipping_cost > 0
-                                    ? `(${payload.new.shipping_cost} shipping)`
+                                    ? `($${payload.new.shipping_cost} shipping)`
                                     : ""}
                             </span>
                             <br />
@@ -116,6 +116,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                     const updatedItem = payload.new as Item;
                     const oldPrice = payload.old?.price
                     const newPrice = payload.new?.price
+                    const totalPrice = ((payload.new as Item).price + (payload.new as Item).shipping_cost).toFixed(2)
 
                     if (updatedItem.hidden) {
                         setItems((prev) => prev.filter((item) => item.id !== updatedItem.id));
@@ -146,13 +147,13 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                                 {" "}
                                 <span style={{ color: 'var(--primary)' }}>
                                     for <b>
-                                        ${(payload.new as Item).price}
+                                        ${totalPrice}
                                     </b>
                                 </span>
                                 {" "}
                                 <span style={{ color: 'var(--bg-gray-o70)' }}>
                                     {(payload.new as Item).shipping_cost > 0
-                                        ? `(${payload.new.shipping_cost} shipping)`
+                                        ? `($${payload.new.shipping_cost} shipping)`
                                         : ""}
                                 </span>
                                 <br />
