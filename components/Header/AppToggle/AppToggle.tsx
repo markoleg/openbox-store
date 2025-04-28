@@ -50,7 +50,7 @@ export default function AppToggle() {
                     </li>
                     <li >
                         <button onClick={handleToggle} className={pathname.startsWith("/newzhe") ? styles.active : ""}>
-                            <Link href={"/zhezhemon"} className={styles.app_toggle_link}>
+                            <Link href={"/newzhe"} className={styles.app_toggle_link}>
                                 <span>
                                     NewZhe
                                 </span>
@@ -60,7 +60,7 @@ export default function AppToggle() {
                     </li>
                     <li >
                         <button onClick={handleToggle} className={pathname.startsWith("/zhezheka") ? styles.active : ""}>
-                            <Link href={"/zhezhemon"} className={styles.app_toggle_link}>
+                            <Link href={"/zhezheka"} className={styles.app_toggle_link}>
                                 <span>
                                     ZheZheka
                                 </span>

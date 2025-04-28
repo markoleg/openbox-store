@@ -1,1 +1,46 @@
-/* components/LoginForm/LoginForm.module.css */
+.loginPage {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	gap: 1rem;
+	height: calc(100vh - 66px);
+}
+.loginForm form {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	width: 100%;
+	max-width: 400px;
+	padding: 1rem;
+	border-radius: var(--br-m);
+	background-color: var(--background);
+	background-color: var(--bg-gray-o30);
+	box-shadow: 0 0 10px var(--primary-o30);
+}
+.loginForm form div {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.loginForm form div input {
+	flex: 1;
+	padding: 0.5rem;
+	border-radius: var(--br-s);
+	border: 1px solid var(--primary-o30);
+	background-color: var(--bg-gray-o50);
+	color: var(--foreground);
+	font-size: 0.9em;
+}
+.loginForm button[type="submit"] {
+	outline: var(--primary) solid 1px;
+	outline-offset: -1px;
+	text-transform: uppercase;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+}
+.loginForm button[type="submit"]:hover {
+	background-color: var(--primary-o50);
+}

@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import styles from '@/components/LoginForm/LoginForm.module.css';
 
 interface LoginFormProps {
 }
@@ -8,7 +8,6 @@ interface LoginFormProps {
 const LoginForm: React.FC<LoginFormProps> = ({ }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const router = useRouter();
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
@@ -22,8 +21,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ }) => {
             });
             if (response.ok) {
                 window.location.href = '/';
-                // router.push('/');
-                // router.refresh();
             } else {
                 const data = await response.json();
                 setError(data.error || 'Login failed');
@@ -32,13 +29,16 @@ const LoginForm: React.FC<LoginFormProps> = ({ }) => {
             setError(err.message || 'An unexpected error occurred');
         }
     };
-    return <div>
-        <form onSubmit={handleSubmit}>
-            <div><label htmlFor="password">Password:</label><input type="password" id="password" value={password} onChange={e => setPassword(e.target.value)} /></div>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
-            <button type="submit">Submit</button>
-        </form>
-    </div>
+    return (
+        <div className={styles.loginForm}>
+            <form onSubmit={handleSubmit}>
+                <div><label htmlFor="password">Password:</label><input type="password" id="password" value={password} onChange={e => setPassword(e.target.value)} /></div>
+                {error && <p style={{ color: 'red' }}>Вийди отсюда, розбійник!</p>}
+                {/* {error && <p style={{ color: 'red' }}>{error}</p>} */}
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+    );
 };
 
 export default LoginForm

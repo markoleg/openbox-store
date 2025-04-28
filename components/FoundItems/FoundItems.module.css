@@ -86,7 +86,7 @@
 	color: yellow;
 }
 .used {
-	color: darkred;
+	color: red;
 }
 .btns_wrp {
 	display: flex;
