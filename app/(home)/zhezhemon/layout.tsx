@@ -10,7 +10,6 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <div className="page-wrp">
             <ItemsProvider>
                 <AsideMenu />
-
                 {children}
             </ItemsProvider>
             <ToastContainer

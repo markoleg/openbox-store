@@ -105,7 +105,33 @@ button {
 .Toastify__toast-icon svg {
 	fill: var(--primary);
 }
-
+.custom-toast .ban_btn,
+.custom-toast .hide_btn {
+	margin-top: 0.5rem;
+	transition: all 0.1s ease-in-out;
+	padding-inline: 2rem;
+}
+.custom-toast .ban_btn {
+	border: 1px solid red;
+}
+.custom-toast .ban_btn svg,
+.custom-toast .hide_btn svg {
+	transition: all 0.1s ease-in-out;
+}
+.custom-toast .ban_btn:hover {
+	box-shadow: 0 0 10px red;
+}
+.custom-toast .ban_btn:hover svg,
+.custom-toast .hide_btn:hover svg {
+	transform: scale(1.2);
+}
+.custom-toast .hide_btn {
+	border: 1px solid yellow;
+	margin-left: 1rem;
+}
+.custom-toast .hide_btn:hover {
+	box-shadow: 0 0 10px yellow;
+}
 @keyframes loader {
 	0% {
 		transform: rotate(0deg);

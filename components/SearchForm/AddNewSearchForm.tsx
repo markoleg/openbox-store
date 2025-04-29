@@ -4,12 +4,16 @@ import { useTransition, useState, useEffect } from 'react'
 import styles from './SearchForm.module.css'
 import { SquarePlus } from 'lucide-react'
 import { addSearch } from '@/actions/addSearchAction'
+import { useRealtimeSearches } from '@/hooks/useRealtimeSearches'
 
 export default function AddNewSearchForm() {
     const [openForm, setOpenForm] = useState(false)
     const toggleForm = () => {
         setOpenForm(!openForm)
     }
+    const searches = useRealtimeSearches()
+    // sum all fields 'rate' from all searches
+    const totalRate = searches.reduce((acc, search) => acc + ((86400 / search.rate) || 0), 0)
     const [isPending, startTransition] = useTransition()
     const [moreAspects, setMoreAspects] = useState<{ key: string; value: string }[]>([])
     const [bannedLinks, setBannedLinks] = useState<string[]>([])
@@ -45,7 +49,6 @@ export default function AddNewSearchForm() {
         <div className={`${styles.form_wrp} ${openForm ? styles.open : ''}`} >
             <h2 onClick={toggleForm} className={styles.form_title}>
                 <span>
-
                     Add New Search
                 </span>
                 <SquarePlus />
@@ -98,7 +101,7 @@ export default function AddNewSearchForm() {
 
                 <label>
                     Rate:
-                    <input type="text" name="rate" />
+                    <input type="text" name="rate" placeholder={`${totalRate.toFixed(0).toString()} requests already used`} />
                 </label>
 
                 <label>

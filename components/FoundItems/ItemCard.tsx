@@ -116,7 +116,7 @@ export default function ItemCard({ item }: { item: Item }) {
                     {item.shipping_cost > 0 && <small className={styles.item_shipping_cost}> (${item.shipping_cost} shipping)</small>}
                 </div>
                 <div>
-                    <small>{item.seller_name} {item.feedback_percentage}% ({item.feedback_score})
+                    <small>{item.seller_name} ({item.feedback_score}) {item.feedback_percentage}%
                     </small>
                 </div>
             </div>

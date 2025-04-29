@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from "@/lib/SupaBaseClient";
 import { toast } from "react-toastify";
+import { Ban, EyeOff } from 'lucide-react';
 
 
 export interface Item {
@@ -26,6 +27,74 @@ export interface Item {
 interface ItemsContextType {
     items: Item[]
     isLoading: boolean
+}
+
+const handleBan = async (item: Item) => {
+    // ask the user for confirmation before banning the item
+    const confirmBan = confirm("Are you sure you want to ban this item?");
+
+    if (!confirmBan) {
+        return;
+    }
+    try {
+        const { error: hideError } = await supabase
+            .from('items')
+            .update({ hidden: true })
+            .eq('id', item.id);
+
+        if (hideError) {
+            console.error("Error hiding item:", hideError);
+            return;
+        }
+
+        const { data: searchParamData, error: fetchError } = await supabase
+            .from('searchparameters')
+            .select('banned')
+            .eq('id', item.search_parameter_id)
+            .single();
+
+        if (fetchError) {
+            console.error("Error fetching search parameter:", fetchError);
+            return;
+        }
+
+        let bannedList: string[] = [];
+
+        if (searchParamData?.banned) {
+            bannedList = Array.isArray(searchParamData.banned)
+                ? searchParamData.banned
+                : [];
+        }
+
+        if (!bannedList.includes(item.link)) {
+            bannedList.push(item.link);
+        }
+
+        const { error: updateError } = await supabase
+            .from('searchparameters')
+            .update({ banned: bannedList })
+            .eq('id', item.search_parameter_id);
+
+        if (updateError) {
+            console.error("Error updating banned list:", updateError);
+        }
+    } catch (error) {
+        console.error("Unexpected error:", error);
+    }
+};
+const handleHide = (item: Item) => {
+    // update the hidden status in the database
+    supabase
+        .from('items')
+        .update({ hidden: !item.hidden })
+        .eq('id', item.id)
+        .then(({ error }) => {
+            if (error) {
+                console.error("Error updating item:", error);
+            } else {
+                // Update the local state or refetch items if necessary
+            }
+        });
 }
 
 const ItemsContext = createContext<ItemsContextType>({ items: [], isLoading: true })
@@ -97,9 +166,16 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                                 </b>
                                 {' '}
                                 <span>
-                                    {payload.new.feedback_percentage}%{'('}{payload.new.feedback_score}{')'}
+                                    {'('}{payload.new.feedback_score}{')'} {payload.new.feedback_percentage}%
                                 </span>
                             </span>
+                            <br />
+                            <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
+                                <Ban size={14} color="red" />
+                            </button>
+                            <button onClick={() => handleHide(payload.new as Item)} className='hide_btn'>
+                                <EyeOff size={14} color="yellow" />
+                            </button>
                         </p>,
                         {
                             className: "custom-toast",
@@ -163,7 +239,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                                     </b>
                                     {' '}
                                     <span>
-                                        {payload.new.feedback_percentage}%{'('}{payload.new.feedback_score}{')'}
+                                        {'('}{payload.new.feedback_score}{')'} {payload.new.feedback_percentage}%
                                     </span>
                                 </span>
                             </p>,
