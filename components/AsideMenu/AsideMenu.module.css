@@ -18,6 +18,7 @@
 	align-items: center;
 	background: var(--bg-gray-o30);
 	border-radius: var(--br-m);
+	gap: 5px;
 }
 .aside_menu a span:last-child {
 	margin-left: auto;
