@@ -1,41 +1,10 @@
-// 'use client'
-// import { useItems, useItemsLoading } from '@/context/ItemsProvider'
-// import ItemCard from "./ItemCard"
-// import styles from "./FoundItems.module.css";
-// import { Loader } from 'lucide-react';
-
-// export default function FoundItems({ id }: { id: number | undefined }) {
-
-//     const items = id === undefined ? useItems() : useItems().filter(item => Number(item.search_parameter_id) === Number(id))
-//     const loading = useItemsLoading()
-
-//     if (loading) return <Loader color='var(--primary)' className='loader' />
-
-//     if (!items || items.length === 0) {
-//         return <div>No items found</div>
-//     }
-//     return (
-//         <div>
-//             <h1>Found {items.length} items</h1>
-//             <div className={styles.items_grid}>
-
-//                 {items.map((item: any, idx: number) => {
-//                     return (
-//                         <ItemCard key={idx} item={item} />
-//                     )
-//                 })}
-//             </div>
-//         </div>
-//     )
-// }
-
 'use client'
 
 import { useState } from 'react'
 import { useItems, useItemsLoading } from '@/context/ItemsProvider'
 import ItemCard from './ItemCard'
 import styles from './FoundItems.module.css'
-import { Heart, Loader } from 'lucide-react'
+import { EyeOff, Heart, Loader } from 'lucide-react'
 
 export default function FoundItems({ id }: { id: number | undefined }) {
     const allItems = id === undefined ? useItems() : useItems().filter(item => Number(item.search_parameter_id) === Number(id))
@@ -47,9 +16,12 @@ export default function FoundItems({ id }: { id: number | undefined }) {
     const [selectedCondition, setSelectedCondition] = useState<string | null>(null)
     const [selectedModel, setSelectedModel] = useState<string | null>(null)
 
+    const [filterHidden, setFilterHidden] = useState(false)
     const [filterLiked, setFilterLiked] = useState(false)
 
     const filteredItems = allItems
+        // .filter(item => !item.hidden)
+        .filter(item => filterHidden ? item.hidden : !item.hidden)
         .filter(item => !filterLiked || item.liked)
         .filter(item => !selectedSeller || item.seller_name === selectedSeller)
         .filter(item => !selectedCondition || item.condition === selectedCondition)
@@ -69,6 +41,14 @@ export default function FoundItems({ id }: { id: number | undefined }) {
                         onChange={(e) => setFilterLiked(e.target.checked)}
                     />
                     <Heart />
+                </label>
+                <label className={styles.filter_liked}>
+                    <input
+                        type="checkbox"
+                        checked={filterHidden}
+                        onChange={(e) => setFilterHidden(e.target.checked)}
+                    />
+                    <EyeOff />
                 </label>
 
                 <label>

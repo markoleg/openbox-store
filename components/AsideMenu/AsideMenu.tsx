@@ -15,7 +15,7 @@ export default function AsideMenu() {
     const [open, setOpen] = useState(false)
     const list = useMemo(() => {
         return searches.map((search: any) => {
-            const items = allItems.filter((item: any) => item.search_parameter_id === search.id);
+            const items = allItems.filter((item: any) => item.search_parameter_id === search.id && !item.hidden);
             const { id, keywords, seller, condition } = search;
             const searchCondition = condition === 1000 ? "New" : condition === 1500 ? "OpenBox" : "Used";
             const searchName = `${seller ?? ""} ${keywords} ${searchCondition}`;
@@ -50,7 +50,7 @@ export default function AsideMenu() {
                             All Searches
                         </span>
                         <span>
-                            {allItems.length}
+                            {allItems.filter(item => !item.hidden).length}
                         </span>
                     </Link>
                     {loading

@@ -1,7 +1,7 @@
 .aside {
-	height: calc(100vh - 66px);
+	height: calc(100vh - 65px);
 	position: sticky;
-	top: 66px;
+	top: 65px;
 	border-right: var(--primary-o30) solid 1px;
 	overflow: auto;
 	padding: 0.5rem;
@@ -57,9 +57,9 @@
 		left: -100%;
 		transition: all 0.2s ease-in-out;
 		width: 100%;
-		height: calc(100dvh - 66px - 50px);
+		height: calc(100dvh - 65px - 50px);
 		left: -100%;
-		bottom: 40px;
+		bottom: 50px;
 	}
 	.aside.open {
 		left: 0;

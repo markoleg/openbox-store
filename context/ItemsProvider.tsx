@@ -22,7 +22,8 @@ export interface Item {
     more_aspects: string[];
     liked: boolean;
     condition: string;
-    count?: number // додаємо поле count
+    count?: number; // додаємо поле count
+    favorite?: boolean; // додаємо поле favorite
 }
 interface ItemsContextType {
     items: Item[]
@@ -106,13 +107,13 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const fetchInitial = async () => {
             const { data } = await supabase
-                .from('items').select(`*, scraped_links(count)`)
-                .eq('hidden', false)
+                .from('items').select(`*, scraped_links(count, favorite)`)
                 .order("price", { ascending: true });
             if (data) {
                 const withCount = data.map((item: any) => ({
                     ...item,
-                    count: item.scraped_links?.count ?? 0
+                    count: item.scraped_links?.count ?? 0,
+                    favorite: item.scraped_links?.favorite ?? false,
                 }))
                 setItems(withCount)
             }
@@ -193,17 +194,39 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                     const oldPrice = payload.old?.price
                     const newPrice = payload.new?.price
                     const totalPrice = ((payload.new as Item).price + (payload.new as Item).shipping_cost).toFixed(2)
+                    setItems((prev) => {
+                        const exists = prev.find((item) => item.id === updatedItem.id);
+                        if (exists) {
+                            return prev.map((item) =>
+                                item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+                            );
+                        } else {
+                            return [updatedItem, ...prev];
+                        }
+                    });
 
-                    if (updatedItem.hidden) {
-                        setItems((prev) => prev.filter((item) => item.id !== updatedItem.id));
-                        return;
-                    }
+                    // if (updatedItem.hidden) {
+                    //     // Приховати з локального стану
+                    //     setItems((prev) => prev.filter((item) => item.id !== updatedItem.id));
+                    // } else {
+                    //     // Повернути до локального стану або оновити
+                    //     setItems((prev) => {
+                    //         const exists = prev.find((item) => item.id === updatedItem.id);
+                    //         if (exists) {
+                    //             return prev.map((item) =>
+                    //                 item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+                    //             );
+                    //         } else {
+                    //             return [updatedItem, ...prev];
+                    //         }
+                    //     });
+                    // }
 
-                    setItems((prev) =>
-                        prev.map((item) =>
-                            item.id === updatedItem.id ? { ...item, ...updatedItem } : item
-                        )
-                    );
+                    // setItems((prev) =>
+                    //     prev.map((item) =>
+                    //         item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+                    //     )
+                    // );
                     if (oldPrice !== newPrice) {
                         toast.info(
                             <p>
@@ -242,6 +265,13 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                                         {'('}{payload.new.feedback_score}{')'} {payload.new.feedback_percentage}%
                                     </span>
                                 </span>
+                                <br />
+                                <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
+                                    <Ban size={14} color="red" />
+                                </button>
+                                <button onClick={() => handleHide(payload.new as Item)} className='hide_btn'>
+                                    <EyeOff size={14} color="yellow" />
+                                </button>
                             </p>,
                             {
                                 className: "custom-toast",
