@@ -1,5 +1,5 @@
-import FoundItems from "@/components/FoundItems/FoundItems";
-import AddNewSearchForm from "@/components/SearchForm/AddNewSearchForm";
+import FoundItems from "@/components/ZheZhemon/FoundItems/FoundItems";
+import AddNewSearchForm from "@/components/ZheZhemon/SearchForm/AddNewSearchForm";
 
 export default async function ZheZhemonPage() {
 

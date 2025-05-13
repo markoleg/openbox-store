@@ -20,9 +20,12 @@
 	border-radius: var(--br-m);
 	gap: 5px;
 }
-.aside_menu a span:last-child {
+.qty {
 	margin-left: auto;
 	padding-left: 1rem;
+}
+.rate {
+	margin-right: auto;
 }
 .aside_menu a.active {
 	background: var(--bg-gray-o50);
@@ -37,9 +40,7 @@
 	display: none;
 	cursor: pointer;
 }
-/* .aside_brg:hover {
-	background: var(--bg-gray-o70);
-} */
+
 @media screen and (max-width: 850px) {
 	.aside_brg {
 		display: block;

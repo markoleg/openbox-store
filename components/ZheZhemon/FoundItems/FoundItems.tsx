@@ -34,22 +34,25 @@ export default function FoundItems({ id }: { id: number | undefined }) {
     return (
         <div className={styles.found_items}>
             <div className={styles.filters}>
-                <label className={styles.filter_liked}>
-                    <input
-                        type="checkbox"
-                        checked={filterLiked}
-                        onChange={(e) => setFilterLiked(e.target.checked)}
-                    />
-                    <Heart />
-                </label>
-                <label className={styles.filter_liked}>
-                    <input
-                        type="checkbox"
-                        checked={filterHidden}
-                        onChange={(e) => setFilterHidden(e.target.checked)}
-                    />
-                    <EyeOff />
-                </label>
+                <div className={styles.filters_icons}>
+
+                    <label className={styles.filter_liked}>
+                        <input
+                            type="checkbox"
+                            checked={filterLiked}
+                            onChange={(e) => setFilterLiked(e.target.checked)}
+                        />
+                        <Heart />
+                    </label>
+                    <label className={styles.filter_liked}>
+                        <input
+                            type="checkbox"
+                            checked={filterHidden}
+                            onChange={(e) => setFilterHidden(e.target.checked)}
+                        />
+                        <EyeOff />
+                    </label>
+                </div>
 
                 <label>
                     Seller:

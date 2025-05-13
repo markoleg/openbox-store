@@ -2,7 +2,7 @@ import { Item } from "@/context/ItemsProvider";
 import Image from "next/image";
 import Link from "next/link";
 import styles from "./FoundItems.module.css";
-import { Ban, EyeOff, HeartPlus } from "lucide-react";
+import { Ban, EyeOff, HeartPlus, Star } from "lucide-react";
 import { supabase } from "@/lib/SupaBaseClient";
 
 
@@ -90,6 +90,20 @@ export default function ItemCard({ item }: { item: Item }) {
             console.error("Unexpected error:", error);
         }
     };
+    const handleFav = () => {
+        // update the fav status in the database in scraped_links table
+        supabase
+            .from('scraped_links')
+            .update({ favorite: !item.favorite })
+            .eq('link', item.link)
+            .then(({ error }) => {
+                if (error) {
+                    console.error("Error updating item:", error);
+                } else {
+                    // Update the local state or refetch items if necessary
+                }
+            });
+    }
     if (!item) return null
     return (
         <div className={styles.item_card}>
@@ -135,6 +149,10 @@ export default function ItemCard({ item }: { item: Item }) {
                 <button onClick={handleBan}>
                     <Ban size={14} color="red" />
                 </button>
+                <button onClick={handleFav}>
+                    <Star size={14} className={styles.item_fav} fill={item.favorite ? 'yellow' : 'none'} />
+                </button >
+
             </div>
         </div>
     )

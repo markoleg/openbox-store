@@ -1,0 +1,68 @@
+.form_wrp {
+	padding: 1rem 1rem 2rem;
+}
+.form {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 1rem;
+	margin-top: 1rem;
+}
+.form label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.form input {
+	padding: 0.5rem;
+	border-radius: var(--br-s);
+	border: 1px solid var(--primary-o30);
+	background-color: var(--bg-gray-o50);
+	color: var(--foreground);
+	font-size: 0.9em;
+}
+.form input:hover {
+	box-shadow: 0 0 10px var(--primary-o30);
+}
+.form label input {
+	flex: 1;
+}
+.form fieldset {
+	padding: 0.5rem;
+	border-radius: var(--br-m);
+}
+.form fieldset div {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	margin-right: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+
+.form fieldset button:hover {
+	background-color: var(--bg-gray-o70);
+}
+.form button[type="submit"] {
+	background-color: #0ea700;
+	border: none;
+	color: white;
+	padding: 0.5rem 1rem;
+	cursor: pointer;
+	border-radius: var(--br-s);
+	transition: background-color 0.1s ease;
+}
+.form button[type="submit"]:hover {
+	background-color: #0b7a00;
+}
+@media screen and (max-width: 850px) {
+	.form fieldset div {
+		display: flex;
+	}
+	.form fieldset div {
+		margin: 0.5rem 0;
+	}
+	.form fieldset div input {
+		flex: 1;
+		max-width: 500px;
+		min-width: 100px;
+	}
+}

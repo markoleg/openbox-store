@@ -121,6 +121,10 @@
 	border-radius: var(--br-m);
 	background-color: var(--bg-gray-o30);
 }
+.filters_icons {
+	display: flex;
+	gap: 10px;
+}
 .filter_liked {
 	display: flex;
 	justify-content: center;
@@ -161,6 +165,9 @@
 @media screen and (max-width: 768px) {
 	.found_items {
 		margin-bottom: 50px;
+	}
+	.filters_icons {
+		flex: 1;
 	}
 	.items_grid {
 		grid-template-columns: 1fr;

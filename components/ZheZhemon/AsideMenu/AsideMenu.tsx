@@ -16,14 +16,15 @@ export default function AsideMenu() {
     const list = useMemo(() => {
         return searches.map((search: any) => {
             const items = allItems.filter((item: any) => item.search_parameter_id === search.id && !item.hidden);
-            const { id, keywords, seller, condition } = search;
+            const { id, keywords, seller, condition, rate } = search;
             const searchCondition = condition === 1000 ? "New" : condition === 1500 ? "OpenBox" : "Used";
             const searchName = `${seller ?? ""} ${keywords} ${searchCondition}`;
             return {
                 name: searchName,
                 path: `/zhezhemon/${id}`,
                 id: id,
-                qty: items.length
+                qty: items.length,
+                rate: rate,
             };
         })
     }, [searches, allItems])
@@ -49,7 +50,7 @@ export default function AsideMenu() {
                         <span>
                             All Searches
                         </span>
-                        <span>
+                        <span className={styles.qty}>
                             {allItems.filter(item => !item.hidden).length}
                         </span>
                     </Link>
@@ -61,14 +62,14 @@ export default function AsideMenu() {
                                 key={index}
                                 className={pathname === item.path ? styles.active : ""}
                             >
-                                {/* <span>
-                                {item.id}.
-                            </span> */}
                                 <GitCommitHorizontal />
                                 <span>
                                     {item.name}
                                 </span>
-                                <span>
+                                <small className={styles.rate}>
+                                    ({item.rate})
+                                </small>
+                                <span className={styles.qty}>
                                     {item.qty}
                                 </span>
                             </Link>

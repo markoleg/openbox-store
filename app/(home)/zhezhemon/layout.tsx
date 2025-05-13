@@ -1,7 +1,7 @@
 import { ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css'
 import { ItemsProvider } from '@/context/ItemsProvider'
-import AsideMenu from '@/components/AsideMenu/AsideMenu'
+import AsideMenu from '@/components/ZheZhemon/AsideMenu/AsideMenu'
 
 
 export default async function Layout({ children }: { children: React.ReactNode }) {

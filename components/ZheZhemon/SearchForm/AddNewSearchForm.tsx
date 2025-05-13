@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition, useState, useEffect } from 'react'
+import { useTransition, useState } from 'react'
 import styles from './SearchForm.module.css'
 import { SquarePlus } from 'lucide-react'
 import { addSearch } from '@/actions/addSearchAction'
