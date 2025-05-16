@@ -1,0 +1,39 @@
+.dashboard {
+	padding: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 2rem;
+}
+.filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	position: sticky;
+	top: 70px;
+	background-color: var(--background);
+	z-index: 100;
+}
+.dateFilters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+}
+.filters input,
+.filters select {
+	padding: 0.5rem;
+	border-radius: var(--br-s);
+	border: 1px solid var(--primary-o30);
+	background-color: var(--bg-gray-o50);
+	color: var(--foreground);
+	font-size: 0.9em;
+}
+.filters input:hover,
+.filters select:hover {
+	box-shadow: 0 0 10px var(--primary-o30);
+}
+@media screen and (max-width: 850px) {
+	.filters input,
+	.filters select {
+		flex: 1 1 100%;
+	}
+}

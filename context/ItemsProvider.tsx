@@ -111,19 +111,19 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
         }
     }, []);
 
-    const notifySystem = (title: string, body: string, link: string) => {
-        if (Notification.permission === 'granted') {
-            console.log("Notification permission granted");
+    // const notifySystem = (title: string, body: string, link: string) => {
+    //     if (Notification.permission === 'granted') {
+    //         console.log("Notification permission granted");
 
-            const notification = new Notification(title, {
-                body,
-                icon: '/icons/icon-192x192.png',
-            });
-            notification.onclick = () => {
-                window.open(link, '_blank');
-            };
-        }
-    };
+    //         const notification = new Notification(title, {
+    //             body,
+    //             icon: '/icons/icon-192x192.png',
+    //         });
+    //         notification.onclick = () => {
+    //             window.open(link, '_blank');
+    //         };
+    //     }
+    // };
     useEffect(() => {
         const fetchInitial = async () => {
             const { data } = await supabase
@@ -153,7 +153,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                         const audio = new Audio("/sounds/notification.mp3"); // шлях до файлу в public/
                         audio.play().catch(e => console.warn("Can't play sound:", e));
                     };
-                    notifySystem('New item', `${(payload.new as Item).title} for $${totalPrice}`, (payload.new as Item).link);
+                    // notifySystem('New item', `${(payload.new as Item).title} for $${totalPrice}`, (payload.new as Item).link);
 
                     toast.info(
                         <p>
@@ -229,7 +229,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
 
 
                     if (oldPrice !== newPrice) {
-                        notifySystem('Updated item', `${(payload.new as Item).title} for $${totalPrice}`, (payload.new as Item).link);
+                        // notifySystem('Updated item', `${(payload.new as Item).title} for $${totalPrice}`, (payload.new as Item).link);
                         toast.info(
                             <p>
                                 UPDATED:{" "}

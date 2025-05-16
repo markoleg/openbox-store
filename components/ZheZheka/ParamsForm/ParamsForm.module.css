@@ -1,11 +1,29 @@
 .form_wrp {
-	padding: 1rem 1rem 2rem;
+	margin-bottom: 2rem;
+	padding: 0.5rem;
+	background-color: var(--bg-gray-o30);
+	border-radius: var(--br-m);
+	border: 1px solid var(--primary-o30);
+	display: grid;
+	grid-template-rows: auto 0fr;
+	transition: all 0.2s ease;
+}
+.form_wrp.open {
+	grid-template-rows: auto 1fr;
+	gap: 1rem;
+}
+.title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	justify-content: space-between;
+	cursor: pointer;
 }
 .form {
 	display: grid;
 	grid-template-columns: 1fr;
 	gap: 1rem;
-	margin-top: 1rem;
+	overflow: hidden;
 }
 .form label {
 	display: flex;

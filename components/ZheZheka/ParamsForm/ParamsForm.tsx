@@ -13,6 +13,8 @@ export interface ZZKParams {
 }
 
 export default function ZZKParamsForm() {
+    const [isOpen, setIsOpen] = useState(false)
+    const toggle = () => setIsOpen(!isOpen)
     const [params, setParams] = useState<ZZKParams>({} as ZZKParams)
     const [isPending, startTransition] = useTransition()
     const [keywords, setKeywords] = useState<string[]>([])
@@ -142,9 +144,12 @@ export default function ZZKParamsForm() {
 
 
     return (
-        <div className={styles.form_wrp}>
-            <h1>
+        <div className={`${styles.form_wrp} ${isOpen ? styles.open : ''}`}>
+            <h1
+                className={styles.title}
+                onClick={toggle}>
                 ZheZheka Params Form
+                <Settings onClick={toggle} className={styles.settings} />
             </h1>
             <form action="" className={styles.form}>
                 <fieldset >

@@ -1,0 +1,23 @@
+.summaryCards {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+}
+.card {
+	flex: 1 1 300px;
+	background-color: var(--bg-gray-o30);
+	border-radius: var(--br-m);
+	padding: 1rem;
+	box-shadow: 0 0 10px var(--primary-o30);
+	transition: all 0.2s ease-in-out;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1rem;
+	border: 1px solid var(--primary-o30);
+}
+.card ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
