@@ -56,13 +56,15 @@ export default function DashboardPage() {
 
                 <SummaryCards from={from} to={to} />
 
-                {/* Глобальний графік */}
-                <GlobalKeywordChart from={from} to={to} />
 
                 {/* Юзер-графік */}
-                {selectedUser && (
+                {selectedUser ?
                     <UserKeywordChart senderId={selectedUser} from={from} to={to} />
-                )}
+
+                    :
+                    <GlobalKeywordChart from={from} to={to} />
+
+                }
 
                 <ParamsForm />
             </div>

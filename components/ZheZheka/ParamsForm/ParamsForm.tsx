@@ -145,12 +145,12 @@ export default function ZZKParamsForm() {
 
     return (
         <div className={`${styles.form_wrp} ${isOpen ? styles.open : ''}`}>
-            <h1
+            <h2
                 className={styles.title}
                 onClick={toggle}>
-                ZheZheka Params Form
+                Params Form
                 <Settings onClick={toggle} className={styles.settings} />
-            </h1>
+            </h2>
             <form action="" className={styles.form}>
                 <fieldset >
                     <legend>Keywords</legend>
@@ -208,7 +208,7 @@ export default function ZZKParamsForm() {
                     ))}
 
                     <button type="button" onClick={handleAddMinusKey}>
-                        + Add keyword
+                        + Add minus keyword
                     </button>
                 </fieldset>
                 <fieldset >
@@ -237,7 +237,7 @@ export default function ZZKParamsForm() {
                     ))}
 
                     <button type="button" onClick={handleAddMinusUser}>
-                        + Add keyword
+                        + Add minus user
                     </button>
                 </fieldset>
                 <button type='submit' onClick={handleSave}
