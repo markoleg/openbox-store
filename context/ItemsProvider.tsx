@@ -24,6 +24,7 @@ export interface Item {
     condition: string;
     count?: number; // додаємо поле count
     favorite?: boolean; // додаємо поле favorite
+    desired_price?: number | null; // додаємо поле desired_price
 }
 interface ItemsContextType {
     items: Item[]
@@ -127,13 +128,14 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const fetchInitial = async () => {
             const { data } = await supabase
-                .from('items').select(`*, scraped_links(count, favorite)`)
-                .order("price", { ascending: true });
+                .from('items').select(`*, scraped_links(count, favorite, desired_price)`)
+                .order("total_price", { ascending: true });
             if (data) {
                 const withCount = data.map((item: any) => ({
                     ...item,
                     count: item.scraped_links?.count ?? 0,
                     favorite: item.scraped_links?.favorite ?? false,
+                    desired_price: item.scraped_links?.desired_price ?? 0,
                 }))
                 setItems(withCount)
             }
@@ -153,7 +155,6 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                         const audio = new Audio("/sounds/notification.mp3"); // шлях до файлу в public/
                         audio.play().catch(e => console.warn("Can't play sound:", e));
                     };
-                    // notifySystem('New item', `${(payload.new as Item).title} for $${totalPrice}`, (payload.new as Item).link);
 
                     toast.info(
                         <p>
@@ -229,7 +230,6 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
 
 
                     if (oldPrice !== newPrice) {
-                        // notifySystem('Updated item', `${(payload.new as Item).title} for $${totalPrice}`, (payload.new as Item).link);
                         toast.info(
                             <p>
                                 UPDATED:{" "}

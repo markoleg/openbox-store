@@ -102,8 +102,8 @@ export default function FoundItems({ id }: { id: number | undefined }) {
                 (<>
                     <h2 className={styles.found_items_count}>Found {filteredItems.length} items</h2>
                     <div className={styles.items_grid}>
-                        {filteredItems.map((item, idx) => (
-                            <ItemCard key={idx} item={item} />
+                        {filteredItems.map((item) => (
+                            <ItemCard key={item.id} item={item} />
                         ))}
                     </div>
                 </>)

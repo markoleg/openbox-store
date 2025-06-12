@@ -1,12 +1,17 @@
+'use client'
 import { Item } from "@/context/ItemsProvider";
 import Image from "next/image";
 import Link from "next/link";
 import styles from "./FoundItems.module.css";
 import { Ban, EyeOff, HeartPlus, Star } from "lucide-react";
 import { supabase } from "@/lib/SupaBaseClient";
+import { useState } from "react";
+
 
 
 export default function ItemCard({ item }: { item: Item }) {
+    const [snip, setSnip] = useState(item.favorite);
+
     const itemId = item.id;
     const totalPrice = parseFloat((item.price + item.shipping_cost).toFixed(2));
     const handleLike = () => {
@@ -101,6 +106,7 @@ export default function ItemCard({ item }: { item: Item }) {
                     console.error("Error updating item:", error);
                 } else {
                     // Update the local state or refetch items if necessary
+                    setSnip(!snip);
                 }
             });
     }
@@ -116,6 +122,7 @@ export default function ItemCard({ item }: { item: Item }) {
                     className={styles.item_image}
                 />
             </Link>
+
             <div className={styles.item_info}>
                 <h2 className={styles.item_title}>
                     <Link href={item.link} target="_blank" rel="noopener noreferrer">
@@ -150,7 +157,8 @@ export default function ItemCard({ item }: { item: Item }) {
                     <Ban size={14} color="red" />
                 </button>
                 <button onClick={handleFav}>
-                    <Star size={14} className={styles.item_fav} fill={item.favorite ? 'yellow' : 'none'} />
+
+                    <Star size={14} className={styles.item_fav} fill={snip ? 'yellow' : 'none'} />
                 </button >
 
             </div>
