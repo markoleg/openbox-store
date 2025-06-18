@@ -6,6 +6,7 @@ const addNewSniperItem = async (item: FormData) => {
 	const desiredPrice = parseFloat(
 		item.get("desired_price")?.toString().trim() || "0"
 	);
+	const description = item.get("description")?.toString().trim() || "";
 	try {
 		const { data: existingItem, error: fetchError } = await supabase
 			.from("scraped_links")
@@ -23,6 +24,7 @@ const addNewSniperItem = async (item: FormData) => {
 		const payload = {
 			link: link,
 			desired_price: desiredPrice,
+			description: description === "" ? null : description,
 			favorite: true,
 			count: 1,
 		};
@@ -30,7 +32,11 @@ const addNewSniperItem = async (item: FormData) => {
 		const { error: dbError } = isExisting
 			? await supabase
 					.from("scraped_links")
-					.update({ favorite: true, desired_price: desiredPrice })
+					.update({
+						favorite: true,
+						desired_price: desiredPrice,
+						description: description,
+					})
 					.eq("link", link)
 			: await supabase.from("scraped_links").insert(payload);
 

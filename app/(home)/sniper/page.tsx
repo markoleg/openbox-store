@@ -4,11 +4,15 @@ import SniperItems from "@/components/Sniper/SniperItems";
 import { supabase } from "@/lib/SupaBaseClient";
 import styles from '@/components/Sniper/SniperItems.module.css';
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 
 
 export default function SniperPage() {
     const [favItems, setFavItems] = useState<any[]>([]);
+    const searchParams = useSearchParams();
+    const itemLink = searchParams.get('itemLink') ?? '';
+    const itemDescription = searchParams.get('itemDescription') ?? '';
 
     useEffect(() => {
         const fetchFavoriteItems = async () => {
@@ -16,6 +20,7 @@ export default function SniperPage() {
                 .from('scraped_links')
                 .select('*')
                 .eq('favorite', true)
+                .order('desired_price', { ascending: true });
             setFavItems(data ?? []);
         };
         fetchFavoriteItems();
@@ -39,7 +44,11 @@ export default function SniperPage() {
                     className={styles.sniper_form}>
                     <div>
                         <label htmlFor="itemLink">Item Link:</label>
-                        <input type="text" id="itemLink" name="link" required />
+                        <input type="text" id="itemLink" name="link" required defaultValue={itemLink} />
+                    </div>
+                    <div>
+                        <label htmlFor="itemDescription">Description:</label>
+                        <input type="text" id="itemDescription" name="description" defaultValue={itemDescription} />
                     </div>
                     <div>
                         <label htmlFor="itemDesiredPrice">Desired Price:</label>

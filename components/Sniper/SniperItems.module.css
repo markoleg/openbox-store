@@ -4,9 +4,13 @@
 }
 .sniper_item {
 	display: grid;
-	grid-template-columns: 1fr 1fr auto;
+	grid-template-columns: auto 1fr auto;
 	align-items: stretch;
 	gap: 0.5rem;
+}
+.sniper_item > a {
+	display: flex;
+	align-items: center;
 }
 .sniper_item input {
 	padding: 0.5rem;
@@ -44,7 +48,7 @@
 .sniper_form {
 	display: grid;
 	gap: 0.5rem;
-	grid-template-columns: 1fr 1fr auto;
+	grid-template-columns: 1fr 1fr 1fr auto;
 }
 .sniper_form > div {
 	display: flex;

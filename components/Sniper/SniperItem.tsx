@@ -4,7 +4,13 @@ import { Check, CheckCheck, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/SupaBaseClient";
 import Link from 'next/link';
 
-export default function SniperItem({ item }: { item: any }) {
+type SniperItem = {
+    link: string;
+    desired_price?: number;
+    description?: string | null;
+    favorite?: boolean;
+}
+export default function SniperItem({ item }: { item: SniperItem }) {
     const [updatedItem, setUpdatedItem] = useState(false);
     const [visible, setVisible] = useState(true);
     const [desiredPrice, setDesiredPrice] = useState(item.desired_price || 0);
@@ -21,14 +27,14 @@ export default function SniperItem({ item }: { item: any }) {
             <Link href={item.link} target="_blank" rel="noopener noreferrer" className={styles.sniper_item_link}>
                 {item.link}
             </Link>
-            <input type="text" name='description' id='description' value={item.description} onChange={(e) => setDescription(e.target.value)} />
+            <input type="text" name='description' id='description' value={item.description ?? ''} onChange={(e) => setDescription(e.target.value)} />
             <div className={styles.sniper_item_header}>
                 <button
                     className={styles.sniper_button}
                     onClick={() => {
                         // set the items favorite status to false in the database table scraped_links
                         supabase.from('scraped_links')
-                            .update({ favorite: false, desired_price: null })
+                            .update({ favorite: false, desired_price: null, description: null })
                             .eq('link', item.link)
                             .then(({ error }) => {
                                 if (error) {
