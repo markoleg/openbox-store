@@ -4,7 +4,7 @@
 }
 .sniper_item {
 	display: grid;
-	grid-template-columns: 1fr auto;
+	grid-template-columns: 1fr 1fr auto;
 	align-items: stretch;
 	gap: 0.5rem;
 }

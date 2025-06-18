@@ -11,7 +11,7 @@ export async function addSearch(formData: FormData) {
 	const minprice = formData.get("minprice");
 	const maxprice = formData.get("maxprice");
 	const rate = formData.get("rate");
-	const seller = formData.get("seller");
+	const seller = formData.get("seller") === "" ? null : formData.get("seller");
 
 	// Збираємо more_aspects
 	const aspectEntries: string[] = [];
