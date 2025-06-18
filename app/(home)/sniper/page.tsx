@@ -1,18 +1,25 @@
 'use client'
+import { Suspense } from 'react';
 import { addNewSniperItem } from "@/actions/addNewSniperItem";
 import SniperItems from "@/components/Sniper/SniperItems";
 import { supabase } from "@/lib/SupaBaseClient";
 import styles from '@/components/Sniper/SniperItems.module.css';
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
-
-
-export default function SniperPage() {
+function SniperForm() {
     const [favItems, setFavItems] = useState<any[]>([]);
-    const searchParams = useSearchParams();
-    const itemLink = searchParams.get('itemLink') ?? '';
-    const itemDescription = searchParams.get('itemDescription') ?? '';
+    const [searchParams, setSearchParams] = useState<{ itemLink: string; itemDescription: string }>({
+        itemLink: '',
+        itemDescription: ''
+    });
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        setSearchParams({
+            itemLink: params.get('itemLink') ?? '',
+            itemDescription: params.get('itemDescription') ?? ''
+        });
+    }, []);
 
     useEffect(() => {
         const fetchFavoriteItems = async () => {
@@ -26,40 +33,43 @@ export default function SniperPage() {
         fetchFavoriteItems();
     }, []);
 
-
-
-
     return (
         <>
-            <main className='content'>
-                <h1>Sniper Page</h1>
-                <p>This is the sniper page where you can manage your sniper settings and items.</p>
-                <br />
-                {/* form to add new item to the scraped_links table */}
-                <form
-                    action={async (formData) => {
-                        await addNewSniperItem(formData); // серверна дія
-                        window.location.reload(); // тригер перезавантаження
-                    }}
-                    className={styles.sniper_form}>
-                    <div>
-                        <label htmlFor="itemLink">Item Link:</label>
-                        <input type="text" id="itemLink" name="link" required defaultValue={itemLink} />
-                    </div>
-                    <div>
-                        <label htmlFor="itemDescription">Description:</label>
-                        <input type="text" id="itemDescription" name="description" defaultValue={itemDescription} />
-                    </div>
-                    <div>
-                        <label htmlFor="itemDesiredPrice">Desired Price:</label>
-                        <input type="number" id="itemDesiredPrice" name="desired_price" required />
-                    </div>
-                    <button type="submit" className={styles.sniper_form_button}>Add Item</button>
-
-                </form>
-                <br />
-                <SniperItems items={favItems} />
-            </main>
+            <form
+                action={async (formData) => {
+                    await addNewSniperItem(formData);
+                    window.location.reload();
+                }}
+                className={styles.sniper_form}>
+                <div>
+                    <label htmlFor="itemLink">Item Link:</label>
+                    <input type="text" id="itemLink" name="link" required defaultValue={searchParams.itemLink} />
+                </div>
+                <div>
+                    <label htmlFor="itemDescription">Description:</label>
+                    <input type="text" id="itemDescription" name="description" defaultValue={searchParams.itemDescription} />
+                </div>
+                <div>
+                    <label htmlFor="itemDesiredPrice">Desired Price:</label>
+                    <input type="number" id="itemDesiredPrice" name="desired_price" required />
+                </div>
+                <button type="submit" className={styles.sniper_form_button}>Add Item</button>
+            </form>
+            <br />
+            <SniperItems items={favItems} />
         </>
+    );
+}
+
+export default function SniperPage() {
+    return (
+        <main className='content'>
+            <h1>Sniper Page</h1>
+            <p>This is the sniper page where you can manage your sniper settings and items.</p>
+            <br />
+            <Suspense fallback={<div>Loading...</div>}>
+                <SniperForm />
+            </Suspense>
+        </main>
     );
 }
