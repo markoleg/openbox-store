@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
 	if (!link) {
 		return new Response("Missing link", { status: 400 });
 	}
-	const handleHide = () => {
+	const handleHide = async () => {
 		// update the hidden status in the database
 		supabase
 			.from("items")
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 			});
 	};
 	try {
-		handleHide();
+		await handleHide();
 	} catch (error) {
 		console.error("Unexpected error:", error);
 		return new Response("Error hiding item", { status: 500 });
