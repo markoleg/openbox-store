@@ -6,8 +6,18 @@ import { supabase } from "@/lib/SupaBaseClient";
 import styles from '@/components/Sniper/SniperItems.module.css';
 import { useEffect, useState } from "react";
 
+
+export type SniperItemType = {
+    link: string;                // primary key, text
+    first_seen: string;         // timestamp (ISO string)
+    count: number;              // int4
+    favorite: boolean;          // boolean
+    desired_price: number | null; // float4, nullable
+    description: string | null; // text, nullable
+};
+
 function SniperForm() {
-    const [favItems, setFavItems] = useState<any[]>([]);
+    const [favItems, setFavItems] = useState<SniperItemType[]>([]);
     const [searchParams, setSearchParams] = useState<{ itemLink: string; itemDescription: string }>({
         itemLink: '',
         itemDescription: ''
@@ -17,7 +27,7 @@ function SniperForm() {
         const params = new URLSearchParams(window.location.search);
         setSearchParams({
             itemLink: params.get('itemLink') ?? '',
-            itemDescription: params.get('itemDescription') ?? ''
+            itemDescription: decodeURIComponent(params.get('itemDescription') ?? '')
         });
     }, []);
 

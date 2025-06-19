@@ -3,14 +3,11 @@ import { useState } from "react";
 import { Check, CheckCheck, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/SupaBaseClient";
 import Link from 'next/link';
+import { SniperItemType } from '@/app/(home)/sniper/page';
 
-type SniperItem = {
-    link: string;
-    desired_price?: number;
-    description?: string | null;
-    favorite?: boolean;
-}
-export default function SniperItem({ item }: { item: SniperItem }) {
+
+
+export default function SniperItem({ item }: { item: SniperItemType }) {
     const [updatedItem, setUpdatedItem] = useState(false);
     const [visible, setVisible] = useState(true);
     const [desiredPrice, setDesiredPrice] = useState(item.desired_price || 0);

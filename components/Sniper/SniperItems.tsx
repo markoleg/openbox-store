@@ -2,8 +2,9 @@
 import { Loader } from 'lucide-react';
 import styles from './SniperItems.module.css';
 import SniperItem from './SniperItem';
+import { SniperItemType } from '@/app/(home)/sniper/page';
 
-export default function SniperItems({ items }: { items?: any[] | null }) {
+export default function SniperItems({ items }: { items?: SniperItemType[] | null }) {
     const allFavItems = items || [];
     if (!allFavItems) {
         return <Loader color='var(--primary)' className='loader' />;
