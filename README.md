@@ -32,7 +32,7 @@ A modern dashboard built using **Next.js 15** (App Router) on top of a shared **
 ## 🧠 Architecture Highlights
 
 - 💡 **Reactive Context API**:
-  - `SearchContext`, `RealtimeProvider`
+  - `ItemsProvider`, `useItems` & `useItemsLoading` custom hooks.
   - Ensures components auto-update when data changes in Supabase
 - 🧾 **Search Form**:
   - Built with **server actions** and `FormData`
