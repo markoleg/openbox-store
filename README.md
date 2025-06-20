@@ -1,4 +1,46 @@
-OPENBOX-STORE
+# 🛍️ OPENBOX-STORE
 
-Built with the tools and technologies:
-npm React TypeScript SupaBase
+A modern dashboard built using **Next.js 15** (App Router) on top of a shared **PostgreSQL** database used by the backend parser.
+
+---
+
+## ⚡ Key Features
+
+- 🔄 **Live updates** of parsed items via **Supabase Realtime**.
+- 🔍 **Display of search parameters** and their corresponding items.
+- 🙌 Ability to **hide** or **like** items without reloading the page.
+- 🚨 Dashboard **automatically reflects**:
+  - new items,
+  - price changes,
+  - status updates (hidden, liked),
+  - all **without user intervention**.
+
+---
+
+## 🚀 Technologies Used
+
+- **Next.js 15** App Router
+- **TypeScript** + CSS
+- **Supabase**:
+  - Realtime Channels for reactive UI updates
+  - PostgreSQL for persistent storage
+- **React Server Components** + Client Components (`useEffect`, `useTransition`, etc.)
+- **React Toastify** for real-time user feedback
+
+---
+
+## 🧠 Architecture Highlights
+
+- 💡 **Reactive Context API**:
+  - `SearchContext`, `RealtimeProvider`
+  - Ensures components auto-update when data changes in Supabase
+- 🧾 **Search Form**:
+  - Built with **server actions** and `FormData`
+  - Securely stores and updates search parameters
+- 🗑️ **Item Deletion & Updates**:
+  - Handled via **server actions**
+  - No need for client-side mutation logic
+
+---
+
+🔗 GitHub Repository: [markoleg/openbox-store](https://github.com/markoleg/openbox-store)
