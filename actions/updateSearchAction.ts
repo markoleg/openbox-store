@@ -7,12 +7,12 @@ export async function updateSearch(formData: FormData) {
 	const categoryid = formData.get("categoryid");
 	const keywords = formData.get("keywords");
 	const brand = formData.get("brand");
-	const model = formData.get("model");
+	const model = formData.get("model") === "" ? null : formData.get("model");
 	const condition = formData.get("condition");
 	const minprice = formData.get("minprice");
 	const maxprice = formData.get("maxprice");
 	const rate = formData.get("rate");
-	const seller = formData.get("seller");
+	const seller = formData.get("seller") === "" ? null : formData.get("seller");
 
 	// Збираємо more_aspects
 	const aspectEntries: string[] = [];

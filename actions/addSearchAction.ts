@@ -6,7 +6,7 @@ export async function addSearch(formData: FormData) {
 	const categoryid = formData.get("categoryid");
 	const keywords = formData.get("keywords");
 	const brand = formData.get("brand");
-	const model = formData.get("model");
+	const model = formData.get("model") === "" ? null : formData.get("model");
 	const condition = formData.get("condition");
 	const minprice = formData.get("minprice");
 	const maxprice = formData.get("maxprice");
