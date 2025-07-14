@@ -112,7 +112,7 @@ export default function ItemCard({ item }: { item: Item }) {
     }
     if (!item) return null
     return (
-        <div className={styles.item_card}>
+        <div className={`${styles.item_card} ${snip ? styles.sniper : ''}`}>
             <Link href={item.link} target="_blank" rel="noopener noreferrer">
                 <Image
                     src={item.image_url !== 'No image' ? item.image_url : '/images/placeholder.png'}

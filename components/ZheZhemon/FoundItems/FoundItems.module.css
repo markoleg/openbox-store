@@ -23,6 +23,9 @@
 	overflow: hidden;
 	background-color: var(--bg-gray-o30);
 }
+.item_card.sniper {
+	border: 1px solid var(--primary);
+}
 .item_card * {
 	transition: all 0.1s ease-in-out;
 }

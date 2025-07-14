@@ -8,6 +8,7 @@ import styles from './ParamsForm.module.css'
 export interface ZZKParams {
     id: number;
     keywords: string[];
+    stat_keys: string[]; // new parameter
     minuskeys: string[];
     minususers: string[];
 }
@@ -23,6 +24,8 @@ export default function ZZKParamsForm() {
     const keywordRefs = useRef<(HTMLInputElement | null)[]>([])
     const minuskeyRefs = useRef<(HTMLInputElement | null)[]>([])
     const minususerRefs = useRef<(HTMLInputElement | null)[]>([])
+    const [statKeys, setStatKeys] = useState<string[]>([])
+    const statKeyRefs = useRef<(HTMLInputElement | null)[]>([])
     useEffect(() => {
         const fetchParams = async () => {
             let query = supabase
@@ -49,6 +52,11 @@ export default function ZZKParamsForm() {
     useEffect(() => {
         if (params?.minususers) {
             setMinususers(params.minususers)
+        }
+    }, [params])
+    useEffect(() => {
+        if (params?.stat_keys) {
+            setStatKeys(params.stat_keys)
         }
     }, [params])
 
@@ -115,9 +123,30 @@ export default function ZZKParamsForm() {
         updated[index] = value
         setMinususers(updated)
     }
+    const handleAddStatKey = () => {
+        setStatKeys((prev) => {
+            const updated = [...prev, '']
+            setTimeout(() => {
+                const lastRef = statKeyRefs.current[updated.length - 1]
+                lastRef?.focus()
+            }, 0)
+            return updated
+        })
+    }
+
+    const handleRemoveStatKey = (index: number) => {
+        setStatKeys(statKeys.filter((_, i) => i !== index))
+    }
+
+    const handleStatKeysChange = (index: number, value: string) => {
+        const updated = [...statKeys]
+        updated[index] = value
+        setStatKeys(updated)
+    }
     const handleSave = async () => {
         startTransition(async () => {
             const cleanKeywords = keywords.map(k => k.trim()).filter(k => k !== '')
+            const cleanStatKeys = statKeys.map(k => k.trim()).filter(k => k !== '')
             const cleanMinuskeys = minuskeys.map(k => k.trim()).filter(k => k !== '')
             const cleanMinususers = minususers.map(k => k.trim()).filter(k => k !== '')
 
@@ -125,6 +154,7 @@ export default function ZZKParamsForm() {
                 .from("zzk_params")
                 .update({
                     keywords: cleanKeywords,
+                    stat_keys: cleanStatKeys,
                     minuskeys: cleanMinuskeys,
                     minususers: cleanMinususers
                 })
@@ -180,6 +210,35 @@ export default function ZZKParamsForm() {
 
                     <button type="button" onClick={handleAddKeyword}>
                         + Add keyword
+                    </button>
+                </fieldset>
+                <fieldset >
+                    <legend>Stat Keys</legend>
+
+                    {statKeys.map((statKey, index) => (
+                        <div key={index} >
+                            <input
+                                type="text"
+                                name={`stat_key_${index}`}
+                                placeholder="Enter stat key"
+                                value={statKey}
+                                onChange={(e) => handleStatKeysChange(index, e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault()
+                                        handleAddStatKey()
+                                    }
+                                }}
+                                ref={(el) => { statKeyRefs.current[index] = el; }}
+                            />
+                            <button type="button" onClick={() => handleRemoveStatKey(index)}>
+                                ✖
+                            </button>
+                        </div>
+                    ))}
+
+                    <button type="button" onClick={handleAddStatKey}>
+                        + Add stat key
                     </button>
                 </fieldset>
                 <fieldset >

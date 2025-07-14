@@ -52,7 +52,13 @@ export default function GlobalKeywordChart({
         fetchChartData();
     }, [from, to]);
     if (!data.length) return <Loader color='var(--primary)' className='loader' />;
-
+    // Collect all unique keywords across all days (excluding 'day')
+    const allKeywords = Array.from(
+        new Set(
+            data.flatMap(row => Object.keys(row).filter(k => k !== 'day'))
+        )
+    );
+    // console.log(allKeywords);
     return (
         <div style={{ width: '100%' }}>
             <h2 >🌍 Global keywords stats</h2>
@@ -64,18 +70,15 @@ export default function GlobalKeywordChart({
                     <YAxis allowDecimals={false} />
                     <Tooltip />
                     <Legend />
-                    {data.length > 0 &&
-                        Object.keys(data[0])
-                            .filter((k) => k !== 'day')
-                            .map((keyword, i) => (
-                                <Line
-                                    key={keyword}
-                                    type="monotone"
-                                    dataKey={keyword}
-                                    strokeWidth={2}
-                                    stroke={`hsl(${i * 60}, 70%, 50%)`}
-                                />
-                            ))}
+                    {allKeywords.map((keyword, i) => (
+                        <Line
+                            key={keyword}
+                            type="monotone"
+                            dataKey={keyword}
+                            strokeWidth={2}
+                            stroke={`hsl(${i * 60}, 70%, 50%)`}
+                        />
+                    ))}
                 </LineChart>
             </ResponsiveContainer>
         </div>
