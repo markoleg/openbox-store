@@ -39,15 +39,24 @@ export default function UserKeywordChart({
             const grouped: { [day: string]: ChartRow } = {};
 
             rawData.forEach((row: any) => {
-                const day = row.day.split('T')[0];
+                const day = row.day; // Припускаємо, що row.day вже у форматі 'YYYY-MM-DD'
                 if (!grouped[day]) grouped[day] = { day };
                 grouped[day][row.keyword] = Number(row.count);
             });
 
-            const chartData = Object.values(grouped).sort(
-                (a, b) => new Date(a.day).getTime() - new Date(b.day).getTime()
-            );
+            // Зібрати список всіх keyword
+            const allKeywords = [...new Set(rawData.map((row: any) => row.keyword))];
+
+            // Перетворити у масив і заповнити відсутні ключі нулями
+            const chartData = Object.values(grouped).map((row) => {
+                allKeywords.forEach((kw: any) => {
+                    if (!(kw in row)) row[kw] = 0;
+                });
+                return row;
+            }).sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
+
             setData(chartData);
+            console.log('Chart data:', chartData);
         };
 
         fetchChartData();
