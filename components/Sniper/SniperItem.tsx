@@ -24,8 +24,9 @@ export default function SniperItem({ item }: { item: SniperItemType }) {
             <Link href={item.link} target="_blank" rel="noopener noreferrer" className={styles.sniper_item_link}>
                 {item.link}
             </Link>
-            <input type="text" name='description' id='description' value={item.description ?? ''} onChange={(e) => setDescription(e.target.value)} />
+            <input type="text" name='description' id='description' value={description} onChange={(e) => setDescription(e.target.value)} />
             <div className={styles.sniper_item_header}>
+                <input type="number" name="desired_price" id="desired_price" value={desiredPrice} onChange={(e) => setDesiredPrice(Number(e.target.value))} />
                 <button
                     className={styles.sniper_button}
                     onClick={() => {
@@ -44,7 +45,6 @@ export default function SniperItem({ item }: { item: SniperItemType }) {
                 >
                     <Trash2 />
                 </button>
-                <input type="text" name="desired_price" id="desired_price" value={desiredPrice} onChange={(e) => setDesiredPrice(Number(e.target.value))} />
                 <button
                     className={styles.sniper_button}
                     onClick={() => {
