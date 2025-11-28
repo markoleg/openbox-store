@@ -18,6 +18,11 @@ export async function GET(req: NextRequest) {
 		.eq("link", link)
 		.select(); // this returns the updated rows
 
+	await supabase
+		.from("scraped_links")
+		.update({ hidden: true })
+		.eq("link", link);
+
 	if (error) {
 		console.error("Supabase update error:", error.message);
 		return new Response(JSON.stringify({ error: "Failed to hide item" }), {

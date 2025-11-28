@@ -41,6 +41,17 @@ export default function ItemCard({ item }: { item: Item }) {
                     // Update the local state or refetch items if necessary
                 }
             });
+        supabase
+            .from('scraped_links')
+            .update({ hidden: !item.hidden })
+            .eq('link', item.link)
+            .then(({ error }) => {
+                if (error) {
+                    console.error("Error updating scraped link:", error);
+                } else {
+                    // Update the local state or refetch items if necessary}
+                }
+            });
     }
     const handleBan = async () => {
         // ask the user for confirmation before banning the item
