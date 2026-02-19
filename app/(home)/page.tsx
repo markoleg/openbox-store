@@ -1,11 +1,9 @@
-import Image from "next/image";
-import AsideMenu from "@/components/ZheZhemon/AsideMenu/AsideMenu";
+import StatusWidget from '@/components/StatusWidget/StatusWidget';
 
 export default function Home() {
   return (
-    <div className="page-wrp">
-      <main>
-      </main>
+    <div>
+        <StatusWidget />
     </div>
   );
 }
