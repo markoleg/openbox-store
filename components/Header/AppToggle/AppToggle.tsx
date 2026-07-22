@@ -32,7 +32,7 @@ export default function AppToggle() {
         <div className={styles.app_toggle_wrp}>
             <button onClick={handleToggle} className={styles.app_toggle}>
                 <span>
-                    {pathname.startsWith("/zhezhemon") ? "ZheZhemon" : pathname.startsWith("/newzhe") ? "NewZhe" : pathname.startsWith("/zhezheka") ? "ZheZheka" : pathname.startsWith("/sniper") ? "Sniper" : "Select App"}
+                    {pathname.startsWith("/zhezhemon") ? "ZheZhemon" : pathname.startsWith("/shop") ? "Shop" : pathname.startsWith("/newzhe") ? "NewZhe" : pathname.startsWith("/zhezheka") ? "ZheZheka" : pathname.startsWith("/sniper") ? "Sniper" : "Select App"}
                 </span>
                 <ChevronsUpDown color="lightgray" size={13} />
             </button>
@@ -43,6 +43,16 @@ export default function AppToggle() {
                             <Link href={"/zhezhemon"} className={styles.app_toggle_link}>
                                 <span>
                                     ZheZhemon
+                                </span>
+                            </Link>
+
+                        </button>
+                    </li>
+                    <li >
+                        <button onClick={handleToggle} className={pathname.startsWith("/shop") ? styles.active : ""}>
+                            <Link href={"/shop"} className={styles.app_toggle_link}>
+                                <span>
+                                    Shop
                                 </span>
                             </Link>
 

@@ -32,11 +32,14 @@
 	position: relative;
 	border: 1px solid var(--primary-o30);
 	border-radius: var(--br-s);
+	width: max-content;
 }
 .app_toggle {
 	display: flex;
 	gap: 0.5rem;
 	align-items: center;
+	justify-content: space-between;
+	min-width: 100px;
 	cursor: pointer;
 	padding: 0.5rem 1rem;
 	border-radius: var(--br-s);
@@ -53,7 +56,8 @@
 	background-color: var(--bg-gray-o30);
 	border-radius: 4px;
 	z-index: 10;
-	width: 100%;
+	min-width: 100%;
+	width: max-content;
 }
 .apps_list button {
 	background-color: var(--bg-gray-o30);
