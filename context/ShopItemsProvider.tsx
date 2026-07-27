@@ -15,12 +15,14 @@ export interface ShopItem {
     price: number;
     hidden: boolean;
     banned: boolean;
+    sold_out: boolean;
     hide_price_threshold?: number | null;
 }
 
 interface SeenFlags {
     hidden: boolean;
     banned: boolean;
+    sold_out: boolean;
     hide_price_threshold: number | null;
 }
 
@@ -40,13 +42,13 @@ export function ShopItemsProvider({ children }: { children: React.ReactNode }) {
         const fetchInitial = async () => {
             const [{ data: prod }, { data: seenRows }] = await Promise.all([
                 supabase.from('shop_products').select('*').order('price', { ascending: true }),
-                supabase.from('shop_seen').select('link, hidden, banned, hide_price_threshold'),
+                supabase.from('shop_seen').select('link, hidden, banned, sold_out, hide_price_threshold'),
             ])
             if (prod) setProducts(prod)
             if (seenRows) {
                 const map: Record<string, SeenFlags> = {}
                 for (const r of seenRows as any[]) {
-                    map[r.link] = { hidden: r.hidden, banned: r.banned, hide_price_threshold: r.hide_price_threshold }
+                    map[r.link] = { hidden: r.hidden, banned: r.banned, sold_out: r.sold_out, hide_price_threshold: r.hide_price_threshold }
                 }
                 setSeen(map)
             }
@@ -103,6 +105,7 @@ export function ShopItemsProvider({ children }: { children: React.ReactNode }) {
                     [row.link]: {
                         hidden: row.hidden ?? false,
                         banned: row.banned ?? false,
+                        sold_out: row.sold_out ?? false,
                         hide_price_threshold: row.hide_price_threshold ?? null,
                     },
                 }))
@@ -123,6 +126,7 @@ export function ShopItemsProvider({ children }: { children: React.ReactNode }) {
                     ...p,
                     hidden: flags?.hidden ?? false,
                     banned: flags?.banned ?? false,
+                    sold_out: flags?.sold_out ?? false,
                     hide_price_threshold: flags?.hide_price_threshold ?? null,
                 } as ShopItem
             })

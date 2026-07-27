@@ -26,6 +26,29 @@
 .item_card.sniper {
 	border: 1px solid var(--primary);
 }
+.item_card.sold_out {
+	border-color: #ff4d4d;
+	box-shadow: inset 0 0 0 2px #ff4d4d;
+	opacity: 0.7;
+}
+.item_card.sold_out:hover {
+	opacity: 1;
+	box-shadow: inset 0 0 0 2px #ff4d4d, 0 0 10px var(--primary-o30);
+}
+.sold_out_badge {
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	background-color: #ff4d4d;
+	color: #fff;
+	font-size: 0.65rem;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	padding: 1px 8px;
+	border-radius: var(--br-s);
+	z-index: 3;
+	pointer-events: none;
+}
 .item_card * {
 	transition: all 0.1s ease-in-out;
 }

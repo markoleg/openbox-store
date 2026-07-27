@@ -1,7 +1,7 @@
 'use client'
 import Link from "next/link";
 import styles from "./FoundItems.module.css";
-import { Ban, EyeOff } from "lucide-react";
+import { Ban, EyeOff, PackageX } from "lucide-react";
 import { supabase } from "@/lib/SupaBaseClient";
 import { ShopItem } from "@/context/ShopItemsProvider";
 
@@ -22,9 +22,15 @@ export default function ShopItemCard({ item }: { item: ShopItem }) {
         await supabase.from('shop_products').delete().eq('link', item.link);
     };
 
+    const handleSoldOut = async () => {
+        const { error } = await supabase.from('shop_seen').update({ sold_out: !item.sold_out }).eq('link', item.link);
+        if (error) console.error("Error toggling sold_out:", error);
+    };
+
     if (!item) return null;
     return (
-        <div className={styles.item_card}>
+        <div className={`${styles.item_card} ${item.sold_out ? styles.sold_out : ''}`}>
+            {item.sold_out && <span className={styles.sold_out_badge}>SOLD OUT</span>}
             <Link href={item.link} target="_blank" rel="noopener noreferrer">
                 {/* plain img: shop.app images come from cdn.shopify.com (no next/image domain config needed) */}
                 <img
@@ -50,6 +56,9 @@ export default function ShopItemCard({ item }: { item: ShopItem }) {
                 </div>
             </div>
             <div className={styles.btns_wrp}>
+                <button onClick={handleSoldOut} title={item.sold_out ? "Mark as available" : "Mark as sold out"}>
+                    <PackageX size={14} color={item.sold_out ? "#ff4d4d" : undefined} />
+                </button>
                 <button onClick={handleHide} title={item.hidden ? "Unhide" : "Hide until cheaper"}>
                     <EyeOff size={14} color="yellow" />
                 </button>
