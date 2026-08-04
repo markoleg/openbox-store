@@ -1,6 +1,6 @@
 import styles from './SniperItems.module.css';
 import { useState } from "react";
-import { Check, CheckCheck, Trash2 } from "lucide-react";
+import { Check, CheckCheck, Trash2, Zap, ZapOff } from "lucide-react";
 import { supabase } from "@/lib/SupaBaseClient";
 import Link from 'next/link';
 import { SniperItemType } from '@/app/(home)/sniper/page';
@@ -12,6 +12,7 @@ export default function SniperItem({ item }: { item: SniperItemType }) {
     const [visible, setVisible] = useState(true);
     const [desiredPrice, setDesiredPrice] = useState(item.desired_price || 0);
     const [description, setDescription] = useState(item.description || '');
+    const [superFavorite, setSuperFavorite] = useState(!!item.super_favorite);
 
     if (!item) {
         return null;
@@ -32,7 +33,7 @@ export default function SniperItem({ item }: { item: SniperItemType }) {
                     onClick={() => {
                         // set the items favorite status to false in the database table scraped_links
                         supabase.from('scraped_links')
-                            .update({ favorite: false, desired_price: null, description: null })
+                            .update({ favorite: false, super_favorite: false, desired_price: null, description: null, super_alerted_at: null })
                             .eq('link', item.link)
                             .then(({ error }) => {
                                 if (error) {
@@ -47,11 +48,32 @@ export default function SniperItem({ item }: { item: SniperItemType }) {
                 </button>
                 <button
                     className={styles.sniper_button}
+                    title={superFavorite ? 'Супер-товар: буде дзвінок' : 'Зробити супер-товаром'}
+                    onClick={() => {
+                        // super_favorite escalates to a phone call when the price hits target
+                        const next = !superFavorite;
+                        supabase.from('scraped_links')
+                            .update({ super_favorite: next, super_alerted_at: null })
+                            .eq('link', item.link)
+                            .then(({ error }) => {
+                                if (error) {
+                                    console.error("Error updating super favorite:", error);
+                                } else {
+                                    setSuperFavorite(next);
+                                }
+                            })
+                    }}
+                >
+                    {superFavorite ? <Zap /> : <ZapOff />}
+                </button>
+                <button
+                    className={styles.sniper_button}
                     onClick={() => {
                         // update the desired price in the database table scraped_links
                         try {
                             supabase.from('scraped_links')
-                                .update({ desired_price: parseFloat(desiredPrice.toString()), description: description === '' ? null : description })
+                                // a new target price is a new deal — let it escalate again
+                                .update({ desired_price: parseFloat(desiredPrice.toString()), description: description === '' ? null : description, super_alerted_at: null })
                                 .eq('link', item.link)
                                 .then(({ error }) => {
                                     if (error) {

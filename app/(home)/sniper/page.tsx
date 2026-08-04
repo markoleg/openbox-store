@@ -12,6 +12,7 @@ export type SniperItemType = {
     first_seen: string;         // timestamp (ISO string)
     count: number;              // int4
     favorite: boolean;          // boolean
+    super_favorite: boolean;    // boolean — escalates to a phone call
     desired_price: number | null; // float4, nullable
     description: string | null; // text, nullable
 };

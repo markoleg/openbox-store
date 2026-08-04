@@ -35,7 +35,7 @@ const addNewSniperItem = async (item: FormData) => {
 					.update({
 						favorite: true,
 						desired_price: desiredPrice,
-						description: description,
+						description: description === "" ? null : description,
 					})
 					.eq("link", link)
 			: await supabase.from("scraped_links").insert(payload);
