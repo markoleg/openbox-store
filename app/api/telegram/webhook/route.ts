@@ -13,6 +13,23 @@ const DONE_LABEL = "✅ Опрацьовано";
 const SHOP_BAN = "sb:";
 const SHOP_HIDE = "sh:";
 
+// zhezhemon buttons: "zb:<searchId>:<itemId>" / "zh:<itemId>". The eBay listing
+// id travels rather than the link — it stays short whatever eBay does to its URL
+// format, and all 3.5k stored links map to a distinct one.
+const ZHE_BAN = "zb:";
+const ZHE_HIDE = "zh:";
+
+/** Resolve an eBay listing id back to the stored link. */
+async function linkForItemId(itemId: string): Promise<string | null> {
+	// Anchored on "/itm/" so a shorter id cannot match a longer one by suffix.
+	const { data } = await supabase
+		.from("scraped_links")
+		.select("link")
+		.like("link", `%/itm/${itemId}`)
+		.maybeSingle();
+	return data?.link ?? null;
+}
+
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
@@ -89,6 +106,70 @@ async function handleShopAction(data: string): Promise<string> {
 	return "🙈 Сховано";
 }
 
+/** Ban or hide an eBay listing from its notification. Returns the toast text. */
+async function handleZheAction(data: string): Promise<string> {
+	const isBan = data.startsWith(ZHE_BAN);
+	const parts = data.slice(3).split(":");
+	const itemId = isBan ? parts[1] : parts[0];
+	const searchId = isBan ? Number(parts[0]) : null;
+	if (!itemId || (isBan && !Number.isInteger(searchId))) {
+		return "Некоректна кнопка";
+	}
+
+	const link = await linkForItemId(itemId);
+	if (!link) {
+		return "Товар не знайдено";
+	}
+
+	// Both actions take it out of the dashboard listing straight away.
+	const { error: hideErr } = await supabase
+		.from("items")
+		.update({ hidden: true })
+		.eq("link", link);
+	if (hideErr) {
+		console.error("Error hiding item:", hideErr.message);
+		return isBan ? "Не вдалося забанити" : "Не вдалося сховати";
+	}
+
+	if (!isBan) {
+		const { error } = await supabase
+			.from("scraped_links")
+			.update({ hidden: true })
+			.eq("link", link);
+		if (error) {
+			console.error("Error hiding scraped_link:", error.message);
+			return "Не вдалося сховати";
+		}
+		return "🙈 Сховано";
+	}
+
+	// Ban is per search: the link goes into that search's banned list, so the
+	// tracker skips it on every later cycle.
+	const { data: search, error: fetchErr } = await supabase
+		.from("searchparameters")
+		.select("banned")
+		.eq("id", searchId)
+		.maybeSingle();
+	if (fetchErr || !search) {
+		console.error("Error fetching search", searchId, fetchErr?.message);
+		return "Пошук не знайдено";
+	}
+
+	const banned: string[] = Array.isArray(search.banned) ? search.banned : [];
+	if (!banned.includes(link)) {
+		banned.push(link);
+	}
+	const { error: updErr } = await supabase
+		.from("searchparameters")
+		.update({ banned })
+		.eq("id", searchId);
+	if (updErr) {
+		console.error("Error updating banned list:", updErr.message);
+		return "Не вдалося забанити";
+	}
+	return "🚫 Забанено";
+}
+
 export async function POST(req: NextRequest) {
 	// Routes under /api/ skip the auth middleware, so this header is the only gate.
 	if (
@@ -116,20 +197,29 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ ok: true });
 	}
 
-	if (query.data?.startsWith(SHOP_BAN) || query.data?.startsWith(SHOP_HIDE)) {
-		const label = await handleShopAction(query.data);
+	const isShop = query.data?.startsWith(SHOP_BAN) || query.data?.startsWith(SHOP_HIDE);
+	const isZhe = query.data?.startsWith(ZHE_BAN) || query.data?.startsWith(ZHE_HIDE);
+	if (isShop || isZhe) {
+		const label = isShop
+			? await handleShopAction(query.data)
+			: await handleZheAction(query.data);
 		await callTelegram("answerCallbackQuery", {
 			callback_query_id: query.id,
 			text: label,
 		});
-		// Replace both buttons with what actually happened, so the message shows
-		// its own state — previously there was no way to tell it had been acted on.
+		// Replace the buttons with what actually happened, so the message shows its
+		// own state — previously there was no way to tell it had been acted on.
+		// The zhezhemon Sniper button is a URL and is kept: it still leads to the
+		// form where a target price is set, which banning does not make pointless.
 		if (query.message?.message_id) {
+			const kept = (query.message.reply_markup?.inline_keyboard?.[0] ?? []).filter(
+				(b: { url?: string }) => b.url
+			);
 			await callTelegram("editMessageReplyMarkup", {
 				chat_id: query.message.chat?.id,
 				message_id: query.message.message_id,
 				reply_markup: {
-					inline_keyboard: [[{ text: label, callback_data: DONE_DATA }]],
+					inline_keyboard: [[{ text: label, callback_data: DONE_DATA }, ...kept]],
 				},
 			});
 		}
