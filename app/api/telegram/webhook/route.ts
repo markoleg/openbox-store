@@ -51,6 +51,26 @@ async function callTelegram(method: string, payload: unknown) {
 	}
 }
 
+type InlineButton = { text?: string; url?: string; callback_data?: string };
+type ReplyMarkup = { inline_keyboard?: InlineButton[][] };
+
+/**
+ * The keyboard a message keeps once its action button has been pressed: the first
+ * row collapses to the outcome plus whatever URL buttons it held, and every row
+ * below survives as-is (that is where Balances lives).
+ */
+function keyboardAfterAction(
+	markup: ReplyMarkup | undefined,
+	label: string
+): InlineButton[][] {
+	const rows = markup?.inline_keyboard ?? [];
+	const keptFromActionRow = (rows[0] ?? []).filter((b) => b.url);
+	return [
+		[{ text: label, callback_data: DONE_DATA }, ...keptFromActionRow],
+		...rows.slice(1),
+	];
+}
+
 /** Ban or hide a shop.app product by its shop_seen id. Returns the toast text. */
 async function handleShopAction(data: string): Promise<string> {
 	const isBan = data.startsWith(SHOP_BAN);
@@ -209,17 +229,16 @@ export async function POST(req: NextRequest) {
 		});
 		// Replace the buttons with what actually happened, so the message shows its
 		// own state — previously there was no way to tell it had been acted on.
-		// The zhezhemon Sniper button is a URL and is kept: it still leads to the
-		// form where a target price is set, which banning does not make pointless.
+		// URL buttons are kept: Sniper still leads to the form where a target price
+		// is set, and Balances still answers what could pay for it — neither is made
+		// pointless by banning. Rows below the first are kept as their own rows, so
+		// the Balances row does not get folded into the action row or dropped.
 		if (query.message?.message_id) {
-			const kept = (query.message.reply_markup?.inline_keyboard?.[0] ?? []).filter(
-				(b: { url?: string }) => b.url
-			);
 			await callTelegram("editMessageReplyMarkup", {
 				chat_id: query.message.chat?.id,
 				message_id: query.message.message_id,
 				reply_markup: {
-					inline_keyboard: [[{ text: label, callback_data: DONE_DATA }, ...kept]],
+					inline_keyboard: keyboardAfterAction(query.message.reply_markup, label),
 				},
 			});
 		}
@@ -256,12 +275,18 @@ export async function POST(req: NextRequest) {
 		? [query.message.message_id]
 		: [];
 
+	// Only the pressed message comes with its keyboard, so only it can keep the rows
+	// below the acknowledge button (Balances, whose link is per-message). The rest of
+	// the window is marked done and loses theirs — the alert is being handled anyway.
 	for (const messageId of messageIds) {
+		const isPressedMessage = messageId === query.message?.message_id;
 		await callTelegram("editMessageReplyMarkup", {
 			chat_id: chatId,
 			message_id: messageId,
 			reply_markup: {
-				inline_keyboard: [[{ text: DONE_LABEL, callback_data: DONE_DATA }]],
+				inline_keyboard: isPressedMessage
+					? keyboardAfterAction(query.message?.reply_markup, DONE_LABEL)
+					: [[{ text: DONE_LABEL, callback_data: DONE_DATA }]],
 			},
 		});
 	}
