@@ -1,0 +1,9 @@
+/* The duration buttons sit in the parent's strip and inherit its sizing, so
+   only the label needs styling - the icons beside them carry none. */
+.pause {
+	color: yellow;
+	font-size: 0.7rem;
+	font-weight: 600;
+	line-height: 1;
+	white-space: nowrap;
+}

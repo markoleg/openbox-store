@@ -203,3 +203,16 @@
 		flex: 1;
 	}
 }
+
+/* A hidden lot trades its other actions for the pause durations, so the strip
+   gains one slot. It also has to stay put: on desktop the strip only slides in
+   on hover, and sliding away mid-choice would take the durations with it. */
+.btns_wrp.picking button {
+	transform: translatex(0px);
+}
+.hide_mode {
+	margin-top: 2px;
+	font-size: 0.7rem;
+	color: yellow;
+	opacity: 0.8;
+}

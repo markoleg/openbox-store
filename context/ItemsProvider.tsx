@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from "@/lib/SupaBaseClient";
 import { toast } from "react-toastify";
-import { Ban, EyeOff } from 'lucide-react';
+import { Ban } from 'lucide-react';
+import HideControl from '@/components/ZheZhemon/HideControl/HideControl';
 
 
 export interface Item {
@@ -25,6 +26,7 @@ export interface Item {
     count?: number; // додаємо поле count
     favorite?: boolean; // додаємо поле favorite
     desired_price?: number | null; // додаємо поле desired_price
+    hidden_until?: string | null; // з scraped_links: термін паузи, якщо є
 }
 interface ItemsContextType {
     items: Item[]
@@ -84,20 +86,7 @@ const handleBan = async (item: Item) => {
         console.error("Unexpected error:", error);
     }
 };
-const handleHide = (item: Item) => {
-    // update the hidden status in the database
-    supabase
-        .from('items')
-        .update({ hidden: !item.hidden })
-        .eq('id', item.id)
-        .then(({ error }) => {
-            if (error) {
-                console.error("Error updating item:", error);
-            } else {
-                // Update the local state or refetch items if necessary
-            }
-        });
-}
+
 
 const ItemsContext = createContext<ItemsContextType>({ items: [], isLoading: true })
 
@@ -128,7 +117,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const fetchInitial = async () => {
             const { data } = await supabase
-                .from('items').select(`*, scraped_links(count, favorite, desired_price)`)
+                .from('items').select(`*, scraped_links(count, favorite, desired_price, hidden_until)`)
                 .order("total_price", { ascending: true });
             if (data) {
                 const withCount = data.map((item: any) => ({
@@ -136,6 +125,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                     count: item.scraped_links?.count ?? 0,
                     favorite: item.scraped_links?.favorite ?? false,
                     desired_price: item.scraped_links?.desired_price ?? 0,
+                    hidden_until: item.scraped_links?.hidden_until ?? null,
                 }))
                 setItems(withCount)
             }
@@ -156,6 +146,9 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                         audio.play().catch(e => console.warn("Can't play sound:", e));
                     };
 
+                    // Its own id, so picking a pause duration can stop the countdown -
+                    // choosing a day takes longer than a toast normally lives.
+                    const toastId = `zhe-${(payload.new as Item).id}-${Date.now()}`;
                     toast.info(
                         <p>
                             NEW:{" "}
@@ -197,13 +190,18 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                             <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
                                 <Ban size={14} color="red" />
                             </button>
-                            <button onClick={() => handleHide(payload.new as Item)} className='hide_btn'>
-                                <EyeOff size={14} color="yellow" />
-                            </button>
+                            <span className='hide_btn'>
+                                <HideControl
+                                    link={(payload.new as Item).link}
+                                    hidden={(payload.new as Item).hidden}
+                                    onExpand={() => toast.update(toastId, { autoClose: false })}
+                                />
+                            </span>
                         </p>,
                         {
                             className: "custom-toast",
                             progressClassName: "Toastify__progress-bar",
+                            toastId,
                         }
                     );
                     playNotificationSound();
@@ -230,6 +228,9 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
 
 
                     if (oldPrice !== newPrice) {
+                        // Its own id, so picking a pause duration can stop the countdown -
+                        // choosing a day takes longer than a toast normally lives.
+                        const toastId = `zhe-${(payload.new as Item).id}-${Date.now()}`;
                         toast.info(
                             <p>
                                 UPDATED:{" "}
@@ -271,13 +272,18 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                                 <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
                                     <Ban size={14} color="red" />
                                 </button>
-                                <button onClick={() => handleHide(payload.new as Item)} className='hide_btn'>
-                                    <EyeOff size={14} color="yellow" />
-                                </button>
+                                <span className='hide_btn'>
+                                    <HideControl
+                                        link={(payload.new as Item).link}
+                                        hidden={(payload.new as Item).hidden}
+                                        onExpand={() => toast.update(toastId, { autoClose: false })}
+                                    />
+                                </span>
                             </p>,
                             {
                                 className: "custom-toast",
                                 progressClassName: "Toastify__progress-bar",
+                                toastId,
                             }
                         )
                         const playNotificationSound = () => {
