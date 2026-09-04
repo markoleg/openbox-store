@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/SupaBaseClient";
+import type { SearchFilters } from "@/components/ZheZhemon/SearchForm/FiltersFieldset";
 
 
 
@@ -17,6 +18,7 @@ export interface Search {
 	banned: string[];
 	seller: string;
 	more_aspects: string[];
+	filters: SearchFilters | null;
 }
 
 export function useRealtimeSearches(searchId?: number) {

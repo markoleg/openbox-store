@@ -108,3 +108,36 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+.filterGroup .filterHint {
+	grid-column: 1/-1;
+	margin: 0 0 0.5rem;
+	font-size: 0.8em;
+	opacity: 0.75;
+	line-height: 1.4;
+}
+.filterGroup .filterHint code {
+	padding: 0 0.2em;
+	border-radius: var(--br-s);
+	background-color: var(--bg-gray-o70);
+}
+/* Checkboxes must not stretch like the text inputs beside them. */
+.filterGroup .filterCheck {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	flex: 0 0 auto;
+	white-space: nowrap;
+	font-size: 0.85em;
+}
+.filterGroup .filterCheck input {
+	flex: 0 0 auto;
+	min-width: 0;
+	width: auto;
+}
+.filterGroup .filterWarning {
+	flex-basis: 100%;
+	margin: 0;
+	color: #ff9c33;
+	font-size: 0.8em;
+}
