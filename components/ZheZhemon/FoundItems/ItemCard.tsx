@@ -41,9 +41,12 @@ export default function ItemCard({ item }: { item: Item }) {
                     // Update the local state or refetch items if necessary
                 }
             });
+        // hidden_until goes with it, null included: a pause set from Telegram
+        // must not survive a hide or unhide here, or the lot would come back on
+        // a deadline nobody remembers setting instead of when it gets cheaper.
         supabase
             .from('scraped_links')
-            .update({ hidden: !item.hidden })
+            .update({ hidden: !item.hidden, hidden_until: null })
             .eq('link', item.link)
             .then(({ error }) => {
                 if (error) {

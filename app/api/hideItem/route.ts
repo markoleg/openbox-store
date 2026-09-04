@@ -18,9 +18,12 @@ export async function GET(req: NextRequest) {
 		.eq("link", link)
 		.select(); // this returns the updated rows
 
+	// hidden_until is cleared alongside: hiding here means "until it gets
+	// cheaper", so a deadline left over from a Telegram pause would quietly
+	// override that.
 	await supabase
 		.from("scraped_links")
-		.update({ hidden: true })
+		.update({ hidden: true, hidden_until: null })
 		.eq("link", link);
 
 	if (error) {
