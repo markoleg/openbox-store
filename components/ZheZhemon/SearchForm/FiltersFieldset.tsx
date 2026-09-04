@@ -8,7 +8,7 @@ export interface SearchFilters {
     stop_words?: string[]
     must_words?: string[]
     variant_rules?: VariantRuleJson[]
-    mpn_rules?: Record<string, { cap?: number; skip?: boolean }>
+    mpn_rules?: Record<string, { name?: string; cap?: number; skip?: boolean }>
     use_short_description?: boolean
 }
 
@@ -31,6 +31,7 @@ interface RuleDraft {
 }
 
 interface MpnDraft {
+    name: string
     mpn: string
     cap: string
     skip: boolean
@@ -48,6 +49,7 @@ function toRuleDrafts(rules?: VariantRuleJson[]): RuleDraft[] {
 
 function toMpnDrafts(rules?: SearchFilters['mpn_rules']): MpnDraft[] {
     return Object.entries(rules ?? {}).map(([mpn, rule]) => ({
+        name: rule.name ?? '',
         mpn,
         cap: rule.cap == null ? '' : String(rule.cap),
         skip: Boolean(rule.skip),
@@ -99,11 +101,11 @@ function buildFilters(
     for (const draft of mpnRules) {
         const key = draft.mpn.trim().toUpperCase()
         if (!key) continue
-        mpn[key] = draft.skip
-            ? { skip: true }
-            : draft.cap.trim()
-            ? { cap: Number(draft.cap) }
-            : {}
+        const rule: { name?: string; cap?: number; skip?: boolean } = {}
+        if (draft.name.trim()) rule.name = draft.name.trim()
+        if (draft.skip) rule.skip = true
+        else if (draft.cap.trim()) rule.cap = Number(draft.cap)
+        mpn[key] = rule
     }
     if (Object.keys(mpn).length) filters.mpn_rules = mpn
 
@@ -177,7 +179,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                 </div>
             ))}
             <button type="button" onClick={() => setList([...list, ''])}>
-                + Add
+                + Додати
             </button>
         </fieldset>
     )
@@ -189,18 +191,18 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
             <fieldset className={styles.filterGroup}>
                 <legend>How filters behave</legend>
                 <p className={styles.filterHint}>
-                    A filtered listing never enters this search at all: no row, no
-                    notification, and one already listed is dropped the next time the
-                    rules are applied. This is <b>not</b> the 🙈 hidden state — that
-                    keeps a listing, marks it, and lets you bring it back with a tap.
-                    A filter leaves nothing behind but a line in the tracker log,
-                    which is the only place to see what it removed.
+                    Відфільтрований лот не потрапляє в цей пошук узагалі: ні рядка,
+                    ні сповіщення, а той, що вже був у переліку, зникне на наступному
+                    циклі. Це <b>не</b> те саме, що 🙈 приховування — воно лот
+                    зберігає, позначає і дає повернути одним тапом. Від фільтра не
+                    лишається нічого, крім рядка в лозі трекера, і це єдине місце,
+                    де видно, що саме він прибрав.
                 </p>
             </fieldset>
 
             {renderWordList(
                 'Stop Words',
-                'Skipped if the title contains any of these. Substring match, case-insensitive: "se 2" also catches "SE 2nd Gen". Mind the spacing - "se 3" does not match "SE3".',
+                'Пропускається, якщо в назві є хоч одне з них. Збіг за підрядком, регістр не важливий: «se 2» ловить і «SE 2nd Gen». Пильнуй пробіли — «se 3» не збігається з «SE3».',
                 stopWords,
                 setStopWords,
                 'lcd'
@@ -208,7 +210,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
 
             {renderWordList(
                 'Must Words',
-                'Skipped unless the title contains every one of these.',
+                'Пропускається, якщо в назві немає хоча б одного з них.',
                 mustWords,
                 setMustWords,
                 'se 3'
@@ -217,16 +219,17 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
             <fieldset className={styles.filterGroup}>
                 <legend>Variant Rules</legend>
                 <p className={styles.filterHint}>
-                    A price ceiling per variant. First matching rule wins, so put the
-                    narrower one first — <code>rose gold</code> above <code>gold</code>.
-                    A rule only fires when its words are in the title: a listing that
-                    names no colour is left alone rather than judged by the cheapest cap.
+                    Стеля ціни для кожного варіанта. Виграє перше збіжне правило, тож
+                    вужче ставмо вище — <code>rose gold</code> над <code>gold</code>.
+                    Правило спрацьовує, лише коли його слова є в назві: лот, у якого
+                    колір не вказано, не міряється найдешевшою стелею, а проходить за
+                    загальним коридором.
                 </p>
                 {rules.map((rule, index) => (
                     <div key={index}>
                         <input
                             type="text"
-                            placeholder="Label (optional)"
+                            placeholder="Назва (необов'язково)"
                             value={rule.name}
                             onChange={(e) =>
                                 setRules(
@@ -238,8 +241,8 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                         />
                         <input
                             type="text"
-                            placeholder={rule.isDefault ? 'everything else' : 'midnight'}
-                            title="All words must appear in the title. Comma separated."
+                            placeholder={rule.isDefault ? 'усі інші' : 'midnight'}
+                            title="Усі слова мають бути в назві. Через кому."
                             disabled={rule.isDefault}
                             value={rule.match}
                             onChange={(e) =>
@@ -253,8 +256,8 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                         <input
                             type="number"
                             step="0.01"
-                            placeholder="Cap"
-                            title="Total price, shipping included, above which this variant is skipped."
+                            placeholder="Стеля"
+                            title="Ціна з доставкою, вище якої цей варіант пропускається."
                             disabled={rule.skip}
                             value={rule.cap}
                             onChange={(e) =>
@@ -277,7 +280,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                                     )
                                 }
                             />
-                            skip
+                            не показувати
                         </label>
                         <button
                             type="button"
@@ -287,8 +290,8 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                         </button>
                         {!rule.skip && capTooHigh(rule.cap) && (
                             <p className={styles.filterWarning}>
-                                Cap is above Max Price ({ceiling}), so it can never fire —
-                                eBay never returns anything dearer.
+                                Стеля вища за Max Price ({ceiling}) — правило не спрацює
+                                ніколи, бо дорожчого eBay і не поверне.
                             </p>
                         )}
                     </div>
@@ -302,20 +305,33 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                         ])
                     }
                 >
-                    + Add Rule
+                    + Додати правило
                 </button>
             </fieldset>
 
             <fieldset className={styles.filterGroup}>
                 <legend>Part Number Rules</legend>
                 <p className={styles.filterHint}>
-                    Wins over the variant rules above, but only fires when the part number
-                    is written in the title — roughly one listing in five. Matched by
-                    prefix, longest first: <code>MTJV3</code> covers every region of the
-                    same product, <code>MTJV3LL/A</code> pins down one.
+                    Перебиває варіантні правила вище, але спрацьовує, лише коли
+                    партійний номер написаний у назві — приблизно в одного лота з
+                    п'яти. Збіг за префіксом, виграє найдовший: <code>MTJV3</code>
+                    покриває всі регіони того самого товару, <code>MTJV3LL/A</code>
+                    вказує на один.
                 </p>
                 {mpnRules.map((rule, index) => (
                     <div key={index}>
+                        <input
+                            type="text"
+                            placeholder="Назва (необов'язково)"
+                            value={rule.name}
+                            onChange={(e) =>
+                                setMpnRules(
+                                    mpnRules.map((r, i) =>
+                                        i === index ? { ...r, name: e.target.value } : r
+                                    )
+                                )
+                            }
+                        />
                         <input
                             type="text"
                             placeholder="MEH34"
@@ -331,7 +347,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                         <input
                             type="number"
                             step="0.01"
-                            placeholder="Cap"
+                            placeholder="Стеля"
                             disabled={rule.skip}
                             value={rule.cap}
                             onChange={(e) =>
@@ -354,7 +370,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                                     )
                                 }
                             />
-                            skip
+                            не показувати
                         </label>
                         <button
                             type="button"
@@ -366,16 +382,18 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                         </button>
                         {!rule.skip && capTooHigh(rule.cap) && (
                             <p className={styles.filterWarning}>
-                                Cap is above Max Price ({ceiling}), so it can never fire.
+                                Стеля вища за Max Price ({ceiling}) — правило не спрацює ніколи.
                             </p>
                         )}
                     </div>
                 ))}
                 <button
                     type="button"
-                    onClick={() => setMpnRules([...mpnRules, { mpn: '', cap: '', skip: false }])}
+                    onClick={() =>
+                        setMpnRules([...mpnRules, { name: '', mpn: '', cap: '', skip: false }])
+                    }
                 >
-                    + Add Part Number
+                    + Додати партійний
                 </button>
             </fieldset>
 
@@ -387,12 +405,12 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                         checked={useShortDescription}
                         onChange={(e) => setUseShortDescription(e.target.checked)}
                     />
-                    Also search eBay&apos;s short description
+                    Шукати також у короткому описі eBay
                 </label>
                 <p className={styles.filterHint}>
-                    Off by default. It is free text written by the seller, so a “Midnight
-                    Sport Band” on a Starlight case would match the Midnight rule. Part
-                    numbers are always read from the title only.
+                    Вимкнено за замовчуванням. Це вільний текст від продавця, тож
+                    «Midnight Sport Band» на корпусі Starlight збігся б із правилом
+                    Midnight. Партійні номери завжди читаються лише з назви.
                 </p>
             </fieldset>
         </>
