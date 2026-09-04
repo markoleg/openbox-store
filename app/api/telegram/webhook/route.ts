@@ -19,6 +19,12 @@ const SHOP_HIDE = "sh:";
 const ZHE_BAN = "zb:";
 const ZHE_HIDE = "zh:";
 
+// Hiding has two modes. Plain "zh:<itemId>" keeps the original one - the lot
+// returns once it drops below the price it was hidden at. "zh:<itemId>:<days>"
+// pauses it instead: the price stops mattering and it returns when the deadline
+// passes. Mirrors PAUSE_CHOICES in the tracker's hiding.py.
+const PAUSE_DAYS = [1, 3, 5, 7];
+
 /** Resolve an eBay listing id back to the stored link. */
 async function linkForItemId(itemId: string): Promise<string | null> {
 	// Anchored on "/itm/" so a shorter id cannot match a longer one by suffix.
@@ -58,17 +64,40 @@ type ReplyMarkup = { inline_keyboard?: InlineButton[][] };
  * The keyboard a message keeps once its action button has been pressed: the first
  * row collapses to the outcome plus whatever URL buttons it held, and every row
  * below survives as-is (that is where Balances lives).
+ *
+ * `extraRows` go directly beneath the action row, and `keepPressed` decides
+ * which callback buttons survive alongside the outcome. Hiding a zhezhemon lot
+ * uses both: the pause durations appear, and Ban stays reachable, because
+ * banning is a decision about the search that is not settled by hiding one lot
+ * - and after a 7 day pause the next notification about it is a week away.
  */
 function keyboardAfterAction(
 	markup: ReplyMarkup | undefined,
-	label: string
+	label: string,
+	options: { extraRows?: InlineButton[][]; keepPressed?: string } = {}
 ): InlineButton[][] {
 	const rows = markup?.inline_keyboard ?? [];
-	const keptFromActionRow = (rows[0] ?? []).filter((b) => b.url);
+	const actionRow = rows[0] ?? [];
+	const kept = actionRow.filter(
+		(b) =>
+			b.url ||
+			(options.keepPressed !== undefined &&
+				b.callback_data !== undefined &&
+				!b.callback_data.startsWith(options.keepPressed))
+	);
 	return [
-		[{ text: label, callback_data: DONE_DATA }, ...keptFromActionRow],
+		[{ text: label, callback_data: DONE_DATA }, ...kept],
+		...(options.extraRows ?? []),
 		...rows.slice(1),
 	];
+}
+
+/** The row of pause durations offered right after a lot is hidden. */
+function pauseRow(itemId: string): InlineButton[] {
+	return PAUSE_DAYS.map((days) => ({
+		text: `⏸️ ${days}д`,
+		callback_data: `${ZHE_HIDE}${itemId}:${days}`,
+	}));
 }
 
 /** Ban or hide a shop.app product by its shop_seen id. Returns the toast text. */
@@ -132,6 +161,10 @@ async function handleZheAction(data: string): Promise<string> {
 	const parts = data.slice(3).split(":");
 	const itemId = isBan ? parts[1] : parts[0];
 	const searchId = isBan ? Number(parts[0]) : null;
+	// Only values this webhook itself put on a button are honoured; anything
+	// else falls back to a plain hide rather than pausing for an odd stretch.
+	const pauseDays =
+		!isBan && PAUSE_DAYS.includes(Number(parts[1])) ? Number(parts[1]) : null;
 	if (!itemId || (isBan && !Number.isInteger(searchId))) {
 		return "Некоректна кнопка";
 	}
@@ -152,15 +185,21 @@ async function handleZheAction(data: string): Promise<string> {
 	}
 
 	if (!isBan) {
+		// hidden_until is always written, null included: pressing plain Hide after
+		// a pause has to clear the old deadline, or the lot would keep the pause
+		// it was meant to replace.
+		const hiddenUntil = pauseDays
+			? new Date(Date.now() + pauseDays * 24 * 60 * 60 * 1000).toISOString()
+			: null;
 		const { error } = await supabase
 			.from("scraped_links")
-			.update({ hidden: true })
+			.update({ hidden: true, hidden_until: hiddenUntil })
 			.eq("link", link);
 		if (error) {
 			console.error("Error hiding scraped_link:", error.message);
 			return "Не вдалося сховати";
 		}
-		return "🙈 Сховано";
+		return pauseDays ? `⏸️ Пауза ${pauseDays}д` : "🙈 Сховано";
 	}
 
 	// Ban is per search: the link goes into that search's banned list, so the
@@ -223,6 +262,15 @@ export async function POST(req: NextRequest) {
 		const label = isShop
 			? await handleShopAction(query.data)
 			: await handleZheAction(query.data);
+
+		// Hiding a zhezhemon lot leaves the message usable: the pause durations
+		// appear below, and Ban stays put. Banning settles the matter, so it
+		// keeps the original behaviour of collapsing the row.
+		const isZheHide = !isShop && query.data.startsWith(ZHE_HIDE);
+		const hiddenItemId = isZheHide ? query.data.slice(3).split(":")[0] : "";
+		const keyboardOptions = isZheHide
+			? { extraRows: [pauseRow(hiddenItemId)], keepPressed: ZHE_HIDE }
+			: {};
 		await callTelegram("answerCallbackQuery", {
 			callback_query_id: query.id,
 			text: label,
@@ -238,7 +286,11 @@ export async function POST(req: NextRequest) {
 				chat_id: query.message.chat?.id,
 				message_id: query.message.message_id,
 				reply_markup: {
-					inline_keyboard: keyboardAfterAction(query.message.reply_markup, label),
+					inline_keyboard: keyboardAfterAction(
+						query.message.reply_markup,
+						label,
+						keyboardOptions
+					),
 				},
 			});
 		}
