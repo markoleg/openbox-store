@@ -184,15 +184,17 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                                 </span>
                             </span>
                             <br />
-                            <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
-                                <Ban size={14} color="red" />
-                            </button>
-                            <span className='toast_hide'>
+                            <span className='toast_actions'>
+                                <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
+                                    <Ban size={14} color="red" />
+                                </button>
                                 <HideButton
                                     link={(payload.new as Item).link}
                                     hidden={(payload.new as Item).hidden}
                                 />
-                                <PauseButtons link={(payload.new as Item).link} />
+                                <span className='toast_days'>
+                                    <PauseButtons link={(payload.new as Item).link} />
+                                </span>
                             </span>
                         </p>,
                         {
@@ -262,15 +264,17 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                                     </span>
                                 </span>
                                 <br />
-                                <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
-                                    <Ban size={14} color="red" />
-                                </button>
-                                <span className='toast_hide'>
+                                <span className='toast_actions'>
+                                    <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
+                                        <Ban size={14} color="red" />
+                                    </button>
                                     <HideButton
                                         link={(payload.new as Item).link}
                                         hidden={(payload.new as Item).hidden}
                                     />
-                                    <PauseButtons link={(payload.new as Item).link} />
+                                    <span className='toast_days'>
+                                        <PauseButtons link={(payload.new as Item).link} />
+                                    </span>
                                 </span>
                             </p>,
                             {

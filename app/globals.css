@@ -105,55 +105,57 @@ button {
 .Toastify__toast-icon svg {
 	fill: var(--primary);
 }
-.custom-toast .ban_btn,
-.custom-toast .hide_btn {
-	margin-top: 0.5rem;
-	transition: all 0.1s ease-in-out;
-	padding-inline: 2rem;
+/* One even row of actions. Every button is the same height and the same shape,
+   so nothing dominates - the ban button used to carry 2rem of side padding and
+   sat on a line of its own, with the hide buttons indented below it.
+
+   Ban and the eye are what to do with the lot; the durations are how long for.
+   A small gap between the two groups says that without needing a divider. */
+.custom-toast .toast_actions {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	margin-top: 0.6rem;
 }
-/* Five buttons, not one: the wide padding and single border of .hide_btn
-   belong on each of them, not around the group - wrapping them in it was what
-   put the eye in a box of its own and pushed the durations onto two lines. */
-.custom-toast .toast_hide {
+.custom-toast .toast_actions button {
 	display: inline-flex;
-	flex-wrap: wrap;
-	gap: 0.4rem;
-	margin-left: 1rem;
-	vertical-align: middle;
-}
-.custom-toast .toast_hide button {
-	margin-top: 0.5rem;
-	padding: 0.15rem 0.6rem;
-	min-width: 2.2rem;
-	border: 1px solid yellow;
+	align-items: center;
+	justify-content: center;
+	height: 26px;
+	min-width: 30px;
+	padding: 0 0.45rem;
+	border: 1px solid #555;
 	border-radius: var(--br-s);
 	transition: all 0.1s ease-in-out;
 }
-.custom-toast .toast_hide button:hover {
-	box-shadow: 0 0 10px yellow;
-}
-.custom-toast .toast_hide button:hover svg {
+.custom-toast .toast_actions button:hover svg {
 	transform: scale(1.2);
 }
 .custom-toast .ban_btn {
-	border: 1px solid red;
-}
-.custom-toast .ban_btn svg,
-.custom-toast .hide_btn svg {
-	transition: all 0.1s ease-in-out;
+	border-color: #cc3333;
 }
 .custom-toast .ban_btn:hover {
 	box-shadow: 0 0 10px red;
 }
-.custom-toast .ban_btn:hover svg,
-.custom-toast .hide_btn:hover svg {
-	transform: scale(1.2);
+.custom-toast .toast_actions > button:not(.ban_btn) {
+	border-color: #cccc00;
 }
-.custom-toast .hide_btn {
-	border: 1px solid yellow;
-	margin-left: 1rem;
+.custom-toast .toast_actions > button:not(.ban_btn):hover {
+	box-shadow: 0 0 10px yellow;
 }
-.custom-toast .hide_btn:hover {
+.custom-toast .toast_days {
+	display: inline-flex;
+	gap: 0.3rem;
+	margin-left: 0.35rem;
+}
+.custom-toast .toast_days button {
+	border-color: #7a7a20;
+	color: #dddd00;
+	font-size: 0.72rem;
+	font-weight: 600;
+}
+.custom-toast .toast_days button:hover {
+	border-color: #cccc00;
 	box-shadow: 0 0 10px yellow;
 }
 @keyframes loader {
