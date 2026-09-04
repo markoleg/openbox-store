@@ -6,6 +6,7 @@ import { updateSearch } from '@/actions/updateSearchAction'
 import styles from './SearchForm.module.css'
 import { Loader, Settings } from 'lucide-react'
 import { deleteSearch } from '@/actions/deleteSearchAction'
+import FiltersFieldset from './FiltersFieldset'
 
 export default function SearchForm({ searchId }: { searchId: number | undefined }) {
     const search = useRealtimeSearches(searchId)[0]
@@ -146,6 +147,8 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
                         + Add Link
                     </button>
                 </fieldset>
+
+                <FiltersFieldset value={search.filters} maxPrice={search.maxprice} />
 
                 {/* More Aspects */}
                 <fieldset className={styles.moreAspects}>

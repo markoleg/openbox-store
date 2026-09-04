@@ -2,6 +2,21 @@
 
 import { supabase } from "@/lib/SupaBaseClient";
 
+/** The filters object off the form, or undefined when it cannot be trusted. */
+function parseFilters(raw: FormDataEntryValue | null) {
+	if (typeof raw !== "string" || raw === "") return undefined;
+	try {
+		const parsed = JSON.parse(raw);
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+			return parsed;
+		}
+		console.error("Ignoring non-object filters payload:", raw);
+	} catch (e) {
+		console.error("Ignoring unparsable filters payload:", raw, e);
+	}
+	return undefined;
+}
+
 export async function updateSearch(formData: FormData) {
 	const id = formData.get("id");
 	const categoryid = formData.get("categoryid");
@@ -43,6 +58,11 @@ export async function updateSearch(formData: FormData) {
 
 	const banned = bannedLinks.length > 0 ? bannedLinks : null;
 
+	// One hidden JSON field rather than indexed inputs: a variant rule is a
+	// nested object, and the column it lands in is jsonb anyway. A malformed
+	// value must not wipe a working config, so fall back to leaving it alone.
+	const filters = parseFilters(formData.get("filters"));
+
 	const { error } = await supabase
 		.from("searchparameters")
 		.update({
@@ -57,6 +77,7 @@ export async function updateSearch(formData: FormData) {
 			seller,
 			more_aspects,
 			banned,
+			...(filters === undefined ? {} : { filters }),
 		})
 		.eq("id", id);
 

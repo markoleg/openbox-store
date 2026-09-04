@@ -5,6 +5,7 @@ import styles from './SearchForm.module.css'
 import { SquarePlus } from 'lucide-react'
 import { addSearch } from '@/actions/addSearchAction'
 import { useRealtimeSearches } from '@/hooks/useRealtimeSearches'
+import FiltersFieldset from './FiltersFieldset'
 
 export default function AddNewSearchForm() {
     const [openForm, setOpenForm] = useState(false)
@@ -131,6 +132,8 @@ export default function AddNewSearchForm() {
                         + Add Link
                     </button>
                 </fieldset>
+
+                <FiltersFieldset />
 
                 {/* More Aspects */}
                 <fieldset className={styles.moreAspects}>
