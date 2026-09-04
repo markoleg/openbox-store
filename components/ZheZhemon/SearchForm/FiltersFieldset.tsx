@@ -186,9 +186,21 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
         <>
             <input type="hidden" name="filters" value={serialised} />
 
+            <fieldset className={styles.filterGroup}>
+                <legend>How filters behave</legend>
+                <p className={styles.filterHint}>
+                    A filtered listing never enters this search at all: no row, no
+                    notification, and one already listed is dropped the next time the
+                    rules are applied. This is <b>not</b> the 🙈 hidden state — that
+                    keeps a listing, marks it, and lets you bring it back with a tap.
+                    A filter leaves nothing behind but a line in the tracker log,
+                    which is the only place to see what it removed.
+                </p>
+            </fieldset>
+
             {renderWordList(
                 'Stop Words',
-                'Hidden if the title contains any of these. Substring match, case-insensitive: "se 2" also catches "SE 2nd Gen". Mind the spacing - "se 3" does not match "SE3".',
+                'Skipped if the title contains any of these. Substring match, case-insensitive: "se 2" also catches "SE 2nd Gen". Mind the spacing - "se 3" does not match "SE3".',
                 stopWords,
                 setStopWords,
                 'lcd'
@@ -196,7 +208,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
 
             {renderWordList(
                 'Must Words',
-                'Hidden unless the title contains every one of these.',
+                'Skipped unless the title contains every one of these.',
                 mustWords,
                 setMustWords,
                 'se 3'
@@ -242,7 +254,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                             type="number"
                             step="0.01"
                             placeholder="Cap"
-                            title="Total price, shipping included, above which this variant is hidden."
+                            title="Total price, shipping included, above which this variant is skipped."
                             disabled={rule.skip}
                             value={rule.cap}
                             onChange={(e) =>
@@ -265,7 +277,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                                     )
                                 }
                             />
-                            never show
+                            skip
                         </label>
                         <button
                             type="button"
@@ -342,7 +354,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                                     )
                                 }
                             />
-                            never show
+                            skip
                         </label>
                         <button
                             type="button"
