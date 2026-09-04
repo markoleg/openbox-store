@@ -91,15 +91,21 @@
 .used {
 	color: red;
 }
+/* Eight actions, laid out so the card does not grow taller: two columns of
+   four beside it on desktop, four columns of two beneath it on mobile. The
+   icons fill the first column and the pause durations the second, which reads
+   as two groups without needing a divider. */
 .btns_wrp {
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-auto-flow: column;
+	grid-template-rows: repeat(4, 1fr);
 	margin: -5px -5px -5px auto;
-	width: 40px;
+	width: 80px;
 	flex-shrink: 0;
 }
 .btns_wrp button {
-	transform: translatex(50px);
+	transform: translatex(90px);
 	width: 100%;
 	height: 100%;
 	padding: 0;
@@ -186,8 +192,9 @@
 		font-size: 1rem;
 	}
 	.btns_wrp {
-		flex-direction: row;
-		justify-content: space-between;
+		grid-template-columns: repeat(4, 1fr);
+		grid-template-rows: repeat(2, auto);
+		grid-auto-flow: row;
 		width: 100%;
 		margin: 0;
 		grid-column: 1/-1;
@@ -204,12 +211,6 @@
 	}
 }
 
-/* A hidden lot trades its other actions for the pause durations, so the strip
-   gains one slot. It also has to stay put: on desktop the strip only slides in
-   on hover, and sliding away mid-choice would take the durations with it. */
-.btns_wrp.picking button {
-	transform: translatex(0px);
-}
 .hide_mode {
 	margin-top: 2px;
 	font-size: 0.7rem;

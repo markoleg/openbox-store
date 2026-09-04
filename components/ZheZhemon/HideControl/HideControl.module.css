@@ -1,5 +1,11 @@
-/* The duration buttons sit in the parent's strip and inherit its sizing, so
-   only the label needs styling - the icons beside them carry none. */
+/* The buttons sit inside whatever strip the parent owns - a 40px column on a
+   card, a flex row in a toast - so they take their size from it and only bring
+   what the surrounding icons cannot provide. */
+.btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
 .pause {
 	color: yellow;
 	font-size: 0.7rem;

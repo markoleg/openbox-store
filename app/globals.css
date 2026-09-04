@@ -111,6 +111,30 @@ button {
 	transition: all 0.1s ease-in-out;
 	padding-inline: 2rem;
 }
+/* Five buttons, not one: the wide padding and single border of .hide_btn
+   belong on each of them, not around the group - wrapping them in it was what
+   put the eye in a box of its own and pushed the durations onto two lines. */
+.custom-toast .toast_hide {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin-left: 1rem;
+	vertical-align: middle;
+}
+.custom-toast .toast_hide button {
+	margin-top: 0.5rem;
+	padding: 0.15rem 0.6rem;
+	min-width: 2.2rem;
+	border: 1px solid yellow;
+	border-radius: var(--br-s);
+	transition: all 0.1s ease-in-out;
+}
+.custom-toast .toast_hide button:hover {
+	box-shadow: 0 0 10px yellow;
+}
+.custom-toast .toast_hide button:hover svg {
+	transform: scale(1.2);
+}
 .custom-toast .ban_btn {
 	border: 1px solid red;
 }

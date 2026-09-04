@@ -5,70 +5,49 @@ import { Eye, EyeOff } from 'lucide-react'
 import { PAUSE_DAYS, hideUntilCheaper, pauseFor, unhide } from '@/lib/hideActions'
 import styles from './HideControl.module.css'
 
-interface Props {
-    link: string
-    /** Whether the lot is hidden right now, per the row this renders from. */
-    hidden: boolean
-    /**
-     * Called the moment the strip switches to the durations. The toast uses it
-     * to stop its own countdown, since picking a day takes longer than the few
-     * seconds a toast normally lives.
-     */
-    onExpand?: () => void
-}
-
 /**
- * The hide button, and the pause durations that replace the strip around it.
+ * Hiding, as buttons that each do their whole job in one tap.
  *
- * The action strip is four icons on a card and two in a toast, laid out as a
- * 40px column on desktop and a full-width row on mobile. Adding four duration
- * buttons to either would stretch the card or squeeze the row, so the strip
- * *switches* instead of growing: a hidden lot shows the durations in place of
- * the other actions, one slot wider than before rather than four.
+ * That is the point of the shape. Hiding a lot drops it out of the list at
+ * once, so anything needing a second tap on the same card is unreachable: an
+ * earlier version hid on the first tap and offered the durations afterwards,
+ * on a card that had already gone. Every button here completes an intent, and
+ * what happens to the card next stops mattering.
  *
- * That also makes the state readable at a glance - durations on screen mean the
- * lot is hidden - and matches how the same choice works in Telegram, where the
- * first tap hides and the second turns it into a pause.
- *
- * The trade-off: Ban and the rest are not reachable while a lot is hidden. They
- * come back when it does, and a hidden lot is one already decided against.
+ * The pair is exported separately so each caller can place them itself - the
+ * card puts the durations on their own row of the strip, the toast on its own
+ * line - and nothing has to be reordered around a component that renders both.
  */
-export default function HideControl({ link, hidden, onExpand }: Props) {
-    // Kept locally so a toast, which never re-renders from the database, still
-    // switches when tapped. Cards do get fresh props, hence the sync.
+
+/** Hide until it gets cheaper, or bring it back. */
+export function HideButton({ link, hidden }: { link: string; hidden: boolean }) {
+    // A toast never gets fresh props, so it tracks the flag itself; a card does,
+    // hence the sync.
     const [isHidden, setIsHidden] = useState(hidden)
     useEffect(() => setIsHidden(hidden), [hidden])
 
-    if (!isHidden) {
-        return (
-            <button
-                onClick={() => {
-                    setIsHidden(true)
-                    onExpand?.()
-                    hideUntilCheaper(link)
-                }}
-                title="Сховати, поки не подешевшає"
-            >
-                <EyeOff size={14} color="yellow" />
-            </button>
-        )
-    }
+    return (
+        <button
+            className={styles.btn}
+            onClick={() => {
+                setIsHidden(!isHidden)
+                isHidden ? unhide(link) : hideUntilCheaper(link)
+            }}
+            title={isHidden ? 'Показати знову' : 'Сховати, поки не подешевшає'}
+        >
+            {isHidden ? <Eye size={14} color="yellow" /> : <EyeOff size={14} color="yellow" />}
+        </button>
+    )
+}
 
+/** Set aside for a fixed stretch, whatever the price does meanwhile. */
+export function PauseButtons({ link }: { link: string }) {
     return (
         <>
-            <button
-                onClick={() => {
-                    setIsHidden(false)
-                    unhide(link)
-                }}
-                title="Показати знову"
-            >
-                <Eye size={14} color="yellow" />
-            </button>
             {PAUSE_DAYS.map((days) => (
                 <button
                     key={days}
-                    className={styles.pause}
+                    className={`${styles.btn} ${styles.pause}`}
                     onClick={() => pauseFor(link, days)}
                     title={`Пауза на ${days} дн. — повернеться за розкладом, хоч би що сталося з ціною`}
                 >

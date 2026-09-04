@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from "@/lib/SupaBaseClient";
 import { toast } from "react-toastify";
 import { Ban } from 'lucide-react';
-import HideControl from '@/components/ZheZhemon/HideControl/HideControl';
+import { HideButton, PauseButtons } from '@/components/ZheZhemon/HideControl/HideControl';
 
 
 export interface Item {
@@ -146,9 +146,6 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                         audio.play().catch(e => console.warn("Can't play sound:", e));
                     };
 
-                    // Its own id, so picking a pause duration can stop the countdown -
-                    // choosing a day takes longer than a toast normally lives.
-                    const toastId = `zhe-${(payload.new as Item).id}-${Date.now()}`;
                     toast.info(
                         <p>
                             NEW:{" "}
@@ -190,18 +187,17 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                             <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
                                 <Ban size={14} color="red" />
                             </button>
-                            <span className='hide_btn'>
-                                <HideControl
+                            <span className='toast_hide'>
+                                <HideButton
                                     link={(payload.new as Item).link}
                                     hidden={(payload.new as Item).hidden}
-                                    onExpand={() => toast.update(toastId, { autoClose: false })}
                                 />
+                                <PauseButtons link={(payload.new as Item).link} />
                             </span>
                         </p>,
                         {
                             className: "custom-toast",
                             progressClassName: "Toastify__progress-bar",
-                            toastId,
                         }
                     );
                     playNotificationSound();
@@ -228,9 +224,6 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
 
 
                     if (oldPrice !== newPrice) {
-                        // Its own id, so picking a pause duration can stop the countdown -
-                        // choosing a day takes longer than a toast normally lives.
-                        const toastId = `zhe-${(payload.new as Item).id}-${Date.now()}`;
                         toast.info(
                             <p>
                                 UPDATED:{" "}
@@ -272,18 +265,17 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                                 <button onClick={async () => handleBan(payload.new as Item)} className='ban_btn'>
                                     <Ban size={14} color="red" />
                                 </button>
-                                <span className='hide_btn'>
-                                    <HideControl
+                                <span className='toast_hide'>
+                                    <HideButton
                                         link={(payload.new as Item).link}
                                         hidden={(payload.new as Item).hidden}
-                                        onExpand={() => toast.update(toastId, { autoClose: false })}
                                     />
+                                    <PauseButtons link={(payload.new as Item).link} />
                                 </span>
                             </p>,
                             {
                                 className: "custom-toast",
                                 progressClassName: "Toastify__progress-bar",
-                                toastId,
                             }
                         )
                         const playNotificationSound = () => {

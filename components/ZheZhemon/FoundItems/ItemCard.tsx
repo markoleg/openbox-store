@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import styles from "./FoundItems.module.css";
 import { Ban, HeartPlus, Star } from "lucide-react";
-import HideControl from "@/components/ZheZhemon/HideControl/HideControl";
+import { HideButton, PauseButtons } from "@/components/ZheZhemon/HideControl/HideControl";
 import { describeHide } from "@/lib/hideActions";
 import { supabase } from "@/lib/SupaBaseClient";
 import { useState } from "react";
@@ -137,25 +137,20 @@ export default function ItemCard({ item }: { item: Item }) {
             <div className={styles.item_count}>
                 {item.count}
             </div>
-            <div className={`${styles.btns_wrp} ${item.hidden ? styles.picking : ''}`}>
-                {!item.hidden && (
-                    <button onClick={handleLike}>
-                        <HeartPlus size={14}
-                            style={{ fill: item.liked ? "red" : undefined }}
-                        />
-                    </button>
-                )}
-                <HideControl link={item.link} hidden={item.hidden} />
-                {!item.hidden && (
-                    <>
-                        <button onClick={handleBan}>
-                            <Ban size={14} color="red" />
-                        </button>
-                        <button onClick={handleFav}>
-                            <Star size={14} className={styles.item_fav} fill={snip ? 'yellow' : 'none'} />
-                        </button>
-                    </>
-                )}
+            <div className={styles.btns_wrp}>
+                <button onClick={handleLike}>
+                    <HeartPlus size={14}
+                        style={{ fill: item.liked ? "red" : undefined }}
+                    />
+                </button>
+                <HideButton link={item.link} hidden={item.hidden} />
+                <button onClick={handleBan}>
+                    <Ban size={14} color="red" />
+                </button>
+                <button onClick={handleFav}>
+                    <Star size={14} className={styles.item_fav} fill={snip ? 'yellow' : 'none'} />
+                </button>
+                <PauseButtons link={item.link} />
             </div>
         </div>
     )
