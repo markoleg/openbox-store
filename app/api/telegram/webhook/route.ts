@@ -83,13 +83,32 @@ function keyboardAfterAction(
 			b.url ||
 			(options.keepPressed !== undefined &&
 				b.callback_data !== undefined &&
+				b.callback_data !== DONE_DATA &&
 				!b.callback_data.startsWith(options.keepPressed))
 	);
+	// Pressing a duration re-enters this with a keyboard that already carries an
+	// outcome label and a pause row. Both are dropped and rebuilt, or the action
+	// row would collect a stale "Сховано" beside the new label and the durations
+	// would appear twice.
+	const rest = rows.slice(1).filter((row) => !isPauseRow(row));
 	return [
 		[{ text: label, callback_data: DONE_DATA }, ...kept],
 		...(options.extraRows ?? []),
-		...rows.slice(1),
+		...rest,
 	];
+}
+
+/** Whether a row is one this function built: every button a pause duration. */
+function isPauseRow(row: InlineButton[]): boolean {
+	return (
+		row.length > 0 &&
+		row.every(
+			(b) =>
+				b.callback_data !== undefined &&
+				b.callback_data.startsWith(ZHE_HIDE) &&
+				b.callback_data.split(":").length === 3
+		)
+	);
 }
 
 /** The row of pause durations offered right after a lot is hidden. */

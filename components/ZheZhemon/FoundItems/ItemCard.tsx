@@ -3,7 +3,9 @@ import { Item } from "@/context/ItemsProvider";
 import Image from "next/image";
 import Link from "next/link";
 import styles from "./FoundItems.module.css";
-import { Ban, EyeOff, HeartPlus, Star } from "lucide-react";
+import { Ban, HeartPlus, Star } from "lucide-react";
+import HideControl from "@/components/ZheZhemon/HideControl/HideControl";
+import { describeHide } from "@/lib/hideActions";
 import { supabase } from "@/lib/SupaBaseClient";
 import { useState } from "react";
 
@@ -25,31 +27,6 @@ export default function ItemCard({ item }: { item: Item }) {
                     console.error("Error updating item:", error);
                 } else {
                     // Update the local state or refetch items if necessary
-                }
-            });
-    }
-    const handleHide = () => {
-        // update the hidden status in the database
-        supabase
-            .from('items')
-            .update({ hidden: !item.hidden })
-            .eq('id', itemId)
-            .then(({ error }) => {
-                if (error) {
-                    console.error("Error updating item:", error);
-                } else {
-                    // Update the local state or refetch items if necessary
-                }
-            });
-        supabase
-            .from('scraped_links')
-            .update({ hidden: !item.hidden })
-            .eq('link', item.link)
-            .then(({ error }) => {
-                if (error) {
-                    console.error("Error updating scraped link:", error);
-                } else {
-                    // Update the local state or refetch items if necessary}
                 }
             });
     }
@@ -151,27 +128,34 @@ export default function ItemCard({ item }: { item: Item }) {
                     <small>{item.seller_name} ({item.feedback_score}) {item.feedback_percentage}%
                     </small>
                 </div>
+                {item.hidden && (
+                    <div className={styles.hide_mode}>
+                        🙈 {describeHide(item.hidden_until)}
+                    </div>
+                )}
             </div>
             <div className={styles.item_count}>
                 {item.count}
             </div>
-            <div className={styles.btns_wrp}>
-                <button onClick={handleLike}>
-                    <HeartPlus size={14}
-                        style={{ fill: item.liked ? "red" : undefined }}
-                    />
-                </button>
-                <button onClick={handleHide}>
-                    <EyeOff size={14} color="yellow" />
-                </button>
-                <button onClick={handleBan}>
-                    <Ban size={14} color="red" />
-                </button>
-                <button onClick={handleFav}>
-
-                    <Star size={14} className={styles.item_fav} fill={snip ? 'yellow' : 'none'} />
-                </button >
-
+            <div className={`${styles.btns_wrp} ${item.hidden ? styles.picking : ''}`}>
+                {!item.hidden && (
+                    <button onClick={handleLike}>
+                        <HeartPlus size={14}
+                            style={{ fill: item.liked ? "red" : undefined }}
+                        />
+                    </button>
+                )}
+                <HideControl link={item.link} hidden={item.hidden} />
+                {!item.hidden && (
+                    <>
+                        <button onClick={handleBan}>
+                            <Ban size={14} color="red" />
+                        </button>
+                        <button onClick={handleFav}>
+                            <Star size={14} className={styles.item_fav} fill={snip ? 'yellow' : 'none'} />
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     )
