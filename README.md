@@ -44,3 +44,9 @@ A modern dashboard built using **Next.js 15** (App Router) on top of a shared **
 ---
 
 🔗 GitHub Repository: [markoleg/openbox-store](https://github.com/markoleg/openbox-store)
+
+## Environment
+
+- `ITEM_PRESENCE_GRACE_SECONDS` — must match the tracker setting (default:
+  `300`). It is passed to the transactional search-deletion RPC when choosing
+  an active replacement owner for a listing.
