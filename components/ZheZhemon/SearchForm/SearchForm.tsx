@@ -1,6 +1,8 @@
 'use client'
 
 import { useTransition, useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'react-toastify'
 import { useRealtimeSearches } from '@/hooks/useRealtimeSearches'
 import { updateSearch } from '@/actions/updateSearchAction'
 import styles from './SearchForm.module.css'
@@ -10,6 +12,7 @@ import FiltersFieldset from './FiltersFieldset'
 
 export default function SearchForm({ searchId }: { searchId: number | undefined }) {
     const search = useRealtimeSearches(searchId)[0]
+    const router = useRouter()
     const [openForm, setOpenForm] = useState(false)
     const toggleForm = () => {
         setOpenForm(!openForm)
@@ -186,7 +189,16 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
                         // ask for confirmation before deleting
                         const confirmDelete = confirm('Are you sure you want to delete this search?')
                         if (!confirmDelete) return
-                        deleteSearch(search.id)
+                        startTransition(async () => {
+                            // A search the database refuses to drop used to fail
+                            // in the server log only, so the button looked dead.
+                            const { error } = await deleteSearch(search.id)
+                            if (error) {
+                                toast.error(`Can't delete this search: ${error}`)
+                                return
+                            }
+                            router.push('/zhezhemon')
+                        })
                     }}
                     className={styles.delete_btn}
                 >

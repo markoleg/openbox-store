@@ -10,7 +10,9 @@ export async function deleteSearch(searchId: number) {
 
 	if (error) {
 		console.error("Error deleting search:", error);
-	} else {
-		console.log("Search deleted successfully", searchId);
+		return { error: error.message };
 	}
+
+	console.log("Search deleted successfully", searchId);
+	return { error: null };
 }
