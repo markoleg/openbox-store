@@ -1,32 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serialize } from 'cookie';
+import { createOwnerSession, ownerPasswordMatches, sessionCookieName, SESSION_SECONDS } from '@/lib/ownerSession';
+import { hasSameOrigin } from '@/lib/requestOrigin';
 
 export async function POST(req: NextRequest) {
-  const reqBody = await req.json();
-  const { password } = reqBody;
-
-  if (password === process.env.PASSWORD) {
-    const twoWeeks = 14 * 24 * 60 * 60 * 1000;
-    const expires = new Date(Date.now() + twoWeeks);
-
-    const cookie = serialize(process.env.PASSWORD_COOKIE_NAME!, 'true', {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      expires: expires,
+  if (!hasSameOrigin(req.headers)) {
+    return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
+  }
+  let password: unknown;
+  try {
+    const body = await req.json();
+    password = body?.password;
+  } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+  if (!await ownerPasswordMatches(password)) {
+    return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+  }
+  try {
+    const token = await createOwnerSession();
+    const response = NextResponse.json({ message: 'Login successful' });
+    response.headers.set('Cache-Control', 'no-store');
+    response.cookies.set(sessionCookieName(), token, {
+      httpOnly: true, secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict', path: '/', maxAge: SESSION_SECONDS,
     });
-
-    const response = new NextResponse(JSON.stringify({ message: 'Login successful' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'Set-Cookie': cookie },
-    });
-
     return response;
-  } else {
-    return new NextResponse(JSON.stringify({ error: 'Invalid password' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  } catch {
+    return NextResponse.json({ error: 'Authentication is not configured' }, { status: 503 });
   }
 }

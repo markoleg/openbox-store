@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { sessionCookieName, verifyOwnerSession } from './lib/ownerSession';
 
-export function middleware(request: NextRequest) {
-	const authCookie = request.cookies.get(process.env.PASSWORD_COOKIE_NAME!);
+export async function middleware(request: NextRequest) {
 	const path = request.nextUrl.pathname;
 
 	if (path.startsWith("/api/") || path === "/login") {
 		return NextResponse.next();
 	}
 
-	if (!authCookie || authCookie.value !== "true") {
-		return NextResponse.redirect(new URL("/login", request.url));
+	let authorized = false;
+	try {
+		authorized = await verifyOwnerSession(request.cookies.get(sessionCookieName())?.value);
+	} catch { /* Missing configuration fails closed. */ }
+	if (!authorized) {
+		const login = new URL('/login', request.url);
+		login.searchParams.set('next', path + request.nextUrl.search);
+		return NextResponse.redirect(login);
 	}
 
 	return NextResponse.next();

@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, FormEvent } from 'react';
+import { safeReturnPath } from '@/lib/safeReturnPath';
 import styles from '@/components/LoginForm/LoginForm.module.css';
 
 interface LoginFormProps {
@@ -20,7 +21,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ }) => {
                 body: JSON.stringify({ password })
             });
             if (response.ok) {
-                window.location.href = '/';
+                window.location.href = safeReturnPath(new URLSearchParams(window.location.search).get('next'));
             } else {
                 const data = await response.json();
                 setError(data.error || 'Login failed');
