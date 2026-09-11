@@ -5,6 +5,8 @@ import { outcomeLabels } from '@/lib/reviewKeyboard'
 import { deliveryView, eventLink, listingHistory, resolveDispatch, reviewCommandsEnabled } from '@/lib/server/reviewCommands'
 import { requireOwnerSession } from '@/lib/server/owner'
 import OutcomeForm from '@/components/ZheZhemon/Review/OutcomeForm'
+import GeneralOutcomeForm from '@/components/ZheZhemon/Review/GeneralOutcomeForm'
+import { historyBoardDestination } from '@/lib/reviewBoards'
 import type { ReviewTarget } from '@/lib/reviewClient'
 import styles from '@/components/ZheZhemon/Review/Review.module.css'
 
@@ -22,6 +24,10 @@ const kyiv = (iso: string | null | undefined) => iso ? new Date(iso).toLocaleStr
 
 type Params = { dispatch?: string; delivery?: string; event?: string; link?: string; action?: string }
 
+function redirectDeliveredCard(context: {kind:'event'|'delivery';id:string} | null, view:Awaited<ReturnType<typeof deliveryView>>, action?:string) {
+    if (context?.kind === 'delivery') redirect(historyBoardDestination(view ?? {deliveryId:context.id,review:null},action))
+}
+
 /**
  * The persistent card of one listing: every message, every reaction, the live
  * state next to them. GET changes nothing. When opened from a specific message
@@ -38,13 +44,14 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
     catch { redirect(`/login?next=${encodeURIComponent('/zhezhemon/history?' + new URLSearchParams(params as Record<string, string>))}`) }
     let context: { kind: 'delivery'; id: string } | { kind: 'event'; id: string } | null = null
     let link: string | null = null
+    let notification:Awaited<ReturnType<typeof deliveryView>>=null
     try {
         if (params.dispatch) {
             const resolved = await resolveDispatch(params.dispatch)
             if (resolved) context = { kind: resolved.kind, id: resolved.target }
         } else if (params.delivery && isUuid(params.delivery)) context = { kind: 'delivery', id: params.delivery }
         else if (params.event && isUuid(params.event)) context = { kind: 'event', id: params.event }
-        if (context?.kind === 'delivery') link = (await deliveryView(context.id))?.link ?? null
+        if (context?.kind === 'delivery') {notification=await deliveryView(context.id);link=notification?.link ?? null}
         else if (context?.kind === 'event') link = await eventLink(context.id)
         if (!link && isListingLink(params.link ?? '')) link = params.link ?? null
     } catch {
@@ -52,16 +59,21 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
     }
     if (!link) return <main className="content"><p>Оголошення не знайдено.</p> <Link href="/zhezhemon">До каталогу</Link></main>
 
+    // Existing Telegram URLs remain valid and now open the exact board card.
+    // An event without a confirmed delivery stays in the technical history.
+    redirectDeliveredCard(context, notification, params.action)
+
     const history = await listingHistory(link)
     const view = context?.kind === 'delivery' ? await deliveryView(context.id) : null
     const eventResult = context?.kind === 'event'
         ? history.deliveries.find(d => d.event_id === context!.id) ?? null : null
-    const currentOutcome = view ? view.outcome
+    const generalResult = !context ? history.reactions.find(r => !r.event_id && (r.outcome || r.action==='clear_outcome')) : null
+    const currentOutcome = generalResult ? generalResult.outcome : view ? view.outcome
         : eventResult ? history.reactions.find(r => r.id === eventResult.resolved_by_reaction_id)?.outcome ?? null : null
     const firstReactionAt = view ? view.firstReactionAt
         : eventResult ? history.reactions.find(r => r.id === eventResult.first_reaction_id)?.received_at ?? null : null
-    const target: ReviewTarget | null = context?.kind === 'delivery' ? { kind: 'delivery', deliveryId: context.id }
-        : context?.kind === 'event' ? { kind: 'event', eventId: context.id } : null
+    const target: ReviewTarget = context?.kind === 'delivery' ? { kind: 'delivery', deliveryId: context.id }
+        : context?.kind === 'event' ? { kind: 'event', eventId: context.id } : {kind:'listing',link}
     const title = history.state?.latest_summary && typeof history.state.latest_summary === 'object'
         ? String((history.state.latest_summary as { title?: string }).title ?? link) : link
     const live = history.live
@@ -69,12 +81,14 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
     const reviewStatus = !review ? (history.state?.training_eligible ? 'кандидат без доставки' : 'не навчальний приклад')
         : review.submitted_at && !(review.revision_opened_at && review.revision_opened_at > review.submitted_at)
             ? `оцінено ${kyiv(review.submitted_at)} (v${review.version})`
-            : 'оброблюється — форма шести критеріїв з’явиться на дошках'
+            : 'потребує завершення оцінки'
 
     return (
         <main className="content">
             <div className={styles.card}>
                 <h1>{title}</h1>
+                {review && <Link href={`/zhezhemon/processing?${new URLSearchParams({tab:'review',review:review.id})}`}>Відкрити навчальну картку та шість критеріїв</Link>}
+                {!context && <p className={styles.muted}>Тут рішення «Про оголошення загалом»: воно не обробляє повідомлення та не вимірює час реакції на Telegram. Щоб відповісти на конкретне сповіщення, обери його нижче. Сам перегляд не є реакцією.</p>}
                 <p><a href={link} target="_blank" rel="noopener noreferrer">{link}</a></p>
                 <section>
                     <h2>Живий стан</h2>
@@ -94,12 +108,13 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
 
                 {target && (
                     <section>
-                        <h2>{view ? `Повідомлення ${kyiv(view.sentAt)} · ${view.kind} · ${view.channel === 'main' ? 'основний чат' : 'sniper-чат'}` : 'Подія (toast / повідомлення ще без підтвердження)'}</h2>
+                        <h2>{!context?'Про оголошення загалом':view ? `Повідомлення ${kyiv(view.sentAt)} · ${view.kind} · ${view.channel === 'main' ? 'основний чат' : 'sniper-чат'}` : 'Подія (toast / повідомлення ще без підтвердження)'}</h2>
                         {view && <p>Ціна в повідомленні: ${view.contextPrice ?? '?'}{view.currentPrice != null ? ` · зараз $${view.currentPrice}` : ''}{view.searchName ? ` · пошук «${view.searchName}»${view.searchExists ? '' : ' (видалений)'}` : ''}</p>}
                         <p>Результат: <b>{currentOutcome ? outcomeLabels[currentOutcome] ?? currentOutcome : firstReactionAt ? 'в роботі' : 'нове'}</b>
                             {view?.resolutionKind && view.resolutionKind !== 'direct' ? ` (${view.resolutionKind === 'event_context' ? 'з дашборда до відправки' : 'через пов’язане повідомлення'})` : ''}</p>
                         {reviewCommandsEnabled() ? (
-                            <OutcomeForm target={target} initialAction={params.action ?? null}
+                            target.kind==='listing' ? <GeneralOutcomeForm link={link} version={history.state?.state_version ?? 0}
+                                current={{outcome:currentOutcome,firstReactionAt,hidden:!!live?.hidden,bannedInSearch:null}}/> : <OutcomeForm target={target} initialAction={params.action ?? null}
                                 current={{ outcome: currentOutcome, firstReactionAt, hidden: !!live?.hidden, bannedInSearch: view?.live.bannedInSearch ?? null }} />
                         ) : <p className={styles.muted}>Команди вимкнені на сервері.</p>}
                     </section>

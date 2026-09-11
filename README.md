@@ -120,8 +120,8 @@ Routes and actions:
   they redirect to `/zhezhemon/confirm`, which applies the command with a POST.
 - `/zhezhemon/history?dispatch=|delivery=|event=|link=` — the persistent card:
   messages, reactions, live state, manual outcome / correction / clear form for
-  an exact message context. The six-criteria training form belongs to the
-  boards phase; the card status is shown.
+  an exact message context. Stage 5 redirects confirmed deliveries into the
+  board panel; event-only technical history remains here.
 - `/sniper?link=&hint=&ctx=` — Save/⚡/🗑 are `set_watch`/`remove_watch`
   commands; with `ctx` a Save is a reaction to that exact message, and editing
   the link to another listing drops the binding visibly.
@@ -143,3 +143,49 @@ with the dummy variables above, `REVIEW_COMMANDS_ENABLED=false`,
 review routes, the legacy redirects and the webhook gates without running a
 command or contacting Telegram.
 
+## Processing boards — stage 5 (local, not deployed)
+
+Requires tracker migration `011_review_boards.sql` after 006–010. The existing
+`REVIEW_COMMANDS_ENABLED` gate and signed owner session protect all new APIs;
+no flags or production migrations are changed by building this repository.
+
+- ZheZhemon horizontal navigation: **Оголошення / Опрацювання / Не надіслано**.
+  `ItemsProvider` and notification toasts remain mounted; the catalog aside is
+  only rendered for `/zhezhemon` and `/zhezhemon/<searchId>`.
+- `/zhezhemon/processing?tab=review|notifications`: one page, two boards.
+  `review=<uuid>` or `delivery=<uuid>` opens the persistent card directly.
+  Each tab stores its filters in URL keys prefixed with `review.` or
+  `notifications.`. Cursor pagination loads 50 rows per column; counts cover
+  the complete filtered set. Background refresh is every 30 seconds while the
+  page is visible, plus window focus; it does not fetch eBay or reload raw details.
+- The card panel is full-screen on mobile. Snapshot data and the current live
+  state are separate. Raw seller HTML is escaped text, never injected as HTML.
+  Photographs currently use the pinned eBay source URLs with explicit archive
+  status; serving the private archive itself belongs to stage 6.
+- Six scores 1–5 and explanations, explicit draft save, submission, optional
+  photo notes keyed by snapshot source URL, and explicit revision with a reason.
+  No background getItem. Missing source data prevents submission, not draft save.
+  Version conflicts retain the local form; an uncertain transport response has
+  a retry button using the same command UUID. Submitted snapshots and decisions
+  stay frozen; previous versions are immutable.
+- `/zhezhemon/history?link=…` offers **Про оголошення загалом** separately from
+  choosing a particular notification. A general result updates the training
+  draft but never resolves a delivery or invents Telegram reaction timing.
+- `/zhezhemon/not-sent`: paginated technical dispatch log, including unknown,
+  failed, suppressed, cancelled and pending states. No resend controls.
+- `GET /api/review/boards` serves private lightweight board projections or a
+  separately requested card. `POST /api/review/assessments` accepts only a
+  command UUID, review UUID, expected version, action and validated fields.
+
+Checks: `npm run test:review`, `npm run test:session`, `npx tsc --noEmit`,
+`npm run build`. Browser checks: `npx playwright install chromium`, then
+`npm run test:boards`. Playwright starts its own localhost:3217 dev server with
+dummy credentials and no production database/Telegram access. UI data is mocked;
+auth/origin/disabled-gate requests hit real local routes. PostgreSQL integration
+tests for the RPCs live in the tracker repository. Screenshots/test artifacts
+are kept under ignored `node_modules/.cache/`.
+
+Recent card history displays up to 100 deliveries and 200 reactions, plus the
+exact frozen decision even if older. Full delivery selection is available via
+the board's link filter. Complete historical export/analytics and archive
+delivery/coverage checks remain stage 6. Do not push: push triggers deployment.

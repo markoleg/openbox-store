@@ -115,11 +115,12 @@ export async function listingHistory(link: string) {
     db.from('notification_deliveries').select('id, event_id, channel, chat_id, message_id, telegram_sent_at, resolution_kind, first_reaction_id, resolved_by_reaction_id')
       .eq('link', link).order('telegram_sent_at', {ascending: false}).limit(100),
     db.from('listing_reviews').select('id, submitted_at, revision_opened_at, origin_delivery_id, version').eq('link', link).maybeSingle(),
-    db.from('listing_review_state').select('liked, training_eligible, registration_source, observed_total, latest_seen_at, latest_summary').eq('link', link).maybeSingle(),
+    db.from('listing_review_state').select('liked, training_eligible, registration_source, observed_total, latest_seen_at, latest_summary, state_version').eq('link', link).maybeSingle(),
     db.from('scraped_links').select('hidden, hidden_until, price, favorite, super_favorite, desired_price, description, count').eq('link', link).maybeSingle(),
     db.from('notification_events').select('id, kind, detected_at, source_search_id, preflight_status, suppression_reason, search_snapshot')
       .eq('link', link).order('detected_at', {ascending: false}).limit(50),
   ]);
+  if ([reactions,deliveries,review,state,live,events].some(result=>result.error)) throw new Error('review_storage_failed');
   return {reactions: reactions.data ?? [], deliveries: deliveries.data ?? [], review: review.data ?? null,
     state: state.data ?? null, live: live.data ?? null, events: events.data ?? []};
 }

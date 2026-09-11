@@ -1,16 +1,15 @@
 import { ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css'
 import { ItemsProvider } from '@/context/ItemsProvider'
-import AsideMenu from '@/components/ZheZhemon/AsideMenu/AsideMenu'
+import ZhezhemonShell from '@/components/ZheZhemon/Review/ZhezhemonShell'
 
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
 
     return (
-        <div className="page-wrp">
+        <div>
             <ItemsProvider>
-                <AsideMenu />
-                {children}
+                <ZhezhemonShell>{children}</ZhezhemonShell>
             </ItemsProvider>
             <ToastContainer
                 position="bottom-right"

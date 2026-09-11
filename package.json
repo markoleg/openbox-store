@@ -4,7 +4,8 @@
 	"private": true,
 	"scripts": {
 		"test:session": "node --test tests/ownerSession.test.mjs",
-		"test:review": "node --test tests/reviewCommands.test.mjs tests/reviewKeyboard.test.mjs",
+		"test:boards": "playwright test",
+		"test:review": "node --test tests/reviewCommands.test.mjs tests/reviewKeyboard.test.mjs tests/reviewBoards.test.mjs",
 		"dev": "next dev --turbopack",
 		"devs": "next dev",
 		"build": "next build",
@@ -22,6 +23,7 @@
 		"recharts": "^2.15.3"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.63.0",
 		"@types/node": "^20",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",

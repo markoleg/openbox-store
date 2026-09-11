@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useReviewAction } from '@/components/ZheZhemon/Review/useReviewAction'
-import { bugTypes, missedReasons, type ManualOutcome } from '@/lib/reviewCommands'
+import { bugTypes, missedReasons, type ManualOutcome, type ReviewAction, type ReviewPayload, type ReviewCommandResult } from '@/lib/reviewCommands'
 import type { ReviewTarget } from '@/lib/reviewClient'
 import styles from './Review.module.css'
 
@@ -19,6 +19,8 @@ type Props = {
     /** Current outcome of this exact message/event, if any. */
     current: { outcome: string | null; firstReactionAt: string | null; hidden: boolean; bannedInSearch: boolean | null }
     initialAction?: string | null
+    execute?: (action: ReviewAction, payload?: ReviewPayload) => Promise<ReviewCommandResult | null>
+    locked?: boolean
 }
 
 /**
@@ -26,9 +28,11 @@ type Props = {
  * event context). A submitted outcome is a new reaction that supersedes the
  * previous one; clearing needs a reason and never undoes hide/ban itself.
  */
-export default function OutcomeForm({ target, current, initialAction }: Props) {
+export default function OutcomeForm({ target, current, initialAction, execute, locked }: Props) {
     const router = useRouter()
-    const { run, pending } = useReviewAction(target)
+    const defaultAction = useReviewAction(target)
+    const run = execute ?? defaultAction.run
+    const pending = locked || defaultAction.pending
     const [mode, setMode] = useState<'outcome' | 'clear'>(initialAction === 'clear' ? 'clear' : 'outcome')
     const [outcome, setOutcome] = useState<ManualOutcome>(initialAction === 'bug' ? 'bug' : initialAction === 'missed' ? 'would_buy_missed' : 'bought')
     const [reason, setReason] = useState<string>(initialAction === 'missed' ? 'other' : '')
@@ -58,7 +62,7 @@ export default function OutcomeForm({ target, current, initialAction }: Props) {
     return (
         <div className={styles.outcome_form}>
             <div className={styles.row}>
-                {!current.firstReactionAt && (
+                {!current.firstReactionAt && target.kind!=='listing' && (
                     <button disabled={!!pending} onClick={() => run('review_ack').then(() => router.refresh())}>🖐 Опрацьовую</button>
                 )}
                 {current.hidden && <button disabled={!!pending} onClick={() => run('unhide').then(() => router.refresh())}>👁 Показати знову</button>}

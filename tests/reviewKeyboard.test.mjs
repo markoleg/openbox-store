@@ -53,6 +53,10 @@ test('menus only navigate and offer live undo when the state exists',()=>{
   const change=renderKeyboard(view({outcome:'bought'}),urls,'change');
   assert.ok(change.inline_keyboard.flat().some(b=>b.url?.endsWith('action=clear')));
 });
+test('repeat message does not offer evaluation of a different origin as its own',()=>{
+  const m=renderKeyboard(view({review:{id:'r',submittedAt:null,revisionOpenedAt:null,originDeliveryId:'another-message'}}),urls);
+  assert.equal(m.inline_keyboard.at(-1)[0].text,'📝 Картка та історія');
+});
 test('conflicts and rejections are never described as success',()=>{
   assert.match(describeResult('hide',{status:'conflict',reason:'price_changed',contextPrice:200,currentPrice:180}),/200.*180/);
   assert.equal(describeResult('review_ack',{status:'noop'}),'Уже в роботі');

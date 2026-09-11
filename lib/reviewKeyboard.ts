@@ -85,7 +85,7 @@ export function urlButtons(markup: ReplyMarkup | null | undefined): InlineButton
 
 function withHistoryLabel(button: InlineButton, view: DeliveryView): InlineButton {
   if (!button.url?.includes('/zhezhemon/history')) return button;
-  const text = view.review ? (view.review.submittedAt && !(view.review.revisionOpenedAt &&
+  const text = view.review?.originDeliveryId===view.deliveryId ? (view.review.submittedAt && !(view.review.revisionOpenedAt &&
     view.review.revisionOpenedAt > view.review.submittedAt) ? '📝 Переглянути оцінку' : '📝 Оцінити')
     : '📝 Картка та історія';
   return { text, url: button.url };
