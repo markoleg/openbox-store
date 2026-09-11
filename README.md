@@ -74,3 +74,12 @@ mutation endpoints; do not use their dummy configuration in production.
 - `ITEM_PRESENCE_GRACE_SECONDS` — must match the tracker setting (default:
   `300`). It is passed to the transactional search-deletion RPC when choosing
   an active replacement owner for a listing.
+
+- `NEXT_PUBLIC_REVIEW_PIPELINE_ENABLED` — phase-2 rollout gate, default off.
+  Build with `true` **before** enabling the new tracker notification pipeline.
+  While enabled, `ItemsProvider` still updates catalog data in realtime but does
+  not produce the old INSERT/UPDATE toasts or sounds: these happen before getItem
+  and could announce an out-of-stock listing. Event-based contextual toasts are
+  part of phase 3, not implemented by this gate. This is a build-time variable;
+  changing it without rebuilding will not affect the browser bundle. The two
+  kanbans/navigation also remain a later phase. No production flags were changed.

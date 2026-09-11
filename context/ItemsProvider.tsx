@@ -6,6 +6,9 @@ import { toast } from "react-toastify";
 import { Ban } from 'lucide-react';
 import { HideButton, PauseButtons } from '@/components/ZheZhemon/HideControl/HideControl';
 
+// Phase 2 rollout gate: raw catalog writes happen BEFORE stock preflight.
+// Phase 3 replaces these legacy toasts with contextual notification events.
+const reviewPipelineEnabled = process.env.NEXT_PUBLIC_REVIEW_PIPELINE_ENABLED === 'true';
 
 export interface Item {
     id: number;
@@ -141,6 +144,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                 (payload) => {
                     const totalPrice = ((payload.new as Item).price + (payload.new as Item).shipping_cost).toFixed(2)
                     setItems((prev) => [payload.new as Item, ...prev])
+                    if (reviewPipelineEnabled) return;
                     const playNotificationSound = () => {
                         const audio = new Audio("/sounds/notification.mp3"); // шлях до файлу в public/
                         audio.play().catch(e => console.warn("Can't play sound:", e));
@@ -225,7 +229,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                     });
 
 
-                    if (oldPrice !== newPrice) {
+                    if (!reviewPipelineEnabled && oldPrice !== newPrice) {
                         toast.info(
                             <p>
                                 UPDATED:{" "}
