@@ -3,104 +3,33 @@ import { Item } from "@/context/ItemsProvider";
 import Image from "next/image";
 import Link from "next/link";
 import styles from "./FoundItems.module.css";
-import { Ban, HeartPlus, Star } from "lucide-react";
+import { Ban, HeartPlus, History, Star } from "lucide-react";
 import { HideButton, PauseButtons } from "@/components/ZheZhemon/HideControl/HideControl";
 import { describeHide } from "@/lib/hideActions";
-import { supabase } from "@/lib/SupaBaseClient";
-import { useState } from "react";
+import { useReviewAction } from "@/components/ZheZhemon/Review/useReviewAction";
+import type { ReviewTarget } from "@/lib/reviewClient";
 
-
-
+/**
+ * A catalog card. Every buyer action goes through the command API as an
+ * explicit intent (set_like true/false, ban in THIS search, hide/pause) and is
+ * journaled against the listing; the card has no notification context, so it
+ * never claims a reaction time for any Telegram message. The star is a link to
+ * the Sniper editor rather than a hidden toggle.
+ */
 export default function ItemCard({ item }: { item: Item }) {
-    const [snip, setSnip] = useState(item.favorite);
-
-    const itemId = item.id;
+    const target: ReviewTarget = { kind: 'listing', link: item.link, searchId: item.search_parameter_id };
+    const { run, pending } = useReviewAction(target);
     const totalPrice = parseFloat((item.price + item.shipping_cost).toFixed(2));
-    const handleLike = () => {
-        // update the liked status in the database
-        supabase
-            .from('items')
-            .update({ liked: !item.liked })
-            .eq('id', itemId)
-            .then(({ error }) => {
-                if (error) {
-                    console.error("Error updating item:", error);
-                } else {
-                    // Update the local state or refetch items if necessary
-                }
-            });
-    }
-    const handleBan = async () => {
-        // ask the user for confirmation before banning the item
-        const confirmBan = confirm("Are you sure you want to ban this item?");
+    const sniperHref = `/sniper?${new URLSearchParams({ link: item.link, hint: `${item.condition} [${item.seller_name}] ${item.title}` })}`;
+    const historyHref = `/zhezhemon/history?${new URLSearchParams({ link: item.link })}`;
 
-        if (!confirmBan) {
-            return;
-        }
-        try {
-            const { error: hideError } = await supabase
-                .from('items')
-                .update({ hidden: true })
-                .eq('id', itemId);
-
-            if (hideError) {
-                console.error("Error hiding item:", hideError);
-                return;
-            }
-
-            const { data: searchParamData, error: fetchError } = await supabase
-                .from('searchparameters')
-                .select('banned')
-                .eq('id', item.search_parameter_id)
-                .single();
-
-            if (fetchError) {
-                console.error("Error fetching search parameter:", fetchError);
-                return;
-            }
-
-            let bannedList: string[] = [];
-
-            if (searchParamData?.banned) {
-                bannedList = Array.isArray(searchParamData.banned)
-                    ? searchParamData.banned
-                    : [];
-            }
-
-            if (!bannedList.includes(item.link)) {
-                bannedList.push(item.link);
-            }
-
-            const { error: updateError } = await supabase
-                .from('searchparameters')
-                .update({ banned: bannedList })
-                .eq('id', item.search_parameter_id);
-
-            if (updateError) {
-                console.error("Error updating banned list:", updateError);
-            }
-        } catch (error) {
-            console.error("Unexpected error:", error);
-        }
+    const handleBan = () => {
+        if (!confirm("Забанити це оголошення в поточному пошуку?")) return;
+        run('ban');
     };
-    const handleFav = () => {
-        // update the fav status in the database in scraped_links table
-        supabase
-            .from('scraped_links')
-            .update({ favorite: !item.favorite })
-            .eq('link', item.link)
-            .then(({ error }) => {
-                if (error) {
-                    console.error("Error updating item:", error);
-                } else {
-                    // Update the local state or refetch items if necessary
-                    setSnip(!snip);
-                }
-            });
-    }
     if (!item) return null
     return (
-        <div className={`${styles.item_card} ${snip ? styles.sniper : ''}`}>
+        <div className={`${styles.item_card} ${item.favorite ? styles.sniper : ''}`}>
             <Link href={item.link} target="_blank" rel="noopener noreferrer">
                 <Image
                     src={item.image_url !== 'No image' ? item.image_url : '/images/placeholder.png'}
@@ -138,19 +67,22 @@ export default function ItemCard({ item }: { item: Item }) {
                 {item.count}
             </div>
             <div className={styles.btns_wrp}>
-                <button onClick={handleLike}>
+                <button onClick={() => run('set_like', { value: !item.liked })} disabled={!!pending} title={item.liked ? 'Зняти лайк' : 'Лайк'}>
                     <HeartPlus size={14}
                         style={{ fill: item.liked ? "red" : undefined }}
                     />
                 </button>
-                <HideButton link={item.link} hidden={item.hidden} />
-                <button onClick={handleBan}>
+                <HideButton target={target} hidden={item.hidden} />
+                <button onClick={handleBan} disabled={!!pending} title="Забанити в цьому пошуку">
                     <Ban size={14} color="red" />
                 </button>
-                <button onClick={handleFav}>
-                    <Star size={14} className={styles.item_fav} fill={snip ? 'yellow' : 'none'} />
-                </button>
-                <PauseButtons link={item.link} />
+                <Link href={sniperHref} title={item.favorite ? 'Sniper: редагувати спостереження' : 'Sniper: додати спостереження'}>
+                    <Star size={14} className={styles.item_fav} fill={item.favorite ? 'yellow' : 'none'} />
+                </Link>
+                <Link href={historyHref} title="Картка та історія">
+                    <History size={14} />
+                </Link>
+                <PauseButtons target={target} />
             </div>
         </div>
     )

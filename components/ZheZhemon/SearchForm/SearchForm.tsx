@@ -4,7 +4,8 @@ import { useTransition, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { useRealtimeSearches } from '@/hooks/useRealtimeSearches'
-import { updateSearch } from '@/actions/updateSearchAction'
+import { explainError, saveSearch } from '@/lib/reviewClient'
+import { searchConfigFromForm } from '@/lib/searchConfig'
 import styles from './SearchForm.module.css'
 import { Loader, Settings } from 'lucide-react'
 import { deleteSearch } from '@/actions/deleteSearchAction'
@@ -20,6 +21,10 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
     const [isPending, startTransition] = useTransition()
     const [moreAspects, setMoreAspects] = useState<{ key: string; value: string }[]>([])
     const [bannedLinks, setBannedLinks] = useState<string[]>([])
+    // What the server had when the list was loaded. Save sends only the
+    // difference, so a Ban made from Telegram meanwhile is never overwritten.
+    const [baselineBanned, setBaselineBanned] = useState<string[]>([])
+    const [baselineVersion, setBaselineVersion] = useState<number | null>(null)
 
     useEffect(() => {
         if (search?.more_aspects) {
@@ -31,10 +36,12 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
         }
     }, [search])
     useEffect(() => {
-        if (search?.banned) {
-            setBannedLinks(search.banned)
-        }
-    }, [search])
+        if (!search) return
+        const banned = search.banned ?? []
+        setBannedLinks(banned)
+        setBaselineBanned(banned)
+        setBaselineVersion(search.review_version ?? null)
+    }, [search?.id, search?.review_version]) // eslint-disable-line react-hooks/exhaustive-deps
     if (!search) return <Loader color='var(--primary)' className='loader' />
 
     const handleAddAspect = () => {
@@ -74,10 +81,33 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
             </h2>
             <form
                 action={(formData) => {
-                    bannedLinks.forEach((link, index) => {
-                        formData.append(`banned_link_${index}`, link)
+                    const edited = Array.from(new Set(bannedLinks.map(l => l.trim()).filter(Boolean)))
+                    const ban = edited.filter(l => !baselineBanned.includes(l))
+                    const unban = baselineBanned.filter(l => !edited.includes(l))
+                    startTransition(async () => {
+                        try {
+                            const result = await saveSearch({
+                                searchId: search.id, expectedVersion: baselineVersion,
+                                config: searchConfigFromForm(formData), ban, unban,
+                            })
+                            if (result.status === 'conflict' && result.current) {
+                                // Someone (Telegram, another tab) changed this search first.
+                                const current = result.current as { banned?: string[] | null; review_version?: number }
+                                setBannedLinks(current.banned ?? [])
+                                setBaselineBanned(current.banned ?? [])
+                                setBaselineVersion(current.review_version ?? null)
+                                toast.warn('Пошук уже змінено в іншому місці — список банів оновлено, перевір і збережи ще раз')
+                                return
+                            }
+                            if (result.status === 'rejected') { toast.error('Пошук видалено'); return }
+                            if (result.status === 'noop') { toast.info('Без змін'); return }
+                            setBaselineBanned(result.banned ?? edited)
+                            setBaselineVersion(result.reviewVersion ?? null)
+                            toast.success(`Збережено${result.reactions ? ` · банів/розбанів: ${result.reactions}` : ''}`)
+                        } catch (error) {
+                            toast.error(explainError(error))
+                        }
                     })
-                    startTransition(() => updateSearch(formData))
                 }}
                 className={styles.form}
             >
@@ -192,7 +222,7 @@ export default function SearchForm({ searchId }: { searchId: number | undefined 
                         startTransition(async () => {
                             // A search the database refuses to drop used to fail
                             // in the server log only, so the button looked dead.
-                            const { error } = await deleteSearch(search.id)
+                            const { error } = await deleteSearch(search.id, crypto.randomUUID())
                             if (error) {
                                 toast.error(`Can't delete this search: ${error}`)
                                 return

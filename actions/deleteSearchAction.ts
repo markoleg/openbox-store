@@ -1,31 +1,27 @@
 "use server";
 
-import { supabase } from "@/lib/SupaBaseClient";
+import { requireOwnerSession } from "@/lib/server/owner";
+import { deleteSearchConfiguration, reviewCommandsEnabled } from "@/lib/server/reviewCommands";
+import { isUuid } from "@/lib/reviewCommands";
 
-export async function deleteSearch(searchId: number) {
-	const graceSeconds = Number(
-		process.env.ITEM_PRESENCE_GRACE_SECONDS ?? "300"
-	);
+/**
+ * Deletes a search through the audited RPC (owner transfer inside). The
+ * commandId comes from the click so a retry is the same deletion.
+ */
+export async function deleteSearch(searchId: number, commandId: string): Promise<{ error: string | null }> {
+	try { await requireOwnerSession(); } catch { return { error: "Unauthorized" }; }
+	if (!reviewCommandsEnabled()) return { error: "Команди вимкнені на сервері" };
+	if (!Number.isInteger(searchId) || searchId <= 0 || !isUuid(commandId)) return { error: "Invalid request" };
+	const graceSeconds = Number(process.env.ITEM_PRESENCE_GRACE_SECONDS ?? "300");
 	if (!Number.isInteger(graceSeconds) || graceSeconds <= 0) {
 		return { error: "Invalid ITEM_PRESENCE_GRACE_SECONDS" };
 	}
-
-	const { data: deleted, error } = await supabase.rpc(
-		"delete_search_with_owner_transfer",
-		{
-			p_search_id: searchId,
-			p_presence_grace_seconds: graceSeconds,
-		}
-	);
-
-	if (error) {
-		console.error("Error deleting search:", error);
-		return { error: error.message };
+	try {
+		const result = await deleteSearchConfiguration(commandId, searchId, graceSeconds);
+		if (result?.status === "rejected") return { error: "Search not found" };
+		return { error: null };
+	} catch (e) {
+		console.error("Error deleting search:", e instanceof Error ? e.message : e);
+		return { error: "Не вдалося видалити пошук" };
 	}
-	if (!deleted) {
-		return { error: "Search not found" };
-	}
-
-	console.log("Search deleted successfully", searchId);
-	return { error: null };
 }

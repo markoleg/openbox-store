@@ -3,6 +3,7 @@
 import { useTransition, useState } from 'react'
 import styles from './SearchForm.module.css'
 import { SquarePlus } from 'lucide-react'
+import { toast } from 'react-toastify'
 import { addSearch } from '@/actions/addSearchAction'
 import { useRealtimeSearches } from '@/hooks/useRealtimeSearches'
 import FiltersFieldset from './FiltersFieldset'
@@ -59,7 +60,11 @@ export default function AddNewSearchForm() {
                     bannedLinks.forEach((link, index) => {
                         formData.append(`banned_link_${index}`, link)
                     })
-                    startTransition(() => addSearch(formData))
+                    startTransition(async () => {
+                        const { error } = await addSearch(formData)
+                        if (error) toast.error(error)
+                        else toast.success('Пошук створено')
+                    })
                 }}
                 className={styles.form}
             >

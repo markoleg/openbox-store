@@ -1,48 +1,15 @@
-import { NextRequest } from "next/server";
-import { supabase } from "@/lib/SupaBaseClient";
+import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * Legacy GET link from old Telegram messages. A GET must not change anything:
+ * it now leads to the authorized confirmation page, where the command is
+ * applied explicitly (and journaled) with a POST.
+ */
 export async function GET(req: NextRequest) {
-	const { searchParams } = new URL(req.url);
-	const link = searchParams.get("link");
-
-	if (!link) {
-		return new Response(JSON.stringify({ error: "Missing 'link' parameter" }), {
-			status: 400,
-			headers: { "Content-Type": "application/json" },
-		});
-	}
-
-	const { data, error } = await supabase
-		.from("items")
-		.update({ hidden: true })
-		.eq("link", link)
-		.select(); // this returns the updated rows
-
-	// hidden_until is cleared alongside: hiding here means "until it gets
-	// cheaper", so a deadline left over from a Telegram pause would quietly
-	// override that.
-	await supabase
-		.from("scraped_links")
-		.update({ hidden: true, hidden_until: null })
-		.eq("link", link);
-
-	if (error) {
-		console.error("Supabase update error:", error.message);
-		return new Response(JSON.stringify({ error: "Failed to hide item" }), {
-			status: 500,
-			headers: { "Content-Type": "application/json" },
-		});
-	}
-
-	if (!data || data.length === 0) {
-		return new Response(JSON.stringify({ error: "Item not found" }), {
-			status: 404,
-			headers: { "Content-Type": "application/json" },
-		});
-	}
-
-	return new Response(JSON.stringify({ message: "Item hidden successfully" }), {
-		status: 200,
-		headers: { "Content-Type": "application/json" },
-	});
+	const link = new URL(req.url).searchParams.get("link");
+	if (!link) return NextResponse.json({ error: "Missing 'link' parameter" }, { status: 400 });
+	const target = new URL("/zhezhemon/confirm", req.nextUrl.origin);
+	target.searchParams.set("action", "hide");
+	target.searchParams.set("link", link);
+	return NextResponse.redirect(target, 303);
 }

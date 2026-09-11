@@ -75,44 +75,71 @@ mutation endpoints; do not use their dummy configuration in production.
   `300`). It is passed to the transactional search-deletion RPC when choosing
   an active replacement owner for a listing.
 
-- `NEXT_PUBLIC_REVIEW_PIPELINE_ENABLED` — phase-2 rollout gate, default off.
-  Build with `true` **before** enabling the new tracker notification pipeline.
-  While enabled, `ItemsProvider` still updates catalog data in realtime but does
-  not produce the old INSERT/UPDATE toasts or sounds: these happen before getItem
-  and could announce an out-of-stock listing. Event-based contextual toasts are
-  part of phase 3, not implemented by this gate. This is a build-time variable;
-  changing it without rebuilding will not affect the browser bundle. The two
-  kanbans/navigation also remain a later phase. No production flags were changed.
+- `NEXT_PUBLIC_REVIEW_PIPELINE_ENABLED` — no longer read. Since phase 3b the
+  catalog toasts come only from `notification_toasts` (tracker events after stock
+  preflight); the old INSERT/UPDATE `items` toasts are gone. With the tracker's
+  pipeline disabled there are no toasts at all.
 
-## Review command API — phase 3a
+## Review command API — phases 3a/3b
 
-This backend foundation is **not yet wired to the catalog, Telegram, Sniper or
-SearchForm buttons**. Leave `REVIEW_COMMANDS_ENABLED` unset/false in production.
-Before controlled activation, apply tracker migrations 005–009 and configure
-`SUPABASE_SERVICE_ROLE_KEY` as a server-only secret (never `NEXT_PUBLIC_`). The
-server client is created only after authentication and the feature gate.
+Every buyer write in the dashboard now goes through the command core. The
+browser Supabase key can only read (catalog, Sniper list, realtime); migration
+010 in the tracker repository revokes its writes. Leave `REVIEW_COMMANDS_ENABLED`
+unset/false in production until the coordinated cutover; while it is off, the
+buttons report "Команди вимкнені" and never fall back to direct writes.
 
-- `POST /api/review/contexts` takes `{kind: "delivery" | "event" | "listing", target}`
-  and returns a pinned snapshot/context ID, observation time, scope and versions.
-  A listing target must already exist; it is not bound to the latest message.
-- `POST /api/review/commands` takes `{commandId, contextId, action, payload}`.
-  Reuse the UUID commandId only for a retry of that same request. After a conflict,
-  fetch/display current context and ask for a new explicit decision, not an automatic
-  replay against changed state. Successful commands also require refreshing context
-  before the next versioned decision.
-- Both routes independently verify the signed owner session, require the public
-  same-origin Host/Origin, validate payloads and fail closed when disabled or missing
-  server configuration. Actor/source/time are not accepted from the browser.
-  Database deadlock retries use the same command ID and perform no external send.
+Server configuration (server-only, never `NEXT_PUBLIC_`):
 
-`npm run test:review` checks the pure wire contract; `npm run test:session` checks
-the owner session. The local `tests/authSmoke.mjs` now checks review-route auth,
-forged-cookie, Origin and disabled-feature gates as well. Run that server with
-`REVIEW_COMMANDS_ENABLED=false` plus the dummy auth variables above; the smoke test
-does not execute procurement commands or contact eBay/Telegram.
+- `SUPABASE_SERVICE_ROLE_KEY` — the review client, created only after
+  authentication and the feature gate.
+- `REVIEW_COMMANDS_ENABLED=true` — enables `/api/review/*`, the Telegram review
+  callbacks and the search/Sniper commands.
+- `TELEGRAM_ALLOWED_USER_IDS` — comma-separated Telegram user ids allowed to
+  press procurement buttons (new `rv:` buttons and legacy `zb:`/`zh:`). Empty
+  means nobody: the webhook answers "Немає доступу". The sniper ACK and
+  ShopParser buttons are not affected.
+- `BOT_TOKEN` — also used to edit keyboards after dashboard commands.
 
-Remaining phase 3 work: connect all buttons to this service, add watch/search
-commands and Telegram context authorization/reconciliation, then remove old direct
-mutations and complete event-based toast/UI synchronization. The sniper ACK and
-ShopParser branches are unchanged. Do not interpret these new routes as a completed
-security cutover of the old endpoints or public database tables.
+Routes and actions:
+
+- `POST /api/review/contexts` — `{kind: "delivery" | "event" | "listing" |
+  "dispatch", target, searchId?, register?}`. `dispatch` is what Telegram URL
+  buttons carry (resolved to the confirmed delivery, else the event);
+  `searchId` scopes a listing ban/unban; `register` lets Sniper add a link the
+  tracker has never seen.
+- `POST /api/review/commands` — `{commandId, contextId, action, payload,
+  source?}` with `source` `dashboard` (default) or `dashboard_toast`. After an
+  applied command on an event/delivery context the origin message and its
+  main-chat siblings are re-rendered from the server projection; a failed edit
+  becomes a durable `telegram_ui_sync` job for the tracker.
+- `POST /api/review/searches` — search configuration save: `{commandId,
+  searchId, expectedVersion, config, ban, unban}`. Deltas only; a version
+  conflict returns the current state instead of overwriting a Telegram ban.
+- Server actions `addSearch` / `deleteSearch` use the audited create/delete RPCs.
+- `/api/hideItem` and `/api/banItem` (old GET links) no longer change anything:
+  they redirect to `/zhezhemon/confirm`, which applies the command with a POST.
+- `/zhezhemon/history?dispatch=|delivery=|event=|link=` — the persistent card:
+  messages, reactions, live state, manual outcome / correction / clear form for
+  an exact message context. The six-criteria training form belongs to the
+  boards phase; the card status is shown.
+- `/sniper?link=&hint=&ctx=` — Save/⚡/🗑 are `set_watch`/`remove_watch`
+  commands; with `ctx` a Save is a reaction to that exact message, and editing
+  the link to another listing drops the binding visibly.
+
+Telegram webhook: secret → `rv:` parse → buyer allowlist → the pressed message
+must be the recorded delivery of the dispatch on the button (an `unknown` send is
+reconciled by that proof) → command id derived from `callback_query.id` (a
+redelivered callback is the same fact) → the RPC's context/version checks →
+keyboard re-rendered from `review_delivery_view`. Menu buttons (Пауза…, Не
+встиг, Ще…, Змінити результат, Назад) change nothing. Conflicts are shown as
+alerts, never as success. Legacy `zb:`/`zh:` buttons apply `legacy_telegram`
+commands on the listing (delivery unknown); their keyboard changes only on success.
+
+`npm run test:review` checks the wire contract and keyboard rendering;
+`npm run test:session` the owner session. `tests/authSmoke.mjs` (local server
+with the dummy variables above, `REVIEW_COMMANDS_ENABLED=false`,
+`TELEGRAM_WEBHOOK_SECRET=local-smoke-webhook`, empty `BOT_TOKEN` and
+`TELEGRAM_ALLOWED_USER_IDS`) checks auth/origin/feature gates of the three
+review routes, the legacy redirects and the webhook gates without running a
+command or contacting Telegram.
+

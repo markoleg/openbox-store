@@ -178,3 +178,26 @@ button {
 		padding: 0.5rem;
 	} */
 }
+
+/* Review toast: text reason buttons, result line and links. */
+.custom-toast .toast_reasons button {
+	min-width: auto;
+	padding: 0 0.5rem;
+	font-size: 12px;
+	border-color: #cccc00;
+}
+.custom-toast .toast_result {
+	margin-top: 0.6rem;
+}
+.custom-toast .toast_links {
+	margin-top: 0.4rem;
+	font-size: 12px;
+}
+.custom-toast .toast_links a,
+.custom-toast .toast_result a {
+	color: var(--primary);
+	text-decoration: underline;
+}
+.custom-toast .toast_actions button.acked {
+	border-color: #00d084;
+}

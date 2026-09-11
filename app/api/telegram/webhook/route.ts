@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/SupaBaseClient";
+import { PAUSE_DAYS, type ReviewAction, type ReviewPayload } from "@/lib/reviewCommands";
+import { describeResult, parseReviewCallback, type Menu, type ReviewCallback } from "@/lib/reviewKeyboard";
+import {
+	applyReviewCommand, deliveryForMessage, deliveryView, issueReviewContext, reconcileUnknownDelivery,
+	reviewCommandsEnabled,
+} from "@/lib/server/reviewCommands";
+import { botId, callTelegram, commandIdForCallback, syncDeliveryKeyboard, syncEventKeyboards } from "@/lib/server/telegram";
 
 // Telegram webhook. The tracker on Fly only sends messages — acknowledging a
 // super sniper alert lands here, and the tracker reads the flag when its timer
@@ -13,17 +20,12 @@ const DONE_LABEL = "✅ Опрацьовано";
 const SHOP_BAN = "sb:";
 const SHOP_HIDE = "sh:";
 
-// zhezhemon buttons: "zb:<searchId>:<itemId>" / "zh:<itemId>". The eBay listing
-// id travels rather than the link — it stays short whatever eBay does to its URL
-// format, and all 3.5k stored links map to a distinct one.
+// Legacy zhezhemon buttons (messages sent before the review pipeline):
+// "zb:<searchId>:<itemId>" / "zh:<itemId>[:<days>]". They still work, but as
+// journaled commands with source=legacy_telegram and no delivery: the message
+// they sit on was never recorded, so nothing is guessed about it.
 const ZHE_BAN = "zb:";
 const ZHE_HIDE = "zh:";
-
-// Hiding has two modes. Plain "zh:<itemId>" keeps the original one - the lot
-// returns once it drops below the price it was hidden at. "zh:<itemId>:<days>"
-// pauses it instead: the price stops mattering and it returns when the deadline
-// passes. Mirrors PAUSE_CHOICES in the tracker's hiding.py.
-const PAUSE_DAYS = [1, 3, 5, 7];
 
 /** Resolve an eBay listing id back to the stored link. */
 async function linkForItemId(itemId: string): Promise<string | null> {
@@ -36,40 +38,21 @@ async function linkForItemId(itemId: string): Promise<string | null> {
 	return data?.link ?? null;
 }
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
-async function callTelegram(method: string, payload: unknown) {
-	try {
-		const res = await fetch(
-			`https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
-			}
-		);
-		if (!res.ok) {
-			console.error(`Telegram ${method} failed (${res.status}):`, await res.text());
-		}
-	} catch (e) {
-		console.error(`Telegram ${method} error:`, e);
-	}
+/** Only the configured buyer may issue procurement commands. Fails closed. */
+function allowedUser(userId: unknown): boolean {
+	const users = (process.env.TELEGRAM_ALLOWED_USER_IDS ?? "").split(",").map(s => s.trim()).filter(Boolean);
+	return users.length > 0 && users.includes(String(userId));
 }
 
 type InlineButton = { text?: string; url?: string; callback_data?: string };
 type ReplyMarkup = { inline_keyboard?: InlineButton[][] };
 
 /**
- * The keyboard a message keeps once its action button has been pressed: the first
- * row collapses to the outcome plus whatever URL buttons it held, and every row
- * below survives as-is (that is where Balances lives).
- *
- * `extraRows` go directly beneath the action row, and `keepPressed` decides
- * which callback buttons survive alongside the outcome. Hiding a zhezhemon lot
- * uses both: the pause durations appear, and Ban stays reachable, because
- * banning is a decision about the search that is not settled by hiding one lot
- * - and after a 7 day pause the next notification about it is a week away.
+ * The keyboard a legacy message keeps once its action button has been pressed:
+ * the first row collapses to the outcome plus whatever URL buttons it held,
+ * and every row below survives as-is (that is where Balances lives).
  */
 function keyboardAfterAction(
 	markup: ReplyMarkup | undefined,
@@ -86,10 +69,6 @@ function keyboardAfterAction(
 				b.callback_data !== DONE_DATA &&
 				!b.callback_data.startsWith(options.keepPressed))
 	);
-	// Pressing a duration re-enters this with a keyboard that already carries an
-	// outcome label and a pause row. Both are dropped and rebuilt, or the action
-	// row would collect a stale "Сховано" beside the new label and the durations
-	// would appear twice.
 	const rest = rows.slice(1).filter((row) => !isPauseRow(row));
 	return [
 		[{ text: label, callback_data: DONE_DATA }, ...kept],
@@ -111,7 +90,7 @@ function isPauseRow(row: InlineButton[]): boolean {
 	);
 }
 
-/** The row of pause durations offered right after a lot is hidden. */
+/** The row of pause durations offered right after a legacy lot is hidden. */
 function pauseRow(itemId: string): InlineButton[] {
 	return PAUSE_DAYS.map((days) => ({
 		text: `⏸️ ${days}д`,
@@ -174,78 +153,123 @@ async function handleShopAction(data: string): Promise<string> {
 	return "🙈 Сховано";
 }
 
-/** Ban or hide an eBay listing from its notification. Returns the toast text. */
-async function handleZheAction(data: string): Promise<string> {
+/**
+ * Legacy Ban/Hide from a message sent before the review pipeline. Applied as an
+ * explicit command on the listing (source=legacy_telegram, delivery NULL).
+ * Returns the toast text; errors are never reported as success.
+ */
+async function handleLegacyZheAction(data: string, commandId: string): Promise<string> {
 	const isBan = data.startsWith(ZHE_BAN);
 	const parts = data.slice(3).split(":");
 	const itemId = isBan ? parts[1] : parts[0];
 	const searchId = isBan ? Number(parts[0]) : null;
-	// Only values this webhook itself put on a button are honoured; anything
-	// else falls back to a plain hide rather than pausing for an odd stretch.
-	const pauseDays =
-		!isBan && PAUSE_DAYS.includes(Number(parts[1])) ? Number(parts[1]) : null;
-	if (!itemId || (isBan && !Number.isInteger(searchId))) {
+	const pauseDays = !isBan && (PAUSE_DAYS as readonly number[]).includes(Number(parts[1])) ? Number(parts[1]) : null;
+	if (!itemId || !/^[0-9]+$/.test(itemId) || (isBan && !Number.isInteger(searchId))) {
 		return "Некоректна кнопка";
 	}
-
+	if (!reviewCommandsEnabled()) return "Команди вимкнені";
 	const link = await linkForItemId(itemId);
-	if (!link) {
-		return "Товар не знайдено";
-	}
-
-	// Both actions take it out of the dashboard listing straight away.
-	const { error: hideErr } = await supabase
-		.from("items")
-		.update({ hidden: true })
-		.eq("link", link);
-	if (hideErr) {
-		console.error("Error hiding item:", hideErr.message);
-		return isBan ? "Не вдалося забанити" : "Не вдалося сховати";
-	}
-
-	if (!isBan) {
-		// hidden_until is always written, null included: pressing plain Hide after
-		// a pause has to clear the old deadline, or the lot would keep the pause
-		// it was meant to replace.
-		const hiddenUntil = pauseDays
-			? new Date(Date.now() + pauseDays * 24 * 60 * 60 * 1000).toISOString()
-			: null;
-		const { error } = await supabase
-			.from("scraped_links")
-			.update({ hidden: true, hidden_until: hiddenUntil })
-			.eq("link", link);
-		if (error) {
-			console.error("Error hiding scraped_link:", error.message);
-			return "Не вдалося сховати";
+	if (!link) return "Товар не знайдено";
+	try {
+		const context = await issueReviewContext({ kind: "listing", target: link, ...(isBan ? { searchId: searchId! } : {}) });
+		const action: ReviewAction = isBan ? "ban" : pauseDays ? "pause" : "hide";
+		const payload: ReviewPayload = pauseDays ? { days: pauseDays } : {};
+		const result = await applyReviewCommand({ commandId, contextId: context.id, action, payload }, "legacy_telegram");
+		if (result.status === "applied" || result.status === "noop") {
+			return isBan ? "🚫 Забанено" : pauseDays ? `⏸️ Пауза ${pauseDays}д` : "🙈 Сховано";
 		}
-		return pauseDays ? `⏸️ Пауза ${pauseDays}д` : "🙈 Сховано";
+		if (result.reason === "price_changed") return `Ціна змінилась ($${result.contextPrice} → $${result.currentPrice}) — сховай з дашборда`;
+		if (result.reason === "search_changed_or_deleted") return "Пошук змінено або видалено";
+		if (result.reason === "price_unknown") return "Ціна невідома — сховай з дашборда";
+		return "Не виконано: стан уже змінено";
+	} catch (error) {
+		const invalid = error instanceof Error && error.message === "invalid_review_request";
+		return isBan ? (invalid ? "Пошук не знайдено" : "Не вдалося забанити") : "Не вдалося сховати";
 	}
+}
 
-	// Ban is per search: the link goes into that search's banned list, so the
-	// tracker skips it on every later cycle.
-	const { data: search, error: fetchErr } = await supabase
-		.from("searchparameters")
-		.select("banned")
-		.eq("id", searchId)
-		.maybeSingle();
-	if (fetchErr || !search) {
-		console.error("Error fetching search", searchId, fetchErr?.message);
-		return "Пошук не знайдено";
-	}
+const outcomeCodes: Record<string, string> = { bought: "bought", would_hide: "would_hide" };
 
-	const banned: string[] = Array.isArray(search.banned) ? search.banned : [];
-	if (!banned.includes(link)) {
-		banned.push(link);
+/** Which command a review button stands for; menu buttons return null. */
+function commandFor(cb: ReviewCallback): { action: ReviewAction; payload: ReviewPayload } | null {
+	switch (cb.code) {
+		case "ack": return { action: "review_ack", payload: {} };
+		case "bought": return { action: "set_outcome", payload: { value: "bought" } };
+		case "hide": return { action: "hide", payload: {} };
+		case "ban": return { action: "ban", payload: {} };
+		case "unhide": return { action: "unhide", payload: {} };
+		case "unban": return { action: "unban", payload: {} };
+		case "whide": return { action: "set_outcome", payload: { value: "would_hide" } };
+		case "pause": {
+			const days = Number(cb.arg);
+			return (PAUSE_DAYS as readonly number[]).includes(days) ? { action: "pause", payload: { days } } : null;
+		}
+		case "missed":
+			return ["sold_out", "price_changed", "limit_or_funds", "other"].includes(cb.arg ?? "")
+				? { action: "set_outcome", payload: { value: "would_buy_missed", reason: cb.arg! } } : null;
+		case "chg":
+			return outcomeCodes[cb.arg ?? ""] ? { action: "set_outcome", payload: { value: outcomeCodes[cb.arg!] } } : null;
+		default: return null;
 	}
-	const { error: updErr } = await supabase
-		.from("searchparameters")
-		.update({ banned })
-		.eq("id", searchId);
-	if (updErr) {
-		console.error("Error updating banned list:", updErr.message);
-		return "Не вдалося забанити";
+}
+const menuFor: Partial<Record<ReviewCallback["code"], Menu>> = { pausem: "pause", missedm: "missed", more: "more", chgm: "change", back: "root", noop: "root" };
+
+type CallbackQuery = {
+	id: string; data?: string; from?: { id?: number };
+	message?: { message_id?: number; date?: number; chat?: { id?: number }; reply_markup?: ReplyMarkup };
+};
+
+/**
+ * A review-pipeline button. Order: secret (done by caller) → buyer allowlist →
+ * the pressed message must be the delivery of the dispatch on the button
+ * (an unknown send is reconciled by this proof) → dedup by callback id →
+ * context/version checks inside the RPC → keyboard re-rendered from the
+ * committed projection. Menus change nothing.
+ */
+async function handleReviewCallback(query: CallbackQuery, cb: ReviewCallback): Promise<void> {
+	const answer = (text?: string, alert = false) =>
+		callTelegram("answerCallbackQuery", { callback_query_id: query.id, ...(text ? { text, show_alert: alert } : {}) });
+	const bot = botId();
+	const chat = Number(query.message?.chat?.id);
+	const messageId = Number(query.message?.message_id);
+	if (!bot || !Number.isSafeInteger(chat) || !Number.isSafeInteger(messageId)) { await answer("Некоректна кнопка"); return; }
+	if (!allowedUser(query.from?.id)) { await answer("Немає доступу", true); return; }
+	if (!reviewCommandsEnabled()) { await answer("Команди вимкнені", true); return; }
+
+	let delivery = await deliveryForMessage(bot, chat, messageId);
+	if (!delivery) {
+		// The message exists (it was just pressed). If its send was unknown, this
+		// is the proof that reconciles it — for this dispatch in this chat only.
+		const sentAt = new Date((Number(query.message?.date) || Math.floor(Date.now() / 1000)) * 1000);
+		const reconciled = await reconcileUnknownDelivery(cb.dispatchId, bot, chat, messageId, sentAt).catch(() => null);
+		if (reconciled?.deliveryId) delivery = await deliveryForMessage(bot, chat, messageId);
+		if (!delivery) { await answer("Повідомлення не в журналі — відкрий картку з дашборда", true); return; }
 	}
-	return "🚫 Забанено";
+	if (delivery.dispatch_id !== cb.dispatchId) { await answer("Кнопка не від цього повідомлення", true); return; }
+
+	const menu = menuFor[cb.code];
+	if (menu) {
+		await answer();
+		await syncDeliveryKeyboard(delivery.id, menu);
+		return;
+	}
+	const command = commandFor(cb);
+	if (!command) { await answer("Некоректна кнопка"); return; }
+	try {
+		const context = await issueReviewContext({ kind: "delivery", target: delivery.id });
+		const result = await applyReviewCommand({
+			commandId: await commandIdForCallback(bot, query.id), contextId: context.id,
+			action: command.action, payload: command.payload,
+		}, "telegram");
+		const view = await deliveryView(delivery.id);
+		await answer(describeResult(command.action, result, view), result.status === "conflict" || result.status === "rejected");
+		// Commit is the source of truth; the message and its main-chat siblings
+		// follow it. A failed edit becomes a durable review_jobs retry.
+		await syncEventKeyboards(delivery.event_id);
+	} catch (error) {
+		console.error("Review callback failed:", error instanceof Error ? error.message : error);
+		await answer("Не вдалося виконати — спробуй ще раз або з дашборда", true);
+	}
 }
 
 export async function POST(req: NextRequest) {
@@ -264,7 +288,7 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ ok: true });
 	}
 
-	const query = update?.callback_query;
+	const query: CallbackQuery | undefined = update?.callback_query;
 	if (!query) {
 		return NextResponse.json({ ok: true });
 	}
@@ -275,32 +299,41 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ ok: true });
 	}
 
+	const review = parseReviewCallback(query.data);
+	if (review) {
+		await handleReviewCallback(query, review);
+		return NextResponse.json({ ok: true });
+	}
+
 	const isShop = query.data?.startsWith(SHOP_BAN) || query.data?.startsWith(SHOP_HIDE);
 	const isZhe = query.data?.startsWith(ZHE_BAN) || query.data?.startsWith(ZHE_HIDE);
 	if (isShop || isZhe) {
-		const label = isShop
-			? await handleShopAction(query.data)
-			: await handleZheAction(query.data);
+		let label: string;
+		if (isShop) {
+			label = await handleShopAction(query.data!);
+		} else if (!allowedUser(query.from?.id)) {
+			label = "Немає доступу";
+		} else {
+			const bot = botId();
+			label = bot ? await handleLegacyZheAction(query.data!, await commandIdForCallback(bot, query.id)) : "Бот не налаштований";
+		}
+		const succeeded = /^(🚫|🙈|⏸️)/.test(label);
 
-		// Hiding a zhezhemon lot leaves the message usable: the pause durations
-		// appear below, and Ban stays put. Banning settles the matter, so it
-		// keeps the original behaviour of collapsing the row.
-		const isZheHide = !isShop && query.data.startsWith(ZHE_HIDE);
-		const hiddenItemId = isZheHide ? query.data.slice(3).split(":")[0] : "";
+		// Hiding a legacy zhezhemon lot leaves the message usable: the pause
+		// durations appear below, and Ban stays put. Banning settles the matter.
+		const isZheHide = !isShop && query.data!.startsWith(ZHE_HIDE);
+		const hiddenItemId = isZheHide ? query.data!.slice(3).split(":")[0] : "";
 		const keyboardOptions = isZheHide
 			? { extraRows: [pauseRow(hiddenItemId)], keepPressed: ZHE_HIDE }
 			: {};
 		await callTelegram("answerCallbackQuery", {
 			callback_query_id: query.id,
 			text: label,
+			show_alert: !succeeded,
 		});
-		// Replace the buttons with what actually happened, so the message shows its
-		// own state — previously there was no way to tell it had been acted on.
-		// URL buttons are kept: Sniper still leads to the form where a target price
-		// is set, and Balances still answers what could pay for it — neither is made
-		// pointless by banning. Rows below the first are kept as their own rows, so
-		// the Balances row does not get folded into the action row or dropped.
-		if (query.message?.message_id) {
+		// Only what actually happened is written onto the message: a failure
+		// leaves the buttons as they were, so it can be pressed again.
+		if (succeeded && query.message?.message_id) {
 			await callTelegram("editMessageReplyMarkup", {
 				chat_id: query.message.chat?.id,
 				message_id: query.message.message_id,
@@ -321,6 +354,8 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ ok: true });
 	}
 
+	// Legacy super-sniper ACK: unchanged mechanism (call window), not a review
+	// reaction. It stays on the browser key's table and never touches the journal.
 	const { data: window, error } = await supabase
 		.from("sniper_ack")
 		.update({ acked_at: new Date().toISOString() })
@@ -346,9 +381,6 @@ export async function POST(req: NextRequest) {
 		? [query.message.message_id]
 		: [];
 
-	// Only the pressed message comes with its keyboard, so only it can keep the rows
-	// below the acknowledge button (Balances, whose link is per-message). The rest of
-	// the window is marked done and loses theirs — the alert is being handled anyway.
 	for (const messageId of messageIds) {
 		const isPressedMessage = messageId === query.message?.message_id;
 		await callTelegram("editMessageReplyMarkup", {

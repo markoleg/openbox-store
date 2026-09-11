@@ -1,18 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
-import { PAUSE_DAYS, hideUntilCheaper, pauseFor, unhide } from '@/lib/hideActions'
+import { Eye, EyeOff, Loader } from 'lucide-react'
+import { PAUSE_DAYS } from '@/lib/reviewCommands'
+import type { ReviewAction, ReviewCommandResult, ReviewSource } from '@/lib/reviewCommands'
+import type { ReviewTarget } from '@/lib/reviewClient'
+import { useReviewAction } from '@/components/ZheZhemon/Review/useReviewAction'
 import styles from './HideControl.module.css'
 
 /**
  * Hiding, as buttons that each do their whole job in one tap.
  *
- * That is the point of the shape. Hiding a lot drops it out of the list at
- * once, so anything needing a second tap on the same card is unreachable: an
- * earlier version hid on the first tap and offered the durations afterwards,
- * on a card that had already gone. Every button here completes an intent, and
- * what happens to the card next stops mattering.
+ * Every button completes one explicit intent (hide / unhide / pause N days)
+ * through the command API. Nothing is toggled optimistically: the icon only
+ * changes when the server projection comes back through realtime, and an
+ * error leaves the card exactly as it was.
  *
  * The pair is exported separately so each caller can place them itself - the
  * card puts the durations on their own row of the strip, the toast on its own
@@ -20,35 +21,37 @@ import styles from './HideControl.module.css'
  */
 
 /** Hide until it gets cheaper, or bring it back. */
-export function HideButton({ link, hidden }: { link: string; hidden: boolean }) {
-    // A toast never gets fresh props, so it tracks the flag itself; a card does,
-    // hence the sync.
-    const [isHidden, setIsHidden] = useState(hidden)
-    useEffect(() => setIsHidden(hidden), [hidden])
+type Feedback = { onResult?: (action: ReviewAction, result: ReviewCommandResult) => void }
 
+export function HideButton({ target, hidden, source = 'dashboard', onResult }:
+    { target: ReviewTarget; hidden: boolean; source?: ReviewSource } & Feedback) {
+    const { run, pending } = useReviewAction(target, source)
+    const busy = pending === 'hide' || pending === 'unhide'
+    const action: ReviewAction = hidden ? 'unhide' : 'hide'
     return (
         <button
             className={styles.btn}
-            onClick={() => {
-                setIsHidden(!isHidden)
-                isHidden ? unhide(link) : hideUntilCheaper(link)
-            }}
-            title={isHidden ? 'Показати знову' : 'Сховати, поки не подешевшає'}
+            disabled={!!pending}
+            onClick={() => run(action).then(result => result && onResult?.(action, result))}
+            title={hidden ? 'Показати знову' : 'Сховати, поки не подешевшає'}
         >
-            {isHidden ? <Eye size={14} color="yellow" /> : <EyeOff size={14} color="yellow" />}
+            {busy ? <Loader size={14} color="yellow" /> : hidden ? <Eye size={14} color="yellow" /> : <EyeOff size={14} color="yellow" />}
         </button>
     )
 }
 
 /** Set aside for a fixed stretch, whatever the price does meanwhile. */
-export function PauseButtons({ link }: { link: string }) {
+export function PauseButtons({ target, source = 'dashboard', onResult }:
+    { target: ReviewTarget; source?: ReviewSource } & Feedback) {
+    const { run, pending } = useReviewAction(target, source)
     return (
         <>
             {PAUSE_DAYS.map((days) => (
                 <button
                     key={days}
                     className={`${styles.btn} ${styles.pause}`}
-                    onClick={() => pauseFor(link, days)}
+                    disabled={!!pending}
+                    onClick={() => run('pause', { days }).then(result => result && onResult?.('pause', result))}
                     title={`Пауза на ${days} дн. — повернеться за розкладом, хоч би що сталося з ціною`}
                 >
                     {days}д

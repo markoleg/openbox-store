@@ -93,3 +93,22 @@
 		grid-template-columns: auto;
 	}
 }
+
+.sniper_note {
+	margin-top: 0.5rem;
+	font-size: 0.9em;
+	opacity: 0.9;
+}
+.sniper_error {
+	grid-column: 1 / -1;
+	color: salmon;
+	font-size: 0.9em;
+}
+.sniper_form label input[type="checkbox"] {
+	flex: none;
+	width: auto;
+}
+.sniper_item_header a.sniper_button {
+	display: flex;
+	align-items: center;
+}

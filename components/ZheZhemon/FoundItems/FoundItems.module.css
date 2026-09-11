@@ -99,24 +99,36 @@
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	grid-auto-flow: column;
-	grid-template-rows: repeat(4, 1fr);
+	grid-template-rows: repeat(5, 1fr);
 	margin: -5px -5px -5px auto;
 	width: 80px;
 	flex-shrink: 0;
 }
-.btns_wrp button {
+.btns_wrp button,
+.btns_wrp a {
 	transform: translatex(90px);
 	width: 100%;
 	height: 100%;
 	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform 0.2s, background-color 0.2s;
 }
-.btns_wrp button:hover {
+.btns_wrp button:disabled {
+	opacity: 0.5;
+	cursor: wait;
+}
+.btns_wrp button:hover,
+.btns_wrp a:hover {
 	background-color: var(--bg-gray-o70);
 }
-.btns_wrp button:hover svg {
+.btns_wrp button:hover svg,
+.btns_wrp a:hover svg {
 	transform: scale(1.2);
 }
-.item_card:hover .btns_wrp button {
+.item_card:hover .btns_wrp button,
+.item_card:hover .btns_wrp a {
 	transform: translatex(0px);
 }
 
@@ -192,14 +204,15 @@
 		font-size: 1rem;
 	}
 	.btns_wrp {
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(5, 1fr);
 		grid-template-rows: repeat(2, auto);
 		grid-auto-flow: row;
 		width: 100%;
 		margin: 0;
 		grid-column: 1/-1;
 	}
-	.btns_wrp button {
+	.btns_wrp button,
+	.btns_wrp a {
 		padding: 0.5rem 0;
 		transform: translatex(0px);
 	}

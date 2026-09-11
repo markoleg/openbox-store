@@ -1,0 +1,80 @@
+.card {
+	display: grid;
+	gap: 1rem;
+	max-width: 900px;
+}
+.card h1 {
+	font-size: 1.3rem;
+	word-break: break-word;
+}
+.card section {
+	padding: 0.75rem;
+	border: 1px solid var(--primary-o30);
+	border-radius: var(--br-m);
+	background-color: var(--bg-gray-o30);
+}
+.card section h2 {
+	font-size: 1rem;
+	margin-bottom: 0.5rem;
+}
+.card table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.85rem;
+}
+.card td,
+.card th {
+	padding: 0.3rem 0.4rem;
+	border-bottom: 1px solid var(--primary-o30);
+	text-align: left;
+	vertical-align: top;
+}
+.current {
+	background-color: var(--primary-o30);
+}
+.muted {
+	opacity: 0.7;
+}
+.outcome_form {
+	display: grid;
+	gap: 0.6rem;
+	margin-top: 0.5rem;
+}
+.outcome_form .row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: center;
+}
+.outcome_form label {
+	display: inline-flex;
+	gap: 0.3rem;
+	align-items: center;
+	cursor: pointer;
+}
+.outcome_form textarea {
+	width: 100%;
+	padding: 0.5rem;
+	border-radius: var(--br-s);
+	border: 1px solid var(--primary-o30);
+	background-color: var(--bg-gray-o50);
+	color: var(--foreground);
+	font: inherit;
+}
+.outcome_form button,
+.card .action {
+	padding: 0.45rem 0.9rem;
+	border-radius: var(--br-s);
+	border: 1px solid var(--primary-o30);
+	background-color: var(--bg-gray-o50);
+	color: var(--foreground);
+	cursor: pointer;
+	width: fit-content;
+}
+.outcome_form button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.outcome_form button:hover:not(:disabled) {
+	box-shadow: 0 0 10px var(--primary-o30);
+}

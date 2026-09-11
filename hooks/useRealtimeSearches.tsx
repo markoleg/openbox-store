@@ -19,6 +19,7 @@ export interface Search {
 	seller: string;
 	more_aspects: string[];
 	filters: SearchFilters | null;
+	review_version?: number;
 }
 
 export function useRealtimeSearches(searchId?: number) {
