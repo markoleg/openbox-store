@@ -83,3 +83,36 @@ mutation endpoints; do not use their dummy configuration in production.
   part of phase 3, not implemented by this gate. This is a build-time variable;
   changing it without rebuilding will not affect the browser bundle. The two
   kanbans/navigation also remain a later phase. No production flags were changed.
+
+## Review command API — phase 3a
+
+This backend foundation is **not yet wired to the catalog, Telegram, Sniper or
+SearchForm buttons**. Leave `REVIEW_COMMANDS_ENABLED` unset/false in production.
+Before controlled activation, apply tracker migrations 005–009 and configure
+`SUPABASE_SERVICE_ROLE_KEY` as a server-only secret (never `NEXT_PUBLIC_`). The
+server client is created only after authentication and the feature gate.
+
+- `POST /api/review/contexts` takes `{kind: "delivery" | "event" | "listing", target}`
+  and returns a pinned snapshot/context ID, observation time, scope and versions.
+  A listing target must already exist; it is not bound to the latest message.
+- `POST /api/review/commands` takes `{commandId, contextId, action, payload}`.
+  Reuse the UUID commandId only for a retry of that same request. After a conflict,
+  fetch/display current context and ask for a new explicit decision, not an automatic
+  replay against changed state. Successful commands also require refreshing context
+  before the next versioned decision.
+- Both routes independently verify the signed owner session, require the public
+  same-origin Host/Origin, validate payloads and fail closed when disabled or missing
+  server configuration. Actor/source/time are not accepted from the browser.
+  Database deadlock retries use the same command ID and perform no external send.
+
+`npm run test:review` checks the pure wire contract; `npm run test:session` checks
+the owner session. The local `tests/authSmoke.mjs` now checks review-route auth,
+forged-cookie, Origin and disabled-feature gates as well. Run that server with
+`REVIEW_COMMANDS_ENABLED=false` plus the dummy auth variables above; the smoke test
+does not execute procurement commands or contact eBay/Telegram.
+
+Remaining phase 3 work: connect all buttons to this service, add watch/search
+commands and Telegram context authorization/reconciliation, then remove old direct
+mutations and complete event-based toast/UI synchronization. The sniper ACK and
+ShopParser branches are unchanged. Do not interpret these new routes as a completed
+security cutover of the old endpoints or public database tables.

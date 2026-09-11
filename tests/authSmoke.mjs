@@ -25,8 +25,18 @@ assert.match(cookie, /SameSite=strict/i);
 assert.doesNotMatch(cookie, /=true[;]/);
 const page = await fetch(base + path, { redirect: 'manual', headers: { cookie: cookie.split(';')[0] } });
 assert.equal(page.status, 200);
+// Start this server with REVIEW_COMMANDS_ENABLED=false. These requests prove
+// auth/origin/feature gates without running a command RPC or contacting eBay.
+for (const endpoint of ['/api/review/contexts','/api/review/commands']) {
+  const post = headers => fetch(base + endpoint, {method:'POST',headers,
+    body:JSON.stringify({})});
+  assert.equal((await post({origin:base})).status,401);
+  assert.equal((await post({origin:base,cookie:'local_smoke_owner=true'})).status,401);
+  assert.equal((await post({origin:'https://evil.example',cookie:cookie.split(';')[0]})).status,403);
+  assert.equal((await post({origin:base,cookie:cookie.split(';')[0]})).status,503);
+}
 const logout = await fetch(base + '/api/logout', { method: 'POST', headers: { origin: base } });
 assert.equal(logout.status, 200);
 assert.match(logout.headers.get('set-cookie'), /Max-Age=0/i);
 assert.equal((await fetch(base + '/api/logout')).status, 405);
-console.log('Auth HTTP smoke passed: redirect, forged cookie, password, origin, signed cookie, protected page, logout.');
+console.log('Auth HTTP smoke passed: session, origin, protected page, review API gates, logout.');

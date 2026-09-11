@@ -4,6 +4,7 @@
 	"private": true,
 	"scripts": {
 		"test:session": "node --test tests/ownerSession.test.mjs",
+		"test:review": "node --test tests/reviewCommands.test.mjs",
 		"dev": "next dev --turbopack",
 		"devs": "next dev",
 		"build": "next build",
