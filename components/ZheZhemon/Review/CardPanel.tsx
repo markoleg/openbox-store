@@ -10,6 +10,7 @@ import { applyCommand, issueContext, explainError, explainResult } from '@/lib/r
 import { PAUSE_DAYS, tokenFromDispatchId, type ReviewContext, type ReviewAction, type ReviewPayload, type ReviewCommandResult } from '@/lib/reviewCommands'
 import OutcomeForm from './OutcomeForm'
 import AssessmentForm from './AssessmentForm'
+import ReactionHistory from './ReactionHistory'
 import styles from './Boards.module.css'
 
 function safePhoto(url:string) {try {const u=new URL(url);return u.protocol==='https:' && (u.hostname==='ebayimg.com'||u.hostname.endsWith('.ebayimg.com'))}catch{return false}}
@@ -130,7 +131,7 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
                     <div className={styles.tableScroll}><table><thead><tr><th>Час</th><th>Чат</th><th>Перейти</th></tr></thead><tbody>{data.history.deliveries.map(d=><tr key={d.id}><td>{dateLabel(d.telegram_sent_at)}</td><td>{d.channel}</td><td><button disabled={d.id===data.card.delivery_id && board==='notifications'} onClick={()=>navigate('notifications',d.id)}>Повідомлення</button></td></tr>)}</tbody></table></div>
                     <Link href={`/zhezhemon/processing?${new URLSearchParams({tab:'notifications','notifications.link':data.card.link})}`}>Усі повідомлення цього лінка</Link>
                 </section>
-                <section><h3>Останні дії (до 200)</h3><div className={styles.tableScroll}><table><thead><tr><th>Коли</th><th>Дія / результат</th><th>Контекст</th></tr></thead><tbody>{data.history.reactions.map(r=><tr key={r.id}><td>{dateLabel(r.received_at)}</td><td>{r.action}{r.outcome?' · '+outcomeLabels[r.outcome]:''}<p>{r.note}</p></td><td>{r.delivery_id?'повідомлення':r.event_id?'подія':'загалом'} · {r.source}</td></tr>)}</tbody></table></div></section>
+                <ReactionHistory key={`${data.card.link}-${refresh}`} link={data.card.link}/>
             </>}
         </div>
     </div>

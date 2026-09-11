@@ -28,6 +28,7 @@ async function fixtures(page:any) {
   await page.route('**/api/review/contexts',async(route:any)=>route.fulfill({json:{id,kind:'delivery',link,delivery_id:delivery,event_id:id,listing_version:0,result_version:0,snapshot_id:id,live:{listing_version:0}}}));
   await page.route('**/api/review/commands',async(route:any)=>{commands.push(route.request().postDataJSON());await route.fulfill({json:{status:'applied'}});});
   await page.route('**/api/review/assessments',async(route:any)=>{commands.push(route.request().postDataJSON());version++;await route.fulfill({json:{status:'applied',version}});});
+  await page.route('**/api/review/reporting?**',async(route:any)=>route.fulfill({json:{rows:[],next:null,total:0}}));
   return commands;
 }
 
@@ -84,17 +85,86 @@ test('mobile card is full-screen and unsaved close requires confirmation',async(
 test('real endpoints require auth, same origin and rollout flag (no mocks)',async({request})=>{
   expect((await request.get('/api/review/boards')).status()).toBe(401);
   expect((await request.post('/api/review/assessments',{data:{}})).status()).toBe(401);
+  expect((await request.get('/api/review/reporting?report=statistics')).status()).toBe(401);
+  expect((await request.post('/api/review/reporting',{data:{}})).status()).toBe(401);
   const auth=await request.post('/api/auth',{headers:{Origin:'http://127.0.0.1:3217'},data:{password:'local-test-password'}});
   expect(auth.status()).toBe(200);
   expect((await request.get('/api/review/boards')).status()).toBe(503);
   expect((await request.post('/api/review/assessments',{headers:{Origin:'https://foreign.invalid'},data:{}})).status()).toBe(403);
   expect((await request.post('/api/review/assessments',{headers:{Origin:'http://127.0.0.1:3217'},data:{}})).status()).toBe(503);
+  expect((await request.get('/api/review/reporting?report=statistics')).status()).toBe(503);
+  expect((await request.post('/api/review/reporting',{headers:{Origin:'https://foreign.invalid'},data:{}})).status()).toBe(403);
+  expect((await request.post('/api/review/reporting',{headers:{Origin:'http://127.0.0.1:3217'},data:{}})).status()).toBe(503);
+});
+
+test('reporting keeps event filters separate from report type; export downloads verified JSONL',async({page})=>{
+  await fixtures(page);
+  let manifest:any;const queries:URLSearchParams[]=[];
+  await page.route('**/api/review/reporting**',async route=>{
+    const req=route.request(),p=new URL(req.url()).searchParams;queries.push(p);
+    if(req.method()==='POST'){
+      const body=req.postDataJSON();manifest={id:body.id,filters:{},created_at:at,expires_at:at,row_count:2,excluded_count:1};
+      return route.fulfill({json:manifest});
+    }
+    if(p.get('report')==='statistics')return route.fulfill({json:{generatedAt:at,thresholdSeconds:null,summary:{deliveries:2,events:1,triggers:1,links:1,without_attention:0,without_outcome:0,shared:1,event_context:0,direct_samples:1,decision_samples:1,reaction_median_seconds:90,reaction_p90_seconds:90,decision_median_seconds:120,decision_p90_seconds:120,clock_anomalies:0,oldest_pending_seconds:null,missed_deliveries:2,missed_triggers:1,missed_links:1,missed_links_later_bought:0},breakdown:[],reasons:[]}});
+    const n=Number(p.get('after'))+1;
+    return route.fulfill({json:{manifest,after:n,complete:n===2,rows:[{schemaVersion:1,ordinal:n,assessment:{},features:{},decision:{}}]}});
+  });
+  await page.goto('/zhezhemon/processing?tab=notifications&notifications.kind=price_drop');
+  await page.getByText('Аналітика сповіщень',{exact:true}).click();
+  await expect(page.getByText('До першої прямої реакції',{exact:true})).toBeVisible();
+  expect(queries.some(p=>p.get('report')==='statistics' && p.get('kind')==='price_drop')).toBe(true);
+  await page.screenshot({path:'node_modules/.cache/boards-reporting.png',fullPage:true});
+  await page.getByRole('tab',{name:/Оцінка оголошень/}).click();
+  await page.getByText('Експорт навчальних оцінок',{exact:true}).click();
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Експорт JSONL',exact:true}).click();
+  const file=await download;expect(file.suggestedFilename()).toMatch(/\.jsonl$/);
+  const stream=await file.createReadStream();let text='';for await(const chunk of stream!)text+=chunk.toString();
+  const lines=text.trim().split('\n').map(line=>JSON.parse(line));
+  expect(lines.map(line=>line.type)).toEqual(['manifest','training_example','training_example','complete']);
+  expect(lines.at(-1).rows).toBe(2);
+});
+
+test('reaction history loads older rows and stops at the final cursor',async({page})=>{
+  await fixtures(page);
+  await page.route('**/api/review/reporting?**',async route=>{
+    const old=new URL(route.request().url()).searchParams.has('before');
+    await route.fulfill({json:{total:2,next:old?null:{at,id},rows:[{id:old?delivery:id,action:old?'older-test-action':'recent-test-action',outcome:null,reason_code:null,note:null,source:'dashboard',received_at:at,delivery_id:delivery,event_id:id,supersedes_reaction_id:null}]}});
+  });
+  await page.goto(`/zhezhemon/processing?tab=notifications&delivery=${delivery}`);
+  await page.getByRole('button',{name:'Старіші дії · ще 50'}).click();
+  await expect(page.getByText('older-test-action',{exact:true})).toBeVisible();
+  await expect(page.getByText('Історію завантажено повністю.')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Старіші дії · ще 50'})).toHaveCount(0);
+});
+
+test('incomplete export never downloads; retry retains its manifest id',async({page})=>{
+  await fixtures(page);const ids:string[]=[];let manifest:any,valid=false,downloads=0;
+  page.on('download',()=>downloads++);
+  await page.route('**/api/review/reporting**',async route=>{
+    if(route.request().method()==='POST'){
+      const body=route.request().postDataJSON();ids.push(body.id);
+      manifest={id:body.id,filters:{},created_at:at,expires_at:at,row_count:1,excluded_count:0};
+      return route.fulfill({json:manifest});
+    }
+    return route.fulfill({json:{manifest,after:valid?1:0,complete:true,rows:valid?[{schemaVersion:1,ordinal:1,assessment:{},features:{},decision:{}}]:[]}});
+  });
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/zhezhemon/processing?tab=review');
+  await page.getByText('Експорт навчальних оцінок',{exact:true}).click();
+  await page.getByRole('button',{name:'Експорт JSONL',exact:true}).click();
+  await expect(page.getByRole('alert').filter({hasText:'Файл не збережено'})).toBeVisible();expect(downloads).toBe(0);
+  await page.screenshot({path:'node_modules/.cache/boards-export-mobile.png',fullPage:true});
+  valid=true;const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Повторити експорт JSONL'}).click();await download;
+  expect(ids).toHaveLength(2);expect(ids[0]).toBe(ids[1]);
 });
 
 test('catalog keeps its aside while not-sent is a separate full-width section',async({page})=>{
   await fixtures(page);await page.goto('/zhezhemon');
   await expect(page.locator('aside')).toHaveCount(1);
   await page.getByRole('navigation',{name:'Розділи ZheZhemon'}).getByRole('link',{name:'Не надіслано'}).click();
+  await expect(page).toHaveURL(/\/zhezhemon\/not-sent$/,{timeout:30000});
   await expect(page.locator('aside')).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'Не надіслано'})).toBeVisible();
   await expect(page.getByRole('tab')).toHaveCount(0);

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { stages, tabFilters, dateLabel, type Board, type BoardPage, type BoardCard, type Stage } from '@/lib/reviewBoards'
 import { outcomeLabels } from '@/lib/reviewKeyboard'
 import CardPanel from './CardPanel'
+import Reporting from './Reporting'
 import styles from './Boards.module.css'
 
 const labels:Record<Board,Record<Stage,string>>={review:{new:'Нові',working:'Оброблено',done:'Оцінено'},notifications:{new:'Нові',working:'В роботі',done:'Оброблено'}}
@@ -106,6 +107,7 @@ export default function ProcessingBoards() {
             <button type="submit">Застосувати</button>
             <button type="button" onClick={()=>{const p=new URLSearchParams(url);Array.from(p.keys()).filter(k=>k.startsWith(`${board}.`)).forEach(k=>p.delete(k));change(p)}}>Скинути</button>
         </form>
+        <Reporting key={board+'|'+tabFilters(new URLSearchParams(url),board).toString()} board={board} query={tabFilters(new URLSearchParams(url),board).toString()} refresh={refresh}/>
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {loading && <p role="status" className={styles.muted}>Оновлюю дошки…</p>}
         <div id="board-panel" role="tabpanel" aria-labelledby={`tab-${board}`} className={styles.columns}>

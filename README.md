@@ -185,7 +185,38 @@ auth/origin/disabled-gate requests hit real local routes. PostgreSQL integration
 tests for the RPCs live in the tracker repository. Screenshots/test artifacts
 are kept under ignored `node_modules/.cache/`.
 
-Recent card history displays up to 100 deliveries and 200 reactions, plus the
-exact frozen decision even if older. Full delivery selection is available via
-the board's link filter. Complete historical export/analytics and archive
-delivery/coverage checks remain stage 6. Do not push: push triggers deployment.
+The card's delivery preview contains up to 100 rows; the complete selection is
+available via the board's link filter. Assessment decision choices include the
+recent 200 reactions plus the exact frozen decision even if older. The separate
+reaction journal now paginates through all older rows (stage 6a below).
+
+## Reporting and training exports — stage 6a (local, not deployed)
+
+Requires tracker migration `012_review_reporting.sql`. On the same processing
+page, below the active tab's filters, expandable **Аналітика сповіщень** covers
+the full operational selection; **Експорт навчальних оцінок** exports eligible
+completed training reviews. There is no third board or separate app.
+
+`GET /api/review/reporting?report=statistics|history|export` uses the owner
+session and rollout flag; `POST /api/review/reporting` additionally requires
+same-origin. The `report` selector is separate from the event `kind` filter.
+The statistics period means delivery send time, with current outcomes and
+calendar reaction/first-decision timings. General listing actions, shared
+closures and event-context closures are not fabricated direct responses.
+
+Export POST accepts `{id: UUID, query: "tab=review&…filters"}` and freezes a
+24-hour manifest. GET pages use `id` and exclusive ordinal `after`. The client
+checks stable manifest, ordinals, count and completion before downloading JSONL
+(manifest → training examples → complete footer). Retry reuses the manifest;
+**Новий зріз** creates a fresh one. Filter/tab changes cancel the current fetch.
+The browser caps downloads at 100 MiB; a larger or incomplete export is never
+silently saved as complete. Narrow filters for larger sets. Only photo URL/hash/
+archive status is exported, not photo bytes. Late archive timing is explicit.
+Private archive serving, coverage checks, large-cohort performance and a real
+local browser/API/PostgreSQL integration run remain stage 6b.
+
+`npm run test:review` includes export-integrity contracts. `npm run test:boards`
+also verifies statistics filters, a two-page JSONL download, history pagination
+and real auth/origin/flag gates. UI data remains mocked; SQL integration tests
+run against real isolated PostgreSQL in the tracker repository.
+Do not push: push triggers deployment.

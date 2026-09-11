@@ -55,5 +55,5 @@ export async function readCard(board: Board, id: string): Promise<CardDetail | n
     if(!decision) throw new Error('review_decision_unavailable');
     history.reactions.push(decision);
   }
-  return {card,view,review:review as Assessment | null,snapshot,photos,search:event?.search_snapshot ?? {},history,revisions,missingSources} as CardDetail;
+  return {card,view,review:review as Assessment | null,snapshot,photos,search:event?.search_snapshot?.params ?? {},history,revisions,missingSources} as CardDetail;
 }
