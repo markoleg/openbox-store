@@ -239,3 +239,48 @@ disabled. This checks real login, permissions, card data/search corridor,
 outcome, six-score submission, statistics, JSONL and concurrent revision fences.
 It does not replace hosted Supabase/Realtime or production smoke checks.
 Do not run concurrently with another build/dev/Playwright suite in this checkout.
+
+## Dependency security checkpoint — 2026-09-12
+
+Next stays on 15.x (`15.5.25`) and Supabase stays on 2.x (`2.50.5`, with
+auth-js 2.70.0). These direct versions are pinned for a reviewed upgrade, not
+automatically moved to the latest SDK with a different Node requirement.
+`package-lock.json` also resolves lodash 4.18.1 and ws 8.21.3 within their
+parents' supported ranges. Install reproducibly with `npm ci`; do not discard
+the lockfile or run a blanket `npm audit fix --force`.
+
+Two overrides are scoped to Next: PostCSS 8.5.28 and sharp 0.35.4. Next 15.5.25
+still pins old PostCSS and allows the older sharp branch, so updating Next alone
+does not ensure patched transitive packages. Revisit/remove these overrides when
+Next's own dependencies resolve patched implementations. On this checkpoint,
+`npm audit --json` reports zero known vulnerabilities; this is not a complete
+security assessment or a guarantee about future advisories.
+
+Realtime channels are owned per effect via `ownedRealtimeChannel`: independent
+catalog/sidebar consumers and Strict Mode remounts get distinct topics and clean
+up only their own listeners. Table/event filters and notification behavior are
+unchanged. Do not use the initial 2.50.0 candidate: its realtime-js 2.11.10 can
+remove unrelated channels during cleanup; 2.50.5 includes realtime-js 2.11.15.
+The local socket test checks that a sibling remains joined after one is removed.
+
+The sharp update requires Node >=20.9.0. Local checks use Node 24.14.0, including
+its native TypeScript support for the existing Node test setup. Production Node must
+be checked before rollout; this change does not alter Vercel/project runtime
+settings, environment variables, deployment flags or database permissions.
+
+`npm run test:dependencies` tests the actual resolved Next PostCSS/sharp and
+Supabase/ws dependencies: CSS transformation/source-map chaining, in-memory
+JPEG/PNG resizing to WebP, and Realtime join/postgres-payload/unsubscribe using
+a loopback protocol peer. That peer is **not** hosted Realtime or a real database
+change feed. The browser suite also checks the real Next image optimizer with
+a local placeholder and renders the existing Recharts graph with fixture data.
+Run review/session tests, TypeScript, build, browser tests, and the separate
+tracker real-PostgREST integration test after changing these dependencies.
+
+Verified on this checkpoint: 41 Node tests (29 review + 9 session + 3 dependency),
+13 browser scenarios, TypeScript, production build, and the real local
+PostgREST/PG browser scenario. `tests/authSmoke.mjs` now also includes boards,
+assessments and reporting gates, but its separate run against `next start` was
+not completed: the execution tool rejected starting that extra server. The
+successful browser/API tests above used Next dev, not production-serving mode.
+Keep a local production-mode HTTP smoke on the pre-release checklist.

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/SupaBaseClient";
+import { ownedRealtimeChannel } from '@/lib/realtimeChannel';
 
 export interface ShopSearch {
 	id: number;
@@ -33,8 +34,7 @@ export function useRealtimeShopSearches(searchId?: number) {
 
 		fetchInitial();
 
-		const channel = supabase
-			.channel(`realtime-shop-searches-${searchId ? searchId : "all"}`)
+		const channel = ownedRealtimeChannel(supabase, `realtime-shop-searches-${searchId ?? 'all'}`)
 			.on(
 				"postgres_changes",
 				{ event: "INSERT", schema: "public", table: "shop_searches", ...(searchId && { filter: `id=eq.${searchId}` }) },

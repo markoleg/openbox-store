@@ -82,6 +82,60 @@ test('mobile card is full-screen and unsaved close requires confirmation',async(
   page.once('dialog',d=>d.accept());await panel.getByRole('button',{name:'Закрити ×'}).click();await expect(panel).toHaveCount(0);
 });
 
+test('catalog images still render through the real local Next optimizer',async({page,request})=>{
+  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.stack??error.message));
+  await fixtures(page);
+  await page.route('http://127.0.0.1:9/rest/v1/items?**',route=>route.fulfill({json:[{
+    id:123,search_parameter_id:1,title:'Dependency smoke item',model:'T14',price:200,shipping_cost:2,
+    link,seller_name:'Local fixture',feedback_score:50,feedback_percentage:99,image_url:'No image',
+    hidden:false,liked:false,condition:'New',more_aspects:[],scraped_links:{count:1,favorite:false},
+  }]}));
+  await page.goto('/zhezhemon');
+  const photo=page.getByRole('img',{name:'Dependency smoke item',exact:true});
+  await expect.poll(async()=>errors.length ? errors.join('\n') : await photo.count()).toBe(1);
+  await expect(photo).toBeVisible();
+  await expect(photo).toHaveAttribute('src',/\/_next\/image\?/);
+  await expect.poll(()=>photo.evaluate((img:HTMLImageElement)=>img.naturalWidth)).toBeGreaterThan(0);
+  const optimized=await request.get('/_next/image?url=%2Fimages%2Fplaceholder.png&w=128&q=75',{headers:{Accept:'image/webp'}});
+  expect(optimized.status()).toBe(200);
+  expect(optimized.headers()['content-type']).toContain('image/webp');
+  // Invalid remote host is rejected by the allowlist before any remote fetch.
+  const rejected=await request.get('/_next/image?url=https%3A%2F%2Fexample.invalid%2Fx.jpg&w=128&q=75');
+  expect(rejected.status()).toBe(400);
+});
+
+test('existing Recharts graph renders two fixture series after dependency updates',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+  await fixtures(page);
+  await page.route('http://127.0.0.1:9/rest/v1/zzk_params?**',route=>route.fulfill({json:[{id:1,keywords:[],stat_keys:[],minuskeys:[],minususers:[]}]}));
+  await page.route('http://127.0.0.1:9/rest/v1/rpc/global_keyword_stats_by_day',route=>route.fulfill({json:[
+    {day:'2026-09-10T00:00:00Z',keyword:'laptop',count:2},
+    {day:'2026-09-11T00:00:00Z',keyword:'laptop',count:4},
+    {day:'2026-09-10T00:00:00Z',keyword:'phone',count:1},
+    {day:'2026-09-11T00:00:00Z',keyword:'phone',count:3},
+  ]}));
+  await page.goto('/zhezheka');
+  await expect(page.getByRole('heading',{name:/Global keywords stats/})).toBeVisible();
+  await expect(page.locator('path.recharts-line-curve')).toHaveCount(2);
+  await expect(page.locator('.recharts-legend-item-text').filter({hasText:'laptop'})).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('catalog and shop consumers can remount without duplicate subscriptions',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+  await fixtures(page);
+  for(const path of ['/shop','/zhezhemon','/shop','/zhezhemon']){
+    await page.goto(path);
+    await expect(page.locator('aside')).toHaveCount(1);
+    await expect(page.getByRole('heading',{name:'Add New Search',exact:true})).toBeVisible();
+  }
+  await page.getByRole('navigation',{name:'Розділи ZheZhemon'}).getByRole('link',{name:'Опрацювання'}).click();
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await page.getByRole('navigation',{name:'Розділи ZheZhemon'}).getByRole('link',{name:'Оголошення'}).click();
+  await expect(page.getByRole('heading',{name:'Add New Search',exact:true})).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('URL-only photo failure is explicit and never an archive backlog error',async({page})=>{
   const source='https://i.ebayimg.com/images/url-only-test.jpg';
   await fixtures(page,[{source_url:source,status:'url_only',content_hash:null}]);

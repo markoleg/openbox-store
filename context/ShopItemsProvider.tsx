@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from "@/lib/SupaBaseClient";
+import { ownedRealtimeChannel } from '@/lib/realtimeChannel';
 import { toast } from "react-toastify";
 
 // Row from shop_products (current snapshot). hidden/banned come from shop_seen (merged).
@@ -56,7 +57,7 @@ export function ShopItemsProvider({ children }: { children: React.ReactNode }) {
         }
         fetchInitial()
 
-        const productsChannel = supabase.channel('shop-products')
+        const productsChannel = ownedRealtimeChannel(supabase, 'shop-products')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'shop_products' }, (payload) => {
                 const p = payload.new as any
                 setProducts((prev) => (prev.find((x) => x.id === p.id) ? prev : [p, ...prev]))
@@ -96,7 +97,7 @@ export function ShopItemsProvider({ children }: { children: React.ReactNode }) {
             })
             .subscribe()
 
-        const seenChannel = supabase.channel('shop-seen')
+        const seenChannel = ownedRealtimeChannel(supabase, 'shop-seen')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'shop_seen' }, (payload) => {
                 const row = (payload.new ?? payload.old) as any
                 if (!row?.link) return

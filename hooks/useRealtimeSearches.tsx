@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/SupaBaseClient";
+import { ownedRealtimeChannel } from '@/lib/realtimeChannel';
 import type { SearchFilters } from "@/components/ZheZhemon/SearchForm/FiltersFieldset";
 
 
@@ -46,8 +47,7 @@ export function useRealtimeSearches(searchId?: number) {
 
 		fetchInitial();
 
-		const channel = supabase
-			.channel(`realtime-searches-${searchId ? searchId : 'all'}`)
+		const channel = ownedRealtimeChannel(supabase, `realtime-searches-${searchId ?? 'all'}`)
 			.on(
 				"postgres_changes",
 				{

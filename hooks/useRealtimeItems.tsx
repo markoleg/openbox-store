@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { supabase } from "@/lib/SupaBaseClient"; // Assuming you have a Supabase client setup
+import { ownedRealtimeChannel } from '@/lib/realtimeChannel';
 
 
 
@@ -38,8 +39,7 @@ export function useRealtimeItems(searchId?: number) {
 
 		fetchInitial();
 
-		const channel = supabase
-			.channel(`realtime-items-${searchId ? searchId : 'all'}`)
+		const channel = ownedRealtimeChannel(supabase, `realtime-items-${searchId ?? 'all'}`)
 			.on(
 				"postgres_changes",
 				{

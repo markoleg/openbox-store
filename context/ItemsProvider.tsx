@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ItemsContext, type Item, type LivePatch } from '@/context/itemsContext'
 import { supabase } from "@/lib/SupaBaseClient";
+import { ownedRealtimeChannel } from '@/lib/realtimeChannel';
 import { toast } from "react-toastify";
 import ReviewToast, { type ToastEvent } from '@/components/ZheZhemon/Review/ReviewToast';
 
@@ -57,7 +58,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
             audio.play().catch(e => console.warn("Can't play sound:", e));
         };
 
-        const channel = supabase.channel('items-global')
+        const channel = ownedRealtimeChannel(supabase, 'items-global')
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'items' },
@@ -119,4 +120,3 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
         </ItemsContext.Provider>
     )
 }
-
