@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { requireOwnerSession } from '@/lib/server/owner'
 import { reviewCommandsEnabled, reviewDatabase } from '@/lib/server/reviewCommands'
 import { isUuid } from '@/lib/reviewCommands'
-import { dateLabel } from '@/lib/reviewBoards'
+import { dateLabel, searchLabel } from '@/lib/reviewBoards'
 import styles from '@/components/ZheZhemon/Review/Boards.module.css'
 
 export const dynamic='force-dynamic'
@@ -30,7 +30,7 @@ export default async function NotSentPage({searchParams}:{searchParams:Promise<P
         <h1>Не надіслано · {count}</h1><p className={styles.muted}>Технічний журнал намірів відправки, не задачі закупщику й не втрачені закупівлі. Один лот може мати окремий стан для кожного чату. Unknown не надсилається повторно автоматично.</p>
         <form className={styles.filters}><label>Стан<select name="state" defaultValue={params.state ?? ''}><option value="">Усі</option>{Object.entries(states).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label><button>Застосувати</button><Link href="/zhezhemon/not-sent">На початок</Link></form>
         <div className={styles.tableScroll}><table className={styles.technical}><thead><tr><th>Коли / оголошення</th><th>Чат / пошук</th><th>Стан / причина</th><th>Перевірка / наступна спроба</th></tr></thead><tbody>
-            {rows.map(row=><tr key={row.id}><td>{dateLabel(row.created_at)}<p><Link href={`/zhezhemon/history?${new URLSearchParams({event:row.event_id})}`}>{row.title}</Link></p></td><td>{row.channel}<p>{row.search_name ?? 'Пошук видалено'}</p></td><td>{states[row.state] ?? row.state}<p>{row.suppression_reason ?? row.preflight_status}</p></td><td>{dateLabel(row.checked_at)}<p>{dateLabel(row.next_check_at ?? row.next_attempt_at)}</p>Спроб: {row.attempt_count}</td></tr>)}
+            {rows.map(row=><tr key={row.id}><td>{dateLabel(row.created_at)}<p><Link href={`/zhezhemon/history?${new URLSearchParams({event:row.event_id})}`}>{row.title}</Link></p></td><td>{row.channel}<p>{searchLabel(row)}</p></td><td>{states[row.state] ?? row.state}<p>{row.suppression_reason ?? row.preflight_status}</p></td><td>{dateLabel(row.checked_at)}<p>{dateLabel(row.next_check_at ?? row.next_attempt_at)}</p>Спроб: {row.attempt_count}</td></tr>)}
         </tbody></table></div>
         {!rows.length && <p className={styles.empty}>Записів немає.</p>}
         {rows.length===50 && last && <Link className={styles.button} href={`/zhezhemon/not-sent?${new URLSearchParams({...params,at:last.created_at,id:last.id})}`}>Наступні 50</Link>}

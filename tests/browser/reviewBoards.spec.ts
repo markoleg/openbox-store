@@ -16,12 +16,12 @@ test.beforeEach(async({context})=>{
   await context.addCookies([{name:'review_test_session',value:`${payload}.${signature}`,domain:'127.0.0.1',path:'/',httpOnly:true,sameSite:'Strict'}]);
 });
 
-async function fixtures(page:any) {
+async function fixtures(page:any,photos:any[]=[]) {
   const commands:any[]=[]; let version=0;
   await page.route('http://127.0.0.1:9/**',(route:any)=>route.fulfill({json:[]}));
   await page.route('**/api/review/boards?**',async(route:any)=>{
     const url=new URL(route.request().url()), board=url.searchParams.get('tab');
-    if(url.searchParams.get('id')){await route.fulfill({json:{...detail,review:{...assessment,version},card:{...card,board,id:board==='notifications'?delivery:id}}});return;}
+    if(url.searchParams.get('id')){await route.fulfill({json:{...detail,photos,review:{...assessment,version},card:{...card,board,id:board==='notifications'?delivery:id}}});return;}
     const rows=url.searchParams.get('link')==='none'?[]:[{...card,board,id:board==='notifications'?delivery:id}];
     await route.fulfill({json:{pending:rows.length,columns:{new:{count:rows.length,cards:rows},working:{count:0,cards:[]},done:{count:0,cards:[]}}}});
   });
@@ -80,6 +80,19 @@ test('mobile card is full-screen and unsaved close requires confirmation',async(
   page.once('dialog',d=>d.dismiss());await panel.getByRole('button',{name:'Закрити ×'}).click();await expect(panel).toBeVisible();
   await page.screenshot({path:'node_modules/.cache/boards-mobile.png'});
   page.once('dialog',d=>d.accept());await panel.getByRole('button',{name:'Закрити ×'}).click();await expect(panel).toHaveCount(0);
+});
+
+test('URL-only photo failure is explicit and never an archive backlog error',async({page})=>{
+  const source='https://i.ebayimg.com/images/url-only-test.jpg';
+  await fixtures(page,[{source_url:source,status:'url_only',content_hash:null}]);
+  await page.route(source,route=>route.fulfill({status:404,body:''}));
+  await page.goto(`/zhezhemon/processing?tab=review&review=${id}`);
+  const panel=page.getByRole('dialog');
+  await panel.getByText('Зберігаємо URL фото.',{exact:false}).scrollIntoViewIfNeeded();
+  await expect(panel.getByText('Фото недоступне за збереженим URL.')).toBeVisible();
+  await expect(panel.getByRole('link',{name:'Відкрити збережений URL ↗'})).toHaveAttribute('href',source);
+  await expect(panel.getByText('Архів: pending')).toHaveCount(0);
+  await expect(panel.getByLabel('Нотатка до фото 1 (необов’язково)')).toHaveCount(1);
 });
 
 test('real endpoints require auth, same origin and rollout flag (no mocks)',async({request})=>{

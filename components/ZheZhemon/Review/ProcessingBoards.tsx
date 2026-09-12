@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { stages, tabFilters, dateLabel, type Board, type BoardPage, type BoardCard, type Stage } from '@/lib/reviewBoards'
+import { stages, tabFilters, dateLabel, searchLabel, type Board, type BoardPage, type BoardCard, type Stage } from '@/lib/reviewBoards'
 import { outcomeLabels } from '@/lib/reviewKeyboard'
 import CardPanel from './CardPanel'
 import Reporting from './Reporting'
@@ -117,7 +117,7 @@ export default function ProcessingBoards() {
                     {column?.cards.map(card=><button key={card.id} className={styles.tile} onClick={()=>open(card)}>
                         <strong>{card.title}</strong><span className={styles.price}>{card.price===null?'Ціна невідома':`${card.price} ${card.currency ?? ''}`}</span>
                         <span className={styles.tags}><span>{card.channel==='main'?'Основний чат':'Sniper'}</span><span>{eventLabels[card.kind] ?? card.kind}</span></span>
-                        <span className={styles.muted}>{dateLabel(card.sent_at)} · {card.search_name ?? 'Пошук видалено'}</span>
+                        <span className={styles.muted}>{dateLabel(card.sent_at)} · {searchLabel(card)}</span>
                         <span>{card.outcome?outcomeLabels[card.outcome]:'Рішення ще немає'}</span>
                         {board==='review'?<span className={styles.muted}>Не заповнено критеріїв: {card.missing}/6</span>:<span className={styles.muted}>{card.first_reaction_at?`Перша реакція: ${dateLabel(card.first_reaction_at)}`:'Прямої реакції немає'}{card.resolution_kind && card.resolution_kind!=='direct'?` · ${card.resolution_kind==='shared_trigger'?'через пов’язане повідомлення':'через подію'}`:''}</span>}
                         <span className={styles.muted}>Зараз: {card.stock_blocked?'недоступне':card.hidden?`приховано${card.hidden_until?' / пауза':''}`:'без глобального приховування'}{card.favorite?' · Sniper':''}</span>

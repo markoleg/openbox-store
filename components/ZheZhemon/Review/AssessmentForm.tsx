@@ -55,7 +55,7 @@ export default function AssessmentForm({review,decisions,photos,missingSources,o
                 <label>Бал<select aria-label={`${label}: бал`} value={String(draft[`score_${key}`] ?? '')} onChange={e=>set(`score_${key}`,e.target.value?Number(e.target.value):null)}>
                     <option value="">Не оцінено</option>{[1,2,3,4,5].map(v=><option key={v} value={v}>{v}</option>)}
                 </select></label>
-                <label>Пояснення<textarea rows={2} maxLength={4000} value={String(draft[`note_${key}`] ?? '')} onChange={e=>set(`note_${key}`,e.target.value)}/></label>
+                <label>Пояснення<textarea aria-label={`${label}: пояснення`} rows={2} maxLength={4000} value={String(draft[`note_${key}`] ?? '')} onChange={e=>set(`note_${key}`,e.target.value)}/></label>
             </fieldset>)}
             {photos.map((photo,index)=><label key={photo.source_url}>Нотатка до фото {index+1} (необов’язково)<textarea rows={2} maxLength={2000}
                 value={String((draft.photo_notes as Record<string,string>)?.[photo.source_url] ?? '')}

@@ -75,6 +75,10 @@ export function parseBoardQuery(params: URLSearchParams): {board: Board; filters
   return {board,filters,cursors};
 }
 export const dateLabel = (iso: string | null) => iso ? new Date(iso).toLocaleString('uk-UA', {timeZone:'Europe/Kyiv'}) : '—';
+export function searchLabel(search:{search_id:number|null;search_name:string|null}):string {
+  if(search.search_id===null)return search.search_name?`${search.search_name} (пошук видалено)`:'Пошук видалено';
+  return search.search_name || `Пошук #${search.search_id}`;
+}
 export function reactionDelay(sent: string, reacted: string | null): string {
   if (!reacted) return 'немає прямої реакції';
   const seconds=Math.floor((Date.parse(reacted)-Date.parse(sent))/1000);

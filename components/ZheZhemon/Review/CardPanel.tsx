@@ -4,16 +4,16 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { CardDetail } from '@/lib/server/reviewBoards'
 import type { Board } from '@/lib/reviewBoards'
-import { dateLabel, reactionDelay } from '@/lib/reviewBoards'
+import { dateLabel, reactionDelay, searchLabel } from '@/lib/reviewBoards'
 import { outcomeLabels } from '@/lib/reviewKeyboard'
 import { applyCommand, issueContext, explainError, explainResult } from '@/lib/reviewClient'
 import { PAUSE_DAYS, tokenFromDispatchId, type ReviewContext, type ReviewAction, type ReviewPayload, type ReviewCommandResult } from '@/lib/reviewCommands'
 import OutcomeForm from './OutcomeForm'
 import AssessmentForm from './AssessmentForm'
 import ReactionHistory from './ReactionHistory'
+import PhotoGallery from './PhotoGallery'
 import styles from './Boards.module.css'
 
-function safePhoto(url:string) {try {const u=new URL(url);return u.protocol==='https:' && (u.hostname==='ebayimg.com'||u.hostname.endsWith('.ebayimg.com'))}catch{return false}}
 function safeListing(url:unknown,fallback:string) {try{const u=new URL(String(url));return u.protocol==='https:' && (u.hostname==='ebay.com'||u.hostname.endsWith('.ebay.com'))?u.href:fallback}catch{return fallback}}
 const json=(v:unknown)=>JSON.stringify(v ?? null,null,2)
 
@@ -90,7 +90,7 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
                 <p><a href={safeListing(normalized.itemWebUrl,data.card.link)} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
                 <section>
                     <h3>{board==='review'?'Рішення стосується першого доставленого повідомлення':'Результат цього повідомлення'}</h3>
-                    <p>{dateLabel(data.card.sent_at)} · {data.card.channel==='main'?'основний чат':'sniper'} · {data.card.search_name ?? 'Пошук видалено'}</p>
+                    <p>{dateLabel(data.card.sent_at)} · {data.card.channel==='main'?'основний чат':'sniper'} · {searchLabel(data.card)}</p>
                     <p>{view?.outcome?outcomeLabels[view.outcome]:'Результату немає'}{view?.resolutionKind && view.resolutionKind!=='direct'?` · ${view.resolutionKind==='shared_trigger'?'через пов’язане повідомлення':'через подію'}`:''}</p>
                     <p className={styles.muted}>Перша пряма реакція: {dateLabel(view?.firstReactionAt ?? null)}. Результат: {dateLabel(view?.outcomeAt ?? null)}.</p>
                     <p className={styles.muted}>Час до першої реакції: {reactionDelay(data.card.sent_at,view?.firstReactionAt ?? null)}. Це календарний час, без нормативу SLA.</p>
@@ -115,13 +115,7 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
                     <details open><summary>Параметри</summary><pre>{raw.localizedAspects?json(raw.localizedAspects):'Даних немає'}</pre></details>
                     <details open><summary>Опис (безпечний текст джерела)</summary><pre>{String(raw.description ?? raw.shortDescription ?? normalized.shortDescription ?? 'Даних немає')}</pre></details>
                     <details><summary>Ціна, доставка й пошуковий коридор</summary><pre>{json({price:normalized.price,shipping:normalized.shipping_cost,total:normalized.total_price,currency:normalized.currency,min:data.search.minprice,max:data.search.maxprice})}</pre></details>
-                    <div className={styles.gallery}>{data.photos.filter(photo=>safePhoto(photo.source_url)).map(photo=><figure key={photo.source_url}>
-                        {/* Fixed snapshot source URL; archive status is explicit, not a fake local copy. */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <a href={photo.source_url} target="_blank" rel="noopener noreferrer"><img src={photo.source_url} alt="Фото зі знімка оголошення" loading="lazy" referrerPolicy="no-referrer"/></a>
-                        <figcaption className={styles.muted}>{photo.status==='archived'?'В архіві':'Архів: '+photo.status} · показано eBay-джерело</figcaption>
-                    </figure>)}</div>
-                    {!data.photos.length && <p className={styles.muted}>Фото у знімку недоступні.</p>}
+                    <PhotoGallery photos={data.photos}/>
                     <details><summary>Збережені вихідні дані</summary><pre>{json(raw)}</pre></details>
                 </section>
                 {board==='review' && data.review && <AssessmentForm review={data.review} decisions={data.history.reactions} photos={data.photos} missingSources={data.missingSources} onSaved={changed} onDirty={setDirty}/>}

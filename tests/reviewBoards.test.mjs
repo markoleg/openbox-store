@@ -1,8 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseAssessment,parseBoardQuery,tabFilters,isSubmitted,reactionDelay,historyBoardDestination} from '../lib/reviewBoards.ts';
+import {parseAssessment,parseBoardQuery,tabFilters,isSubmitted,reactionDelay,historyBoardDestination,searchLabel} from '../lib/reviewBoards.ts';
 const id='11111111-1111-4111-8111-111111111111';
 const req=(payload={},action='draft')=>({commandId:id,reviewId:id,version:0,action,payload});
+
+test('missing search title never implies deletion; deleted search keeps historical label',()=>{
+  assert.equal(searchLabel({search_id:1,search_name:null}),'Пошук #1');
+  assert.equal(searchLabel({search_id:null,search_name:'Original'}),'Original (пошук видалено)');
+  assert.equal(searchLabel({search_id:1,search_name:'Original'}),'Original');
+});
 test('assessment accepts partial draft, never actor or automatic submitted_at',()=>{
   assert.equal(parseAssessment(req({score_title:4,note_title:'Reason'})).payload.score_title,4);
   for(const payload of [{actor_id:'buyer'},{submitted_at:'now'},{score_title:6},{score_title:1.5},{score_title:'3'},{note_title:2}])assert.throws(()=>parseAssessment(req(payload)));

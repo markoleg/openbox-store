@@ -160,8 +160,8 @@ no flags or production migrations are changed by building this repository.
   page is visible, plus window focus; it does not fetch eBay or reload raw details.
 - The card panel is full-screen on mobile. Snapshot data and the current live
   state are separate. Raw seller HTML is escaped text, never injected as HTML.
-  Photographs currently use the pinned eBay source URLs with explicit archive
-  status; serving the private archive itself belongs to stage 6.
+  Photographs use the pinned eBay source URLs with an explicit unavailable state.
+  Own storage/serving is optional; it is not required for this release.
 - Six scores 1–5 and explanations, explicit draft save, submission, optional
   photo notes keyed by snapshot source URL, and explicit revision with a reason.
   No background getItem. Missing source data prevents submission, not draft save.
@@ -212,11 +212,30 @@ checks stable manifest, ordinals, count and completion before downloading JSONL
 The browser caps downloads at 100 MiB; a larger or incomplete export is never
 silently saved as complete. Narrow filters for larger sets. Only photo URL/hash/
 archive status is exported, not photo bytes. Late archive timing is explicit.
-Private archive serving, coverage checks, large-cohort performance and a real
-local browser/API/PostgreSQL integration run remain stage 6b.
+Own photo storage/serving is an optional future feature, not a release gate.
+The baseline is URL-only; `url_only` entries do not need a hash to be exported.
 
 `npm run test:review` includes export-integrity contracts. `npm run test:boards`
 also verifies statistics filters, a two-page JSONL download, history pagination
 and real auth/origin/flag gates. UI data remains mocked; SQL integration tests
 run against real isolated PostgreSQL in the tracker repository.
 Do not push: push triggers deployment.
+
+## URL-only photos and real local integration — stage 6b
+
+The card renders saved eBay URLs with an explicit failure state and a source
+link. It does not promise immutable remote bytes or show optional-storage absence
+as an archive error. `snapshot_photos` URL/order and photo notes remain useful;
+tracker migration 013 distinguishes new URL-only entries from legacy archive jobs.
+Migration 014 fixes nested snapshot search names, preserving them after edits or
+deletion. A search with no title is shown by ID, not falsely marked as deleted.
+
+`playwright.integration.config.ts` is separate from the mocked UI suite. Start
+it through `zhezhemon/tests/test_dashboard_integration.py` (see tracker README).
+It uses real Next routes, real PostgREST with dummy role JWTs and an isolated
+PostgreSQL fixture, plus a transparent URL-prefix proxy. There are no mocked
+database/API responses. Browser external requests are blocked; Telegram is
+disabled. This checks real login, permissions, card data/search corridor,
+outcome, six-score submission, statistics, JSONL and concurrent revision fences.
+It does not replace hosted Supabase/Realtime or production smoke checks.
+Do not run concurrently with another build/dev/Playwright suite in this checkout.
