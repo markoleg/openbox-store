@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { stages, tabFilters, dateLabel, searchLabel, type Board, type BoardPage, type BoardCard, type Stage } from '@/lib/reviewBoards'
 import { outcomeLabels } from '@/lib/reviewKeyboard'
+import { stockLabel } from '@/lib/reviewStock'
 import CardPanel from './CardPanel'
 import Reporting from './Reporting'
 import styles from './Boards.module.css'
@@ -116,6 +117,7 @@ export default function ProcessingBoards() {
                 <div className={styles.stack} ref={node=>{if(node){const key=`${board}-${stage}-${filterKey}`;let value=scroll.current[key];if(value===undefined){try{value=Number(sessionStorage.getItem('review-scroll:'+key)) || 0}catch{value=0}}node.scrollTop=value}}} onScroll={e=>{const key=`${board}-${stage}-${filterKey}`,value=e.currentTarget.scrollTop;scroll.current[key]=value;try{sessionStorage.setItem('review-scroll:'+key,String(value))}catch{/* storage may be disabled */}}}>
                     {column?.cards.map(card=><button key={card.id} className={styles.tile} onClick={()=>open(card)}>
                         <strong>{card.title}</strong><span className={styles.price}>{card.price===null?'Ціна невідома':`${card.price} ${card.currency ?? ''}`}</span>
+                        <span className={styles.muted}>📦 {stockLabel(card.stock_quantity)} · за знімком</span>
                         <span className={styles.tags}><span>{card.channel==='main'?'Основний чат':'Sniper'}</span><span>{eventLabels[card.kind] ?? card.kind}</span></span>
                         <span className={styles.muted}>{dateLabel(card.sent_at)} · {searchLabel(card)}</span>
                         <span>{card.outcome?outcomeLabels[card.outcome]:'Рішення ще немає'}</span>

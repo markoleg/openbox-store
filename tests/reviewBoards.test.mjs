@@ -1,8 +1,41 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parseAssessment,parseBoardQuery,tabFilters,isSubmitted,reactionDelay,historyBoardDestination,searchLabel} from '../lib/reviewBoards.ts';
+import {estimatedQuantity,stockLabel,projectStock} from '../lib/reviewStock.ts';
 const id='11111111-1111-4111-8111-111111111111';
 const req=(payload={},action='draft')=>({commandId:id,reviewId:id,version:0,action,payload});
+
+const stock=(extra={})=>({estimatedAvailabilityStatus:'IN_STOCK',deliveryOptions:['SHIP_TO_HOME'],...extra});
+test('quantity follows backend field, threshold and delivery rules without inventing stock',()=>{
+  const quantity=entries=>estimatedQuantity(entries);
+  assert.deepEqual(quantity([stock({estimatedAvailableQuantity:3})]),{value:3,relation:'approx'});
+  assert.deepEqual(quantity([stock({estimatedRemainingQuantity:4})]),{value:4,relation:'approx'});
+  assert.deepEqual(quantity([stock({estimatedAvailableQuantity:99,availabilityThresholdType:'MORE_THAN',availabilityThreshold:10})]),{value:10,relation:'more_than'});
+  const shipping=stock({estimatedAvailableQuantity:2});
+  assert.deepEqual(quantity([shipping,shipping,stock({deliveryOptions:['IN_STORE_PICKUP'],estimatedAvailableQuantity:50})]),{value:2,relation:'approx'});
+  assert.deepEqual(quantity([stock({deliveryOptions:[],estimatedAvailableQuantity:2})]),{value:2,relation:'approx'});
+  for(const entries of [null,[],{},[null],[stock()],
+    [shipping,stock({estimatedAvailableQuantity:3})],[shipping,stock()],
+    [stock({deliveryOptions:['IN_STORE_PICKUP'],estimatedAvailableQuantity:2})],
+    [stock({estimatedAvailableQuantity:2,estimatedRemainingQuantity:3})],
+    [stock({estimatedAvailabilityStatus:'OUT_OF_STOCK',estimatedAvailableQuantity:2})],
+    [stock({estimatedSoldQuantity:99})],
+    [stock({availabilityThresholdType:'FUTURE',availabilityThreshold:10,estimatedAvailableQuantity:99})],
+    [stock({deliveryOptions:'SHIP_TO_HOME',estimatedAvailableQuantity:2})],
+    ...[0,-1,1.5,'2',true,Number.NaN].map(q=>[stock({estimatedAvailableQuantity:q})])])assert.equal(quantity(entries),null);
+  assert.equal(stockLabel(null),'Кількість невідома');
+  assert.equal(stockLabel({value:2,relation:'approx'}),'≈2 шт.');
+  assert.equal(stockLabel({value:10,relation:'more_than'}),'понад 10 шт.');
+});
+test('compact stock projection preserves historical pointers and strips evidence without mutating input',()=>{
+  const row={id,stock_snapshot_id:'snapshot',stock_observed_at:'2026-09-15T10:00:00Z',stock_evidence:[stock({estimatedAvailableQuantity:3})]};
+  const before=structuredClone(row), result=projectStock(row);
+  assert.deepEqual(row,before);
+  assert.deepEqual(result,{id,stock_snapshot_id:row.stock_snapshot_id,stock_observed_at:row.stock_observed_at,stock_quantity:{value:3,relation:'approx'}});
+  assert.equal('stock_evidence' in result,false);
+  assert.equal(projectStock({stock_evidence:null}).stock_quantity,null);
+  assert.equal(projectStock({stock_evidence:[stock({estimatedAvailableQuantity:3}),stock({deliveryOptions:['IN_STORE_PICKUP'],estimatedAvailabilityStatus:'OUT_OF_STOCK'})]}).stock_quantity,null);
+});
 
 test('missing search title never implies deletion; deleted search keeps historical label',()=>{
   assert.equal(searchLabel({search_id:1,search_name:null}),'Пошук #1');

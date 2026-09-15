@@ -6,6 +6,7 @@ import type { CardDetail } from '@/lib/server/reviewBoards'
 import type { Board } from '@/lib/reviewBoards'
 import { dateLabel, reactionDelay, searchLabel } from '@/lib/reviewBoards'
 import { outcomeLabels } from '@/lib/reviewKeyboard'
+import { stockLabel } from '@/lib/reviewStock'
 import { applyCommand, issueContext, explainError, explainResult } from '@/lib/reviewClient'
 import { PAUSE_DAYS, tokenFromDispatchId, type ReviewContext, type ReviewAction, type ReviewPayload, type ReviewCommandResult } from '@/lib/reviewCommands'
 import OutcomeForm from './OutcomeForm'
@@ -110,7 +111,9 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
                 </section>
                 <section><h3>Зафіксовані дані для оцінювання</h3>
                     <p className={styles.muted}>{data.snapshot?`${data.snapshot.source} · спостереження ${dateLabel(data.snapshot.observed_at)}`:'Знімок недоступний'}. Відкриття та реакції не викликають getItem.</p>
-                    <p>Залишок (оцінка eBay): {json(normalized.estimatedAvailabilities ?? raw.estimatedAvailabilities)}</p>
+                    <p>📦 Залишок за знімком (оцінка eBay): {stockLabel(data.card.stock_quantity)}</p>
+                    <p className={styles.muted}>Час спостереження: {dateLabel(data.card.stock_observed_at)}. Це історичні дані, не поточний залишок.</p>
+                    <details><summary>Вихідні дані наявності</summary><pre>{json(normalized.estimatedAvailabilities ?? raw.estimatedAvailabilities)}</pre></details>
                     <details open><summary>Магазин і відгуки</summary><pre>{json(raw.seller ?? {seller:normalized.seller_name,feedbackScore:normalized.feedback_score,feedbackPercentage:normalized.feedback_percentage})}</pre></details>
                     <details open><summary>Параметри</summary><pre>{raw.localizedAspects?json(raw.localizedAspects):'Даних немає'}</pre></details>
                     <details open><summary>Опис (безпечний текст джерела)</summary><pre>{String(raw.description ?? raw.shortDescription ?? normalized.shortDescription ?? 'Даних немає')}</pre></details>

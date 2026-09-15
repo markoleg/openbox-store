@@ -3,6 +3,10 @@ import { reviewDatabase } from './reviewCommands';
 import type { Assessment, AssessmentRequest, BoardCard, BoardPage, Cursor, Stage, BoardFilters, Board } from '@/lib/reviewBoards';
 import type { DeliveryView } from '@/lib/reviewKeyboard';
 import { deliveryView, listingHistory } from './reviewCommands';
+import { projectStock } from '@/lib/reviewStock';
+import { stages } from '@/lib/reviewBoards';
+
+type StoredCard = Omit<BoardCard,'stock_quantity'> & {stock_evidence:unknown};
 
 async function checked<T>(query: PromiseLike<{data: T; error: unknown}>): Promise<T> {
   const {data,error}=await query;
@@ -10,7 +14,11 @@ async function checked<T>(query: PromiseLike<{data: T; error: unknown}>): Promis
   return data;
 }
 export async function readBoard(board: Board, filters: BoardFilters, cursors: Partial<Record<Stage,Cursor>>): Promise<BoardPage> {
-  return checked(reviewDatabase().rpc('review_board',{p_board:board,p_filters:filters,p_cursors:cursors})) as Promise<BoardPage>;
+  const page=await checked(reviewDatabase().rpc('review_board',{p_board:board,p_filters:filters,p_cursors:cursors})) as
+    Omit<BoardPage,'columns'> & {columns:Record<Stage,{count:number;cards:StoredCard[]}>};
+  return {...page,columns:Object.fromEntries(stages.map(stage=>[stage,{
+    ...page.columns[stage],cards:page.columns[stage].cards.map(projectStock),
+  }])) as BoardPage['columns']};
 }
 export async function saveAssessment(request: AssessmentRequest) {
   const {data,error}=await reviewDatabase().rpc('save_listing_assessment',{
@@ -30,17 +38,17 @@ export type CardDetail = {
 };
 export async function readCard(board: Board, id: string): Promise<CardDetail | null> {
   const db=reviewDatabase();
-  const card=await checked(db.from('review_board_rows').select('*').eq('board',board).eq('id',id).maybeSingle()) as BoardCard | null;
-  if (!card) return null;
-  const [view,review,event,delivery,history] = await Promise.all([
+  const stored=await checked(db.from('review_board_rows').select('*').eq('board',board).eq('id',id).maybeSingle()) as StoredCard | null;
+  if (!stored) return null;
+  const card=projectStock(stored);
+  const [view,review,event,history] = await Promise.all([
     deliveryView(card.delivery_id),
     card.review_id ? checked(db.from('listing_reviews').select('*').eq('id',card.review_id).single()) : null,
     checked(db.from('notification_events').select('summary_snapshot_id,search_snapshot').eq('id',card.event_id).single()),
-    checked(db.from('notification_deliveries').select('attempt_id').eq('id',card.delivery_id).single()),
     listingHistory(card.link),
   ]);
-  const attempt=delivery?.attempt_id ? await checked(db.from('notification_dispatch_attempts').select('context_snapshot_id').eq('id',delivery.attempt_id).single()) : null;
-  const snapshotId=(board==='review' ? review?.evaluation_snapshot_id : null) ?? attempt?.context_snapshot_id ?? event?.summary_snapshot_id;
+  // Use the same historical source selected for the tile, not mutable latest data.
+  const snapshotId=card.stock_snapshot_id;
   const [snapshot,photos,revisions]=await Promise.all([
     snapshotId ? checked(db.from('listing_snapshots').select('id,observed_at,source,normalized_payload,raw_payload').eq('id',snapshotId).single()) : null,
     snapshotId ? checked(db.from('snapshot_photos').select('source_url,status,content_hash').eq('snapshot_id',snapshotId).order('position')) : [],

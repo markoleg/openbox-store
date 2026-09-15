@@ -309,3 +309,16 @@ exactly `true` or `false`, without a trailing CR/LF. PowerShell's string pipelin
 adds a newline when supplying a value to `vercel env add`; use stdin bytes with
 no newline or the provider's value editor. The runtime correctly fails closed
 for `true` followed by whitespace. Changed provider env requires a new deployment.
+
+## Historical quantity on review boards (local follow-up)
+
+Before deploying this dashboard change, apply tracker migration
+`015_review_stock_projection.sql` through the coordinated release process. It
+adds private snapshot ID/time/availability evidence to the board projection;
+it does not rewrite deliveries, reviews or snapshots. Do not rerun 006–014.
+
+Both tiles and card details use that same historical snapshot, not the latest
+listing state. The server returns only a compact quantity and observation time
+to tiles (no raw getItem response); detail views retain the original evidence.
+Missing/unverified quantities display «Кількість невідома». Thresholds such as
+MORE_THAN are displayed as «понад 10 шт.». No eBay call is made by board reads.

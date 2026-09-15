@@ -3,7 +3,7 @@ import {createHmac} from 'node:crypto';
 
 const id='11111111-1111-4111-8111-111111111111', delivery='22222222-2222-4222-8222-222222222222';
 const link='https://www.ebay.com/itm/123', at='2026-09-11T08:00:00+00:00';
-const card={id,board:'review',link,card_at:at,stage:'new',delivery_id:delivery,review_id:id,event_id:id,search_id:1,search_name:'Lenovo',kind:'first_seen',channel:'main',condition_id:'1000',title:'ThinkPad T14 — тестовий лот',price:'202.30',currency:'USD',outcome:null,first_reaction_at:null,outcome_at:null,resolution_kind:null,sent_at:at,missing:6,hidden:false,hidden_until:null,favorite:false,stock_blocked:false};
+const card={id,board:'review',link,card_at:at,stage:'new',delivery_id:delivery,review_id:id,event_id:id,search_id:1,search_name:'Lenovo',kind:'first_seen',channel:'main',condition_id:'1000',title:'ThinkPad T14 — тестовий лот',price:'202.30',currency:'USD',outcome:null,first_reaction_at:null,outcome_at:null,resolution_kind:null,sent_at:at,missing:6,hidden:false,hidden_until:null,favorite:false,stock_blocked:false,stock_snapshot_id:id,stock_observed_at:at,stock_quantity:{value:2,relation:'approx'}};
 const assessment:any={id,link,origin_delivery_id:delivery,version:0,submitted_at:null,revision_opened_at:null,decision_reaction_id:null,decision_note:null,evaluation_snapshot_id:id,rubric_version:1,photo_notes:{}};
 for(const key of ['title','shop','aspects','description','photos','price_shipping']){assessment[`score_${key}`]=null;assessment[`note_${key}`]=null;}
 const view={deliveryId:delivery,eventId:id,dispatchId:id,link,channel:'main',kind:'first_seen',sentAt:at,stateVersion:0,searchId:1,searchExists:true,searchName:'Lenovo',firstReactionAt:null,outcome:null,outcomeAt:null,resolutionKind:null,currentPrice:202.3,
@@ -38,6 +38,7 @@ test('horizontal navigation and two tabs; independent filters survive switching 
   await expect(page.locator('aside')).toHaveCount(0);
   await expect(page.getByRole('tab')).toHaveCount(2);
   await expect(page.getByRole('button',{name:/ThinkPad/})).toBeVisible();
+  await expect(page.getByRole('button',{name:/ThinkPad/})).toContainText('📦 ≈2 шт. · за знімком');
   await page.screenshot({path:'node_modules/.cache/boards-overview.png'});
   await page.getByLabel('Лінк або заголовок').fill('none');await page.getByRole('button',{name:'Застосувати'}).click();
   await expect(page.getByRole('button',{name:/ThinkPad/})).toHaveCount(0);
@@ -50,6 +51,8 @@ test('horizontal navigation and two tabs; independent filters survive switching 
 test('deep-linked review opens safe snapshot, six scores, draft and close return to filters',async({page})=>{
   const commands=await fixtures(page);await page.goto(`/zhezhemon/processing?tab=review&review=${id}&review.search=1`);
   const panel=page.getByRole('dialog');await expect(panel).toBeVisible();
+  await expect(panel.getByText('📦 Залишок за знімком (оцінка eBay): ≈2 шт.',{exact:true})).toBeVisible();
+  await expect(panel.getByText(/Час спостереження:.*історичні дані/)).toBeVisible();
   await expect(panel.getByRole('heading',{name:/Оцінка за шістьма/})).toBeVisible();
   await expect(panel.getByRole('combobox',{name:/: бал/})).toHaveCount(6);
   await expect(panel.getByText('<script>window.bad=true</script>Текст продавця',{exact:true})).toBeVisible();

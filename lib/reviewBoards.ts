@@ -1,4 +1,5 @@
 /** Shared, pure contracts. No service credentials or database imports here. */
+import type { StockQuantity } from './reviewStock.ts';
 export const criteria = [
   ['title', 'Заголовок'], ['shop', 'Магазин'], ['aspects', 'Параметри'],
   ['description', 'Опис'], ['photos', 'Фото'], ['price_shipping', 'Ціна з доставкою'],
@@ -17,6 +18,7 @@ export type BoardCard = {
   outcome: string | null; first_reaction_at: string | null; outcome_at: string | null;
   resolution_kind: string | null; sent_at: string; missing: number | null;
   hidden: boolean; hidden_until: string | null; favorite: boolean; stock_blocked: boolean;
+  stock_snapshot_id: string | null; stock_observed_at: string | null; stock_quantity: StockQuantity | null;
 };
 export type BoardPage = {columns: Record<Stage, {count: number; cards: BoardCard[]}>; pending: number; searches?:{id:number;name:string|null}[]};
 export type Assessment = {
