@@ -303,3 +303,9 @@ and actual deliveries before ending the buyer maintenance window. This is not
 a claim that production procurement mutations or Telegram callbacks were
 synthetically executed. Keep the per-step deployment/backup evidence and final
 acceptance status in the tracker repository's gitignored unified plan.
+
+Feature flags use exact string comparison: `REVIEW_COMMANDS_ENABLED` must be
+exactly `true` or `false`, without a trailing CR/LF. PowerShell's string pipeline
+adds a newline when supplying a value to `vercel env add`; use stdin bytes with
+no newline or the provider's value editor. The runtime correctly fails closed
+for `true` followed by whitespace. Changed provider env requires a new deployment.
