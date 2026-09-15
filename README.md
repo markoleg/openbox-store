@@ -283,4 +283,23 @@ PostgREST/PG browser scenario. `tests/authSmoke.mjs` now also includes boards,
 assessments and reporting gates, but its separate run against `next start` was
 not completed: the execution tool rejected starting that extra server. The
 successful browser/API tests above used Next dev, not production-serving mode.
-Keep a local production-mode HTTP smoke on the pre-release checklist.
+That historical limitation was resolved on 2026-09-15: the owner ran the local
+`next start` / `tests/authSmoke.mjs` procedure and supplied the successful result
+for session, origin, protected page, review API gates, legacy redirects, webhook
+gates and logout. A fresh production build and all 41 Node tests also passed.
+
+## Production review cutover — 2026-09-15
+
+Migrations 006–014 were applied in the tracker database after a verified fresh
+backup and stopping the old sender. The initial dashboard deployment was made
+with `REVIEW_COMMANDS_ENABLED=false`; hosted signed login/logout and disabled
+API gates passed. The new tracker then started all 37 searches with its shared
+budget enabled, safety 5%, reserve 150, and URL-only photos on one 256 MiB VM.
+Search intervals were not changed.
+
+The final command-enable deployment is triggered by the GitHub push containing
+this documentation update. Validate owner-only reads of both boards/reporting
+and actual deliveries before ending the buyer maintenance window. This is not
+a claim that production procurement mutations or Telegram callbacks were
+synthetically executed. Keep the per-step deployment/backup evidence and final
+acceptance status in the tracker repository's gitignored unified plan.
