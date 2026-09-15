@@ -27,8 +27,9 @@ test('callbacks carry the dispatch token, fit 64 bytes and parse back',()=>{
 });
 test('fresh layout matches the tracker initial keyboard and keeps URL buttons',()=>{
   const m=renderKeyboard(view(),urls);
-  assert.deepEqual(texts(m),[['🖐 Опрацьовую','✅ Купив'],['🙈 Hide','⏸ Пауза…','🚫 Ban'],['Не встиг','Ще…'],['🎯 Sniper','💳 Баланси'],['📝 Картка та історія']]);
+  assert.deepEqual(texts(m),[['🖐 Опрацьовую','✅ Купив'],['🙈 Hide','⏸ Пауза…','🚫 Ban'],['Не встиг','Ще…'],['🎯 Sniper','💳 Баланси','📝 Картка']]);
   assert.equal(m.inline_keyboard[3][1].url,urls[1].url);
+  assert.deepEqual(m.inline_keyboard[3].map(b=>b.url),urls.map(b=>b.url));
 });
 test('after attention the first button reads "в роботі" but every decision stays',()=>{
   const m=renderKeyboard(view({firstReactionAt:'2026-09-11T10:01:00Z'}),urls);
@@ -38,10 +39,10 @@ test('after attention the first button reads "в роботі" but every decisio
 test('after an outcome the message shows it with correction, more, sniper, balances and evaluation access',()=>{
   const m=renderKeyboard(view({outcome:'banned',resolutionKind:'direct',review:{id:'r',submittedAt:null,revisionOpenedAt:null,originDeliveryId:'d1'}}),urls);
   assert.equal(m.inline_keyboard[0][0].text,'🚫 Забанено в «iphone 15»');
-  assert.deepEqual(texts(m).slice(1),[['✏️ Змінити результат','Ще…'],['🎯 Sniper','💳 Баланси'],['📝 Оцінити']]);
+  assert.deepEqual(texts(m).slice(1),[['✏️ Змінити результат','Ще…'],['🎯 Sniper','💳 Баланси','📝 Оцінити']]);
   assert.equal(outcomeLabel(view({outcome:'bought',resolutionKind:'event_context'})),'✅ Купив · з дашборда');
   assert.equal(renderKeyboard(view({outcome:'bought',review:{id:'r',submittedAt:'2026-09-11T11:00:00Z',revisionOpenedAt:null,originDeliveryId:'d1'}}),urls)
-    .inline_keyboard.at(-1)[0].text,'📝 Переглянути оцінку');
+    .inline_keyboard.at(-1).at(-1).text,'📝 Переглянути оцінку');
 });
 test('menus only navigate and offer live undo when the state exists',()=>{
   assert.deepEqual(texts(renderKeyboard(view(),urls,'pause')),[['⏸ 1д','⏸ 3д','⏸ 5д','⏸ 7д'],['⬅️ Назад']]);
@@ -55,7 +56,22 @@ test('menus only navigate and offer live undo when the state exists',()=>{
 });
 test('repeat message does not offer evaluation of a different origin as its own',()=>{
   const m=renderKeyboard(view({review:{id:'r',submittedAt:null,revisionOpenedAt:null,originDeliveryId:'another-message'}}),urls);
-  assert.equal(m.inline_keyboard.at(-1)[0].text,'📝 Картка та історія');
+  assert.equal(m.inline_keyboard.at(-1).at(-1).text,'📝 Картка');
+});
+test('compact navigation supports missing CRM, old stored rows and reopened assessment',()=>{
+  const original=structuredClone(urls);
+  const legacy=urlButtons({inline_keyboard:[[urls[0],urls[1]],[urls[2]]]});
+  assert.deepEqual(texts(renderKeyboard(view(),legacy)).at(-1),['🎯 Sniper','💳 Баланси','📝 Картка']);
+  for(const state of [view(),view({firstReactionAt:'2026-09-11T11:00:00Z'}),view({outcome:'bought'})]) {
+    const m=renderKeyboard(state,[urls[0],urls[2]]);
+    assert.deepEqual(texts(m).at(-1),['🎯 Sniper','📝 Картка']);
+    assert.equal(m.inline_keyboard.length,state.outcome ? 3 : 4);
+  }
+  const reopened=view({review:{id:'r',originDeliveryId:'d1',submittedAt:'2026-09-11T11:00:00Z',revisionOpenedAt:'2026-09-11T12:00:00Z'}});
+  assert.deepEqual(texts(renderKeyboard(reopened,urls)).at(-1),['🎯 Sniper','💳 Баланси','📝 Оцінити']);
+  assert.deepEqual(urls,original);
+  assert.equal(renderKeyboard(view(),[]).inline_keyboard.length,3);
+  assert.deepEqual(texts(renderKeyboard(view(),[urls[2]])).at(-1),['📝 Картка']);
 });
 test('conflicts and rejections are never described as success',()=>{
   assert.match(describeResult('hide',{status:'conflict',reason:'price_changed',contextPrice:200,currentPrice:180}),/200.*180/);

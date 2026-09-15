@@ -87,7 +87,7 @@ function withHistoryLabel(button: InlineButton, view: DeliveryView): InlineButto
   if (!button.url?.includes('/zhezhemon/history')) return button;
   const text = view.review?.originDeliveryId===view.deliveryId ? (view.review.submittedAt && !(view.review.revisionOpenedAt &&
     view.review.revisionOpenedAt > view.review.submittedAt) ? '📝 Переглянути оцінку' : '📝 Оцінити')
-    : '📝 Картка та історія';
+    : '📝 Картка';
   return { text, url: button.url };
 }
 
@@ -103,9 +103,9 @@ export function renderKeyboard(view: DeliveryView, urls: InlineButton[], menu: M
   const back: InlineButton = { text: '⬅️ Назад', callback_data: cb('back') };
   const navigation: InlineButton[][] = [];
   const nonHistory = urls.filter(b => !b.url?.includes('/zhezhemon/history'));
-  if (nonHistory.length) navigation.push(nonHistory);
   const history = urls.find(b => b.url?.includes('/zhezhemon/history'));
-  if (history) navigation.push([withHistoryLabel(history, view)]);
+  if (history) nonHistory.push(withHistoryLabel(history, view));
+  if (nonHistory.length) navigation.push(nonHistory);
 
   if (menu === 'pause') {
     return { inline_keyboard: [
