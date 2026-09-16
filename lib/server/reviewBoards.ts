@@ -5,6 +5,8 @@ import type { DeliveryView } from '@/lib/reviewKeyboard';
 import { deliveryView, listingHistory } from './reviewCommands';
 import { projectStock } from '@/lib/reviewStock';
 import { stages } from '@/lib/reviewBoards';
+import { capturedListingView, type CapturedListingView } from '@/lib/capturedListing';
+import { sanitizeDescription, type SafeDescription } from '@/lib/sanitizeDescription';
 
 type StoredCard = Omit<BoardCard,'stock_quantity'> & {stock_evidence:unknown};
 
@@ -35,6 +37,8 @@ export type CardDetail = {
   history: Awaited<ReturnType<typeof listingHistory>>;
   revisions: {version:number; reason:string; recorded_at:string; payload:Assessment}[];
   missingSources: string[];
+  captured: CapturedListingView;
+  description: SafeDescription;
 };
 export async function readCard(board: Board, id: string): Promise<CardDetail | null> {
   const db=reviewDatabase();
@@ -63,5 +67,11 @@ export async function readCard(board: Board, id: string): Promise<CardDetail | n
     if(!decision) throw new Error('review_decision_unavailable');
     history.reactions.push(decision);
   }
-  return {card,view,review:review as Assessment | null,snapshot,photos,search:event?.search_snapshot?.params ?? {},history,revisions,missingSources} as CardDetail;
+  const search=event?.search_snapshot?.params ?? {};
+  // Readable projection and sanitized seller HTML are built here; the browser never parses raw eBay payloads.
+  const captured=capturedListingView({snapshot,search,photoCount:(photos ?? []).length,conditionId:card.condition_id});
+  const description=sanitizeDescription(captured.descriptionSource);
+  // The original description already travels inside raw_payload for the technical block.
+  return {card,view,review:review as Assessment | null,snapshot,photos,search,history,revisions,missingSources,
+    captured:{...captured,descriptionSource:null},description} as CardDetail;
 }

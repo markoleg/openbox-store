@@ -23,9 +23,14 @@ test('real owner API + PostgREST + PG: URL-only card, outcome, submit, stats, ex
   expect(card.search_name).toBe('item model');
   await page.getByRole('button',{name:/An item/}).click();
   const panel=page.getByRole('dialog');
-  await expect(panel.getByText('Зберігаємо URL фото.',{exact:false})).toBeVisible();
-  await panel.getByText('Ціна, доставка й пошуковий коридор',{exact:true}).click();
-  await expect(panel.getByText('"max": "500"',{exact:false})).toBeVisible();
+  await expect(panel.getByRole('heading',{name:/^Фото оголошення · \d+$/})).toBeVisible();
+  await expect(panel.getByText('📦 В наявності · ≈2 шт.',{exact:true})).toBeVisible();
+  await expect(panel.getByText(/Коридор пошуку: .*500/)).toBeVisible();
+  await expect(panel.locator('pre:visible')).toHaveCount(0);
+  await panel.getByText('Технічні дані',{exact:true}).click();
+  await panel.getByText('Параметри пошуку на момент події',{exact:true}).click();
+  await expect(panel.locator('pre:visible')).toHaveCount(1);
+  await expect(panel.locator('pre:visible')).toContainText('500');
   await panel.getByRole('button',{name:'Приховати до подешевшання'}).click();
   await expect(panel.getByLabel('Рішення для навчальної оцінки')).not.toHaveValue('');
   for(const label of ['Заголовок','Магазин','Параметри','Опис','Фото','Ціна з доставкою']) {

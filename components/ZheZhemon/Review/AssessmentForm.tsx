@@ -43,15 +43,15 @@ export default function AssessmentForm({review,decisions,photos,missingSources,o
         } catch { setError('Немає підтвердження збереження. Повтори той самий запит — дубль не створиться.') }
         finally { setBusy(false) }
     }
-    return <section className={styles.assessment}>
-        <h3>Оцінка за шістьма критеріями · v{review.version}</h3>
+    return <section className={styles.assessment} id="assessment-form" aria-labelledby="assessment-heading">
+        <div className={styles.sectionHeader}><h3 id="assessment-heading">Оцінка за шістьма критеріями · v{review.version}</h3><a href="#captured-data" className={styles.anchor}>До даних ↑</a></div>
         <p className={styles.muted}>1 — неприйнятно · 2 — суттєві ризики · 3 — із застереженнями · 4 — добре · 5 — дуже добре. Немає даних — залиш поле порожнім.</p>
         {error && <p className={styles.error} role="alert">{error}</p>}
         {!!missingSources.length && <p className={styles.error}>Неповні дані: {missingSources.map(k=>criteria.find(([key])=>key===k)?.[1] ?? k).join(', ')}. Можна зберегти чернетку, але не здати оцінку.</p>}
         {version!==review.version && dirty && <p className={styles.error}>На сервері нова версія. Застарілий текст не перезапише її.</p>}
         <fieldset disabled={closed || busy || !!uncertain.current}>
             {criteria.map(([key,label])=><fieldset key={key}>
-                <legend>{label}</legend>
+                <legend>{label} <span className={styles.sourceState} data-missing={missingSources.includes(key) ? 'true' : undefined}>{missingSources.includes(key) ? '· не зафіксовано' : '· є дані'}</span></legend>
                 <label>Бал<select aria-label={`${label}: бал`} value={String(draft[`score_${key}`] ?? '')} onChange={e=>set(`score_${key}`,e.target.value?Number(e.target.value):null)}>
                     <option value="">Не оцінено</option>{[1,2,3,4,5].map(v=><option key={v} value={v}>{v}</option>)}
                 </select></label>

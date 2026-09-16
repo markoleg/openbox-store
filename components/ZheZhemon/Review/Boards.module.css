@@ -109,3 +109,34 @@
     .tabs button {font-size:.8rem;padding:.5rem .35rem;min-height:44px}
     .toolbarActions {margin-left:0}
 }
+.sectionHeader { display:flex; justify-content:space-between; align-items:baseline; gap:.75rem; flex-wrap:wrap; }
+.anchor { font-size:.85rem; white-space:nowrap; }
+.note { padding:.6rem .8rem; border:1px solid #5a6b3c; background:#232a1c; border-radius:7px; margin:.5rem 0; line-height:1.5; font-size:.9rem; }
+.facts { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:.75rem 0; }
+.fact { padding:.4rem .65rem; border:1px solid #4b5660; border-radius:6px; background:#20272e; font-size:.9rem; }
+.fact[data-status=in_stock] { border-color:#4f8b74; }
+.fact[data-status=limited] { border-color:#a98a4a; }
+.fact[data-status=out_of_stock] { border-color:#b77560; }
+.subsection { margin:1rem 0 0; }
+.subsection h4 { font-size:.9rem; color:#c7d0da; margin-bottom:.4rem; }
+.aspects { display:grid; grid-template-columns:minmax(120px,max-content) minmax(0,1fr); gap:.35rem .9rem; font-size:.9rem; }
+.aspectRow { display:contents; }
+.aspects dt { color:#aab4be; overflow-wrap:anywhere; }
+.aspects dd { margin:0; overflow-wrap:anywhere; }
+.description { position:relative; max-width:100%; overflow-wrap:anywhere; font-size:.92rem; line-height:1.6; }
+.description[data-collapsed=true] { max-height:11rem; overflow:hidden; mask-image:linear-gradient(#000 70%,transparent); }
+.descriptionText { white-space:pre-wrap; }
+.descriptionHtml p,.descriptionHtml ul,.descriptionHtml ol,.descriptionHtml blockquote,.descriptionHtml table,.descriptionHtml pre { margin:0 0 .6rem; }
+.descriptionHtml ul,.descriptionHtml ol { padding-left:1.4rem; }
+.descriptionHtml h4 { font-size:1rem; margin:.6rem 0 .3rem; }
+.descriptionHtml table { width:100%; max-width:100%; border-collapse:collapse; display:block; overflow-x:auto; }
+.descriptionHtml td,.descriptionHtml th { padding:.3rem .5rem; border:1px solid #3c4650; }
+.descriptionHtml blockquote { border-left:3px solid #4b5660; padding-left:.7rem; color:#c7d0da; }
+.description + button,.aspects + button { margin-top:.5rem; }
+.technical { margin-top:1rem; border-top:1px solid #3c4650; }
+.technical details { padding:.4rem 0 .4rem .8rem; }
+.copy { display:inline-flex; gap:.5rem; align-items:center; margin:.4rem 0; }
+.gallery figure { min-width:0; }
+.gallery figcaption { font-size:.75rem; margin-top:.25rem; }
+.sourceState { font-weight:400; font-size:.8rem; color:#8fbfa8; }
+.sourceState[data-missing=true] { color:#d9ae64; }

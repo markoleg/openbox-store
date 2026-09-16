@@ -1,5 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {createHmac} from 'node:crypto';
+import {capturedListingView} from '../../lib/capturedListing';
+import {sanitizeDescription} from '../../lib/sanitizeDescription';
 
 const id='11111111-1111-4111-8111-111111111111', delivery='22222222-2222-4222-8222-222222222222';
 const link='https://www.ebay.com/itm/123', at='2026-09-11T08:00:00+00:00';
@@ -8,7 +10,15 @@ const assessment:any={id,link,origin_delivery_id:delivery,version:0,submitted_at
 for(const key of ['title','shop','aspects','description','photos','price_shipping']){assessment[`score_${key}`]=null;assessment[`note_${key}`]=null;}
 const view={deliveryId:delivery,eventId:id,dispatchId:id,link,channel:'main',kind:'first_seen',sentAt:at,stateVersion:0,searchId:1,searchExists:true,searchName:'Lenovo',firstReactionAt:null,outcome:null,outcomeAt:null,resolutionKind:null,currentPrice:202.3,
   live:{hidden:false,hiddenUntil:null,hidePrice:null,favorite:false,bannedInSearch:false,stockBlocked:false,liked:false,listingVersion:0}};
-const detail={card,view,review:assessment,snapshot:{id,observed_at:at,source:'get_item',normalized_payload:{title:card.title,price:'200.10',shipping_cost:'2.20',total_price:'202.30',currency:'USD',itemWebUrl:link,estimatedAvailabilities:[{estimatedAvailableQuantity:2}]},raw_payload:{seller:{username:'seller',feedbackScore:500,feedbackPercentage:'99.9'},localizedAspects:[{name:'RAM',value:'32 GB'}],description:'<script>window.bad=true</script>Текст продавця'}},photos:[],search:{minprice:100,maxprice:500},history:{reactions:[],deliveries:[{id:delivery,telegram_sent_at:at,channel:'main'}],events:[]},revisions:[],missingSources:[]};
+const availability=[{estimatedAvailabilityStatus:'IN_STOCK',deliveryOptions:['SHIP_TO_HOME'],estimatedAvailableQuantity:2}];
+const aspects=Array.from({length:10},(_,i)=>({name:`Параметр ${i+1}`,value:i?`значення ${i+1}`:'32 GB'}));
+const hostileDescription='<script>window.bad=true</script><p style="color:red" onclick="window.bad=true">Текст продавця</p><img src="https://tracker.example/pixel.gif">'+'<p>Довгий абзац опису. </p>'.repeat(40);
+const snapshot={id,observed_at:at,source:'get_item',normalized_payload:{title:card.title,price:'200.10',shipping_cost:'2.20',total_price:'202.30',currency:'USD',shipping_source:'response',itemWebUrl:link,estimatedAvailabilities:availability},
+  raw_payload:{seller:{username:'seller',feedbackScore:4695,feedbackPercentage:'99.9'},localizedAspects:aspects,description:hostileDescription,estimatedAvailabilities:availability}};
+const search={minprice:100,maxprice:500};
+// Same server-side projection as readCard, so the UI fixture cannot drift from the real contract.
+const captured=(photos:unknown[])=>{const view=capturedListingView({snapshot,search,photoCount:photos.length,conditionId:card.condition_id});return {captured:{...view,descriptionSource:null},description:sanitizeDescription(view.descriptionSource)};};
+const detail={card,view,review:assessment,snapshot,photos:[],search,history:{reactions:[],deliveries:[{id:delivery,telegram_sent_at:at,channel:'main'}],events:[]},revisions:[],missingSources:[],...captured([])};
 
 test.beforeEach(async({context})=>{
   const now=Math.floor(Date.now()/1000), payload=Buffer.from(JSON.stringify({v:1,sub:'buyer',iat:now,exp:now+14*86400,nonce:'ui-test'})).toString('base64url');
@@ -32,7 +42,7 @@ async function fixtures(page:any,photos:any[]=[]) {
   await page.route('http://127.0.0.1:9/**',(route:any)=>route.fulfill({json:[]}));
   await page.route('**/api/review/boards?**',async(route:any)=>{
     const url=new URL(route.request().url()), board=url.searchParams.get('tab');
-    if(url.searchParams.get('id')){await route.fulfill({json:{...detail,photos,review:{...assessment,version},card:{...card,board,id:board==='notifications'?delivery:id}}});return;}
+    if(url.searchParams.get('id')){await route.fulfill({json:{...detail,...captured(photos),photos,review:{...assessment,version},card:{...card,board,id:board==='notifications'?delivery:id}}});return;}
     const rows=url.searchParams.get('link')==='none'?[]:[{...card,board,id:board==='notifications'?delivery:id}];
     await route.fulfill({json:{pending:rows.length,columns:{new:{count:rows.length,cards:rows},working:{count:0,cards:[]},done:{count:0,cards:[]}}}});
   });
@@ -63,11 +73,12 @@ test('horizontal navigation and two tabs; independent filters survive switching 
 test('deep-linked review opens safe snapshot, six scores, draft and close return to filters',async({page})=>{
   const commands=await fixtures(page);await page.goto(`/zhezhemon/processing?tab=review&review=${id}&review.search=1`);
   const panel=page.getByRole('dialog');await expect(panel).toBeVisible();
-  await expect(panel.getByText('📦 Залишок за знімком (оцінка eBay): ≈2 шт.',{exact:true})).toBeVisible();
-  await expect(panel.getByText(/Час спостереження:.*історичні дані/)).toBeVisible();
+  await expect(panel.getByText('📦 В наявності · ≈2 шт.',{exact:true})).toBeVisible();
+  await expect(panel.getByText(/Знімок: детальні дані eBay.*Історичні дані/)).toBeVisible();
   await expect(panel.getByRole('heading',{name:/Оцінка за шістьма/})).toBeVisible();
   await expect(panel.getByRole('combobox',{name:/: бал/})).toHaveCount(6);
-  await expect(panel.getByText('<script>window.bad=true</script>Текст продавця',{exact:true})).toBeVisible();
+  await expect(panel.getByText('Текст продавця',{exact:true})).toBeVisible();
+  await expect(panel.getByText('<script>window.bad=true</script>',{exact:false})).not.toBeVisible();
   expect(await page.evaluate(()=>Boolean((window as any).bad))).toBe(false);
   await panel.getByLabel('Заголовок: бал').selectOption('4');
   await panel.getByRole('button',{name:'Зберегти чернетку'}).click();
@@ -157,7 +168,7 @@ test('URL-only photo failure is explicit and never an archive backlog error',asy
   await page.route(source,route=>route.fulfill({status:404,body:''}));
   await page.goto(`/zhezhemon/processing?tab=review&review=${id}`);
   const panel=page.getByRole('dialog');
-  await panel.getByText('Зберігаємо URL фото.',{exact:false}).scrollIntoViewIfNeeded();
+  await panel.getByRole('heading',{name:'Фото оголошення · 1'}).scrollIntoViewIfNeeded();
   await expect(panel.getByText('Фото недоступне за збереженим URL.')).toBeVisible();
   await expect(panel.getByRole('link',{name:'Відкрити збережений URL ↗'})).toHaveAttribute('href',source);
   await expect(panel.getByText('Архів: pending')).toHaveCount(0);
@@ -305,6 +316,60 @@ test('desktop columns fill a short viewport and retain independent scroll across
   await page.getByRole('button',{name:'Фільтри',exact:true}).click();
   const expanded=(await columns.boundingBox())!;expect(expanded.height).toBeGreaterThan(250);expect(expanded.y+expanded.height).toBeLessThanOrEqual(600);
   expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);
+});
+
+test('captured listing data reads as facts: seller, aspects, safe description, technical block, no external calls',async({page,context})=>{
+  await context.grantPermissions(['clipboard-read','clipboard-write']);
+  const external:string[]=[];
+  page.on('request',r=>{const u=r.url();if(!u.startsWith('http://127.0.0.1:3217')&&!u.startsWith('http://127.0.0.1:9'))external.push(u);});
+  await fixtures(page,[{source_url:'https://i.ebayimg.com/images/a.jpg',status:'url_only',content_hash:null},{source_url:'https://i.ebayimg.com/images/b.jpg',status:'url_only',content_hash:null}]);
+  await page.route('https://i.ebayimg.com/**',route=>route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==','base64')}));
+  await page.goto(`/zhezhemon/processing?tab=review&review=${id}`);
+  const panel=page.getByRole('dialog');await expect(panel).toBeVisible();
+  const data=panel.locator('#captured-data');
+  await expect(data.getByRole('heading',{name:'Дані оголошення на момент повідомлення'})).toBeVisible();
+  await data.getByRole('heading',{name:'Дані оголошення на момент повідомлення'}).scrollIntoViewIfNeeded();await page.screenshot({path:'node_modules/.cache/card-captured-top.png'});
+  await expect(data.getByText(/^seller · 99,9% позитивних · 4\s695 оцінок$/)).toBeVisible();
+  await expect(data.getByText('Стан: New (1000)')).toBeVisible();
+  await expect(data.getByText('$200.10 + $2.20 доставка = $202.30')).toBeVisible();
+  await expect(data.getByText('Коридор пошуку: $100.00–$500.00')).toBeVisible();
+  await expect(data.locator('dl dt')).toHaveCount(8);
+  await data.getByRole('button',{name:'Показати всі 10'}).click();
+  await expect(data.locator('dl dt')).toHaveCount(10);await expect(data.locator('dd',{hasText:'32 GB'})).toBeVisible();
+  const expand=data.getByRole('button',{name:'Розгорнути весь опис'});
+  await expect(expand).toHaveAttribute('aria-expanded','false');
+  const collapsed=data.locator('[data-collapsed=true]');
+  const before=(await collapsed.boundingBox())!.height;
+  await expand.click();await expect(data.getByRole('button',{name:'Згорнути опис'})).toHaveAttribute('aria-expanded','true');
+  await expect(collapsed).toHaveCount(0);
+  expect((await data.locator('#captured-description ~ div').first().boundingBox())!.height).toBeGreaterThan(before);
+  await expect(data.getByRole('heading',{name:'Фото оголошення · 2'})).toBeVisible();
+  await expect(data.getByRole('img',{name:'Фото 2 з 2 · ThinkPad T14 — тестовий лот'})).toBeVisible();
+  await expect(data.getByText('збережено URL, власна копія не потрібна')).toHaveCount(0);
+  await expect(data.locator('pre:visible')).toHaveCount(0);
+  const technical=data.locator('details').filter({hasText:'Технічні дані'}).first();
+  await technical.locator('summary').first().click();
+  const raw=technical.locator('details').filter({hasText:'Сирий payload eBay'});
+  await raw.locator('summary').click();
+  await expect(raw.locator('pre')).toContainText('window.bad=true');
+  await raw.getByRole('button',{name:'Копіювати JSON'}).click();
+  await expect(raw.getByText('Скопійовано')).toBeVisible();
+  expect(JSON.parse(await page.evaluate(()=>navigator.clipboard.readText())).seller.username).toBe('seller');
+  expect(await page.evaluate(()=>Boolean((window as any).bad))).toBe(false);
+  expect(external.filter(u=>!u.startsWith('https://i.ebayimg.com/'))).toEqual([]);
+  await page.screenshot({path:'node_modules/.cache/card-captured-data.png'});
+});
+
+test('captured data has no horizontal overflow on a 320px phone',async({page})=>{
+  await page.setViewportSize({width:320,height:700});await fixtures(page);
+  await page.goto(`/zhezhemon/processing?tab=review&review=${id}`);
+  const panel=page.getByRole('dialog');await expect(panel).toBeVisible();
+  await panel.getByRole('button',{name:'Показати всі 10'}).click();
+  await panel.getByRole('button',{name:'Розгорнути весь опис'}).click();
+  const body=panel.locator('#captured-data');
+  expect(await body.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({path:'node_modules/.cache/card-captured-320.png',fullPage:false});
 });
 
 test('card header stays visible while content scrolls and keyboard focus returns on close',async({page})=>{

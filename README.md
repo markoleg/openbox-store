@@ -358,3 +358,30 @@ protected board API is reread; reconnect/focus catches gaps, while a visible-tab
 assessment is never overwritten: it shows «Дані змінилися» and requires an
 explicit, confirmed discard. No new dependency, public DB privilege or eBay call
 is introduced. Apply tracker migrations **015 → 016 → 017** before this build.
+
+## Readable captured listing data in cards
+
+The card block «Дані оголошення на момент повідомлення» replaces JSON dumps with
+a typed projection built server-side in `lib/capturedListing.ts` and returned as
+`captured` from the card API. Seller (name · positive % · rating count), aspects
+(definition list, identifiers last, first 8 with «Показати всі N»), availability
+(`in_stock` / `limited` / `out_of_stock` / `unverified` with the same SHIP_TO_HOME
+quantity rules as tiles and Telegram; `estimatedSoldQuantity` is never a remaining
+count), price breakdown (Intl currency formatting, free shipping wording,
+search-fallback note, no cross-currency totals) and the search corridor are plain
+text. Unknown or malformed values become «не зафіксовано» states, never zeros.
+
+Seller HTML is sanitized on the server with `sanitize-html`
+(`lib/sanitizeDescription.ts`): allowlisted formatting tags only, `https:` links
+opened with `noopener noreferrer nofollow`, no images, styles, forms, media,
+scripts, SVG/MathML or attributes. Long descriptions start collapsed with an
+`aria-expanded` toggle. Photos render under one «Фото оголошення · N» heading with
+«Фото i з N» alt text; the per-photo URL-only caption is gone, failure links stay.
+
+Everything technical (snapshot metadata, availability records, normalized and raw
+payload, photo metadata, search params) sits in one closed «Технічні дані» block
+with «Копіювати JSON»; absent raw payload reads «Не зафіксовано». Incomplete
+search-fallback snapshots show one note listing the missing sections. Criteria in
+the assessment form show «є дані» / «не зафіксовано» from `missingSources`, and
+«До оцінки ↓» / «До даних ↑» anchors link the two sections. No new database
+fields, migrations, eBay calls or client-side payload parsing were added.

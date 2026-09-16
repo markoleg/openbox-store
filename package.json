@@ -6,7 +6,7 @@
 		"test:session": "node --test tests/ownerSession.test.mjs",
 		"test:boards": "playwright test",
 		"test:dependencies": "node --test tests/dependencies.test.mjs",
-		"test:review": "node --test tests/reviewCommands.test.mjs tests/reviewKeyboard.test.mjs tests/reviewBoards.test.mjs tests/reviewReporting.test.mjs",
+		"test:review": "node --test tests/reviewCommands.test.mjs tests/reviewKeyboard.test.mjs tests/reviewBoards.test.mjs tests/reviewReporting.test.mjs tests/capturedListing.test.mjs",
 		"dev": "next dev --turbopack",
 		"devs": "next dev",
 		"build": "next build",
@@ -21,7 +21,8 @@
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"react-toastify": "^11.0.5",
-		"recharts": "^2.15.3"
+		"recharts": "^2.15.3",
+		"sanitize-html": "^2.17.7"
 	},
 	"overrides": {
 		"next": {
@@ -34,6 +35,7 @@
 		"@types/node": "^20",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
+		"@types/sanitize-html": "^2.16.1",
 		"typescript": "^5"
 	}
 }

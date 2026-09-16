@@ -6,13 +6,12 @@ import type { CardDetail } from '@/lib/server/reviewBoards'
 import type { Board } from '@/lib/reviewBoards'
 import { dateLabel, reactionDelay, searchLabel } from '@/lib/reviewBoards'
 import { outcomeLabels } from '@/lib/reviewKeyboard'
-import { stockLabel } from '@/lib/reviewStock'
 import { applyCommand, issueContext, explainError, explainResult } from '@/lib/reviewClient'
 import { PAUSE_DAYS, tokenFromDispatchId, type ReviewContext, type ReviewAction, type ReviewPayload, type ReviewCommandResult } from '@/lib/reviewCommands'
 import OutcomeForm from './OutcomeForm'
 import AssessmentForm from './AssessmentForm'
 import ReactionHistory from './ReactionHistory'
-import PhotoGallery from './PhotoGallery'
+import CapturedData from './CapturedData'
 import styles from './Boards.module.css'
 
 function safeListing(url:unknown,fallback:string) {try{const u=new URL(String(url));return u.protocol==='https:' && (u.hostname==='ebay.com'||u.hostname.endsWith('.ebay.com'))?u.href:fallback}catch{return fallback}}
@@ -92,7 +91,7 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
         const p=new URLSearchParams(params.toString());p.set('tab',targetBoard);p.delete('review');p.delete('delivery');p.delete('action');p.set(targetBoard==='review'?'review':'delivery',targetId)
         router.push(`/zhezhemon/processing?${p}`,{scroll:false})
     }
-    const view=data?.view, raw=data?.snapshot?.raw_payload ?? {}, normalized=data?.snapshot?.normalized_payload ?? {}
+    const view=data?.view, normalized=data?.snapshot?.normalized_payload ?? {}
     return <div className={styles.overlay} onMouseDown={e=>{if(e.target===e.currentTarget)close()}}>
         <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="card-title" ref={dialog}>
             <div className={styles.cardHeader}>
@@ -128,18 +127,7 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
                     <p>{view?.live.hidden?`Приховано${view.live.hiddenUntil?' до '+dateLabel(view.live.hiddenUntil):' до подешевшання'}`:'Немає глобального приховування'}{view?.live.bannedInSearch?' · бан у цьому пошуку':''}{view?.live.stockBlocked?' · недоступне':''}{view?.live.favorite?' · Sniper':''}</p>
                     <p>Ціна повідомлення: {data.card.price ?? 'невідома'} {data.card.currency ?? ''}. Остання відома: {view?.currentPrice ?? 'невідома'}.</p>
                 </section>
-                <section><h3>Зафіксовані дані для оцінювання</h3>
-                    <p className={styles.muted}>{data.snapshot?`${data.snapshot.source} · спостереження ${dateLabel(data.snapshot.observed_at)}`:'Знімок недоступний'}. Відкриття та реакції не викликають getItem.</p>
-                    <p>📦 Залишок за знімком (оцінка eBay): {stockLabel(data.card.stock_quantity)}</p>
-                    <p className={styles.muted}>Час спостереження: {dateLabel(data.card.stock_observed_at)}. Це історичні дані, не поточний залишок.</p>
-                    <details><summary>Вихідні дані наявності</summary><pre>{json(normalized.estimatedAvailabilities ?? raw.estimatedAvailabilities)}</pre></details>
-                    <details open><summary>Магазин і відгуки</summary><pre>{json(raw.seller ?? {seller:normalized.seller_name,feedbackScore:normalized.feedback_score,feedbackPercentage:normalized.feedback_percentage})}</pre></details>
-                    <details open><summary>Параметри</summary><pre>{raw.localizedAspects?json(raw.localizedAspects):'Даних немає'}</pre></details>
-                    <details open><summary>Опис (безпечний текст джерела)</summary><pre>{String(raw.description ?? raw.shortDescription ?? normalized.shortDescription ?? 'Даних немає')}</pre></details>
-                    <details><summary>Ціна, доставка й пошуковий коридор</summary><pre>{json({price:normalized.price,shipping:normalized.shipping_cost,total:normalized.total_price,currency:normalized.currency,min:data.search.minprice,max:data.search.maxprice})}</pre></details>
-                    <PhotoGallery photos={data.photos}/>
-                    <details><summary>Збережені вихідні дані</summary><pre>{json(raw)}</pre></details>
-                </section>
+                <CapturedData data={data} assessmentAnchor={board==='review' && data.review ? 'assessment-form' : null}/>
                 {board==='review' && data.review && <AssessmentForm key={`${data.review.id}-${data.review.version}-${formEpoch}`} review={data.review} decisions={data.history.reactions} photos={data.photos} missingSources={data.missingSources} onSaved={changed} onDirty={setDirty}/>}
                 {board==='notifications' && data.review && <button onClick={()=>navigate('review',data.review!.id)}>Відкрити навчальну оцінку цього лінка</button>}
                 {!!data.revisions.length && <section><h3>Попередні версії оцінки</h3>{data.revisions.map(r=><details key={r.version}><summary>v{r.version} · {dateLabel(r.recorded_at)} · {r.reason}</summary><pre>{json(r.payload)}</pre></details>)}</section>}
