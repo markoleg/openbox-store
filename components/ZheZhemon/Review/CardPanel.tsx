@@ -18,14 +18,16 @@ import styles from './Boards.module.css'
 function safeListing(url:unknown,fallback:string) {try{const u=new URL(String(url));return u.protocol==='https:' && (u.hostname==='ebay.com'||u.hostname.endsWith('.ebay.com'))?u.href:fallback}catch{return fallback}}
 const json=(v:unknown)=>JSON.stringify(v ?? null,null,2)
 
-export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:string;onClose:()=>void;onChanged:()=>void}) {
+export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{board:Board;id:string;externalVersion:number;onClose:()=>void;onChanged:()=>void}) {
     const [data,setData]=useState<CardDetail|null>(null),[error,setError]=useState(''),[message,setMessage]=useState('')
     const [refresh,setRefresh]=useState(0),[pending,setPending]=useState(false),[context,setContext]=useState<ReviewContext|null>(null)
     const [dirty,setDirty]=useState(false)
+    const [stale,setStale]=useState(false),[formEpoch,setFormEpoch]=useState(0)
     const dirtyRef=useRef(false), dialog=useRef<HTMLDivElement>(null), closeButton=useRef<HTMLButtonElement>(null)
+    const seenExternal=useRef(externalVersion)
     const onCloseRef=useRef(onClose);onCloseRef.current=onClose;dirtyRef.current=dirty
     const router=useRouter(),params=useSearchParams()
-    const changed=useCallback(()=>{setRefresh(v=>v+1);onChanged()},[onChanged])
+    const changed=useCallback(()=>{setStale(false);setRefresh(v=>v+1);onChanged()},[onChanged])
     const close=()=>{if(!dirtyRef.current || confirm('Є незбережені зміни оцінки. Закрити й відкинути їх?'))onCloseRef.current()}
     useEffect(()=>{
         const prior=document.activeElement as HTMLElement|null, overflow=document.body.style.overflow
@@ -64,6 +66,16 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
         })().catch(e=>{if(active && !abort.signal.aborted)setError(e instanceof Error?e.message:'Помилка')})
         return ()=>{active=false;abort.abort()}
     },[board,id,refresh])
+    useEffect(()=>{
+        if(externalVersion===seenExternal.current)return
+        seenExternal.current=externalVersion
+        if(dirtyRef.current)setStale(true)
+        else setRefresh(v=>v+1)
+    },[externalVersion])
+    const discardAndRefresh=()=>{
+        if(dirtyRef.current && !confirm('Оновити картку й відкинути незбережені зміни оцінки?'))return
+        dirtyRef.current=false;setDirty(false);setStale(false);setFormEpoch(v=>v+1);setRefresh(v=>v+1)
+    }
     const run=async(action:ReviewAction,payload:ReviewPayload={}):Promise<ReviewCommandResult|null>=>{
         if(pending || !context)return null
         setPending(true);setMessage('')
@@ -86,12 +98,13 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
             <div className={styles.cardHeader}>
                 <div className={styles.cardHeading}><span className={styles.muted}>{board==='review'?'Оцінка оголошення':'Конкретне повідомлення'}</span><p id="card-title">{data?.card.title ?? 'Завантаження картки…'}</p></div>
                 <div className={styles.cardActions}>
-                    <button onClick={()=>setRefresh(v=>v+1)}>Оновити картку</button>
+                    <button onClick={()=>dirtyRef.current?setStale(true):setRefresh(v=>v+1)}>Оновити картку</button>
                     <button ref={closeButton} onClick={close}>Закрити ×</button>
                 </div>
             </div>
             <div className={styles.cardBody}>
             {error && <p role="alert" className={styles.error}>{error}</p>}
+            {stale && <div role="alert" className={styles.error}><p>Дані змінилися. Незбережена форма залишилась без змін.</p><button onClick={discardAndRefresh}>Оновити й відкинути чернетку</button></div>}
             {!data ? <p role="status">Завантаження картки…</p>:<>
                 <h2>{data.card.title}</h2>
                 <p><a href={safeListing(normalized.itemWebUrl,data.card.link)} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
@@ -127,7 +140,7 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
                     <PhotoGallery photos={data.photos}/>
                     <details><summary>Збережені вихідні дані</summary><pre>{json(raw)}</pre></details>
                 </section>
-                {board==='review' && data.review && <AssessmentForm review={data.review} decisions={data.history.reactions} photos={data.photos} missingSources={data.missingSources} onSaved={changed} onDirty={setDirty}/>}
+                {board==='review' && data.review && <AssessmentForm key={`${data.review.id}-${data.review.version}-${formEpoch}`} review={data.review} decisions={data.history.reactions} photos={data.photos} missingSources={data.missingSources} onSaved={changed} onDirty={setDirty}/>}
                 {board==='notifications' && data.review && <button onClick={()=>navigate('review',data.review!.id)}>Відкрити навчальну оцінку цього лінка</button>}
                 {!!data.revisions.length && <section><h3>Попередні версії оцінки</h3>{data.revisions.map(r=><details key={r.version}><summary>v{r.version} · {dateLabel(r.recorded_at)} · {r.reason}</summary><pre>{json(r.payload)}</pre></details>)}</section>}
                 <section><h3>Повідомлення цього оголошення</h3><p className={styles.muted}>Останні 100. Повна вибірка — на дошці з фільтром лінка.</p>

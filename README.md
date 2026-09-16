@@ -347,5 +347,14 @@ Desktop columns fill the remaining viewport and scroll independently. Expanded
 filters/analytics have a bounded scroller while tabs/actions remain available.
 Mobile columns retain 65dvh height and horizontal swiping. Card details scroll
 below a fixed header; draft/conflict checks, focus return and close confirmation
-remain in place. This change does not replace polling yet; private realtime is
-the next stage. No new dependencies, API calls or rollout flags are required.
+remain in place.
+
+Migration 017 replaces steady 30-second board polling with private invalidation.
+The browser opens `/api/review/realtime` under the signed owner cookie. That
+stream subscribes to the private singleton signal server-side with the existing
+service-role client and sends no row payload. Bursts are coalesced before the
+protected board API is reread; reconnect/focus catches gaps, while a visible-tab
+60-second exponential fallback runs only when realtime is unavailable. A dirty
+assessment is never overwritten: it shows «Дані змінилися» and requires an
+explicit, confirmed discard. No new dependency, public DB privilege or eBay call
+is introduced. Apply tracker migrations **015 → 016 → 017** before this build.

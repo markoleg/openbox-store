@@ -38,8 +38,7 @@ test('real owner API + PostgREST + PG: URL-only card, outcome, submit, stats, ex
   await expect(page.locator('[data-stage=done]').getByRole('button',{name:/An item/})).toBeVisible();
   const statsResponse=await request.get('/api/review/reporting?report=statistics');expect(statsResponse.status()).toBe(200);
   const stats=await statsResponse.json();expect(stats.summary.deliveries).toBe(1);expect(stats.summary.direct_samples).toBe(1);
-  await page.getByText('Експорт навчальних оцінок',{exact:true}).click();
-  const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Експорт JSONL',exact:true}).click();
+  const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Експорт',exact:true}).click();
   const download=await downloading,stream=await download.createReadStream();let content='';for await(const chunk of stream!)content+=chunk.toString();
   const rows=content.trim().split('\n').map(line=>JSON.parse(line));
   expect(rows.map(r=>r.type)).toEqual(['manifest','training_example','complete']);

@@ -37,7 +37,7 @@ for (const endpoint of ['/api/review/contexts','/api/review/commands','/api/revi
   assert.equal((await post({origin:'https://evil.example',cookie:session})).status,403);
   assert.equal((await post({origin:base,cookie:session})).status,503);
 }
-for (const endpoint of ['/api/review/boards','/api/review/reporting?report=statistics']) {
+for (const endpoint of ['/api/review/boards','/api/review/reporting?report=statistics','/api/review/realtime']) {
   assert.equal((await fetch(base + endpoint)).status, 401);
   assert.equal((await fetch(base + endpoint, {headers:{cookie:session}})).status, 503);
 }

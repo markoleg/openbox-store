@@ -7,6 +7,7 @@ import { stockLabel } from '@/lib/reviewStock'
 import CardPanel from './CardPanel'
 import Reporting from './Reporting'
 import styles from './Boards.module.css'
+import {useReviewRealtime} from './useReviewRealtime'
 
 const labels:Record<Board,Record<Stage,string>>={review:{new:'Нові',working:'Оброблено',done:'Оцінено'},notifications:{new:'Нові',working:'В роботі',done:'Оброблено'}}
 export const eventLabels:Record<string,string>={first_seen:'Перша поява',returned:'Повернення',price_drop:'Подешевшання',pause_over:'Після паузи',sniper_target:'Sniper',availability_restored:'Знову доступно'}
@@ -38,6 +39,7 @@ export default function ProcessingBoards() {
     const [error,setError]=useState(''),[loading,setLoading]=useState(true),[refresh,setRefresh]=useState(0)
     const [more,setMore]=useState<Stage|null>(null)
     const [filtersOpen,setFiltersOpen]=useState(false)
+    const [externalVersion,setExternalVersion]=useState(0)
     const scroll=useRef<Record<string,number>>({})
     const filterKey=(['review','notifications'] as const).map(b=>tabFilters(new URLSearchParams(url),b).toString()).join('|')
     const activeRequest=useRef('');activeRequest.current=board+'|'+filterKey+'|'+refresh
@@ -74,11 +76,8 @@ export default function ProcessingBoards() {
         finally{setMore(null)}
     }
     const onChanged=useCallback(()=>setRefresh(v=>v+1),[])
-    useEffect(()=>{
-        const update=()=>{if(document.visibilityState==='visible')onChanged()}
-        const interval=setInterval(update,30000);window.addEventListener('focus',update)
-        return ()=>{clearInterval(interval);window.removeEventListener('focus',update)}
-    },[onChanged])
+    const onExternalChange=useCallback(()=>{setExternalVersion(v=>v+1);setRefresh(v=>v+1)},[])
+    const realtimeStatus=useReviewRealtime(onExternalChange,loading)
     const query=tabFilters(new URLSearchParams(url),board).toString()
     const activeFilters=Array.from(search.entries()).filter(([k,v])=>k.startsWith(`${board}.`) && v && v!=='false').length
     return <main className={`${styles.workspace} ${styles.boardWorkspace}`}>
@@ -90,6 +89,7 @@ export default function ProcessingBoards() {
         <div className={styles.toolbarActions}>
             <button aria-expanded={filtersOpen} aria-controls="board-filters" onClick={()=>setFiltersOpen(v=>!v)}>Фільтри{activeFilters?` · ${activeFilters}`:''}</button>
             <button disabled={loading} onClick={onChanged}>Оновити</button>
+            <span className={styles.liveStatus} data-status={realtimeStatus} role="status">{realtimeStatus==='live'?'Наживо':realtimeStatus==='fallback'?'Резервне оновлення':'Підключення…'}</span>
             {board==='review' && <Reporting key={board+'|'+query} board={board} query={query} refresh={refresh}/>}
         </div>
         </div>
@@ -143,6 +143,6 @@ export default function ProcessingBoards() {
                 </div>
             </section>})}
         </div>
-        {id && <CardPanel key={`${board}-${id}`} board={board} id={id} onClose={close} onChanged={onChanged}/>}
+        {id && <CardPanel key={`${board}-${id}`} board={board} id={id} externalVersion={externalVersion} onClose={close} onChanged={onChanged}/>}
     </main>
 }

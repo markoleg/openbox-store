@@ -18,6 +18,17 @@ test.beforeEach(async({context})=>{
 
 async function fixtures(page:any,photos:any[]=[]) {
   const commands:any[]=[]; let version=0;
+  await page.addInitScript(()=>{
+    class TestEventSource {
+      static instances:TestEventSource[]=[]; listeners=new Map<string,Set<(event:Event)=>void>>();url:string;closed=false;onerror:null|(()=>void)=null;
+      constructor(url:string){this.url=url;TestEventSource.instances.push(this);setTimeout(()=>this.emit('ready'),0)}
+      addEventListener(name:string,listener:(event:Event)=>void){const values=this.listeners.get(name)??new Set();values.add(listener);this.listeners.set(name,values)}
+      removeEventListener(name:string,listener:(event:Event)=>void){this.listeners.get(name)?.delete(listener)}
+      emit(name:string){for(const listener of this.listeners.get(name)??[])listener(new Event(name))}
+      close(){this.closed=true}
+    }
+    ;(window as any).EventSource=TestEventSource;(window as any).__reviewRealtime=TestEventSource.instances
+  });
   await page.route('http://127.0.0.1:9/**',(route:any)=>route.fulfill({json:[]}));
   await page.route('**/api/review/boards?**',async(route:any)=>{
     const url=new URL(route.request().url()), board=url.searchParams.get('tab');
@@ -157,6 +168,7 @@ test('real endpoints require auth, same origin and rollout flag (no mocks)',asyn
   expect((await request.get('/api/review/boards')).status()).toBe(401);
   expect((await request.post('/api/review/assessments',{data:{}})).status()).toBe(401);
   expect((await request.get('/api/review/reporting?report=statistics')).status()).toBe(401);
+  expect((await request.get('/api/review/realtime')).status()).toBe(401);
   expect((await request.post('/api/review/reporting',{data:{}})).status()).toBe(401);
   const auth=await request.post('/api/auth',{headers:{Origin:'http://127.0.0.1:3217'},data:{password:'local-test-password'}});
   expect(auth.status()).toBe(200);
@@ -164,6 +176,7 @@ test('real endpoints require auth, same origin and rollout flag (no mocks)',asyn
   expect((await request.post('/api/review/assessments',{headers:{Origin:'https://foreign.invalid'},data:{}})).status()).toBe(403);
   expect((await request.post('/api/review/assessments',{headers:{Origin:'http://127.0.0.1:3217'},data:{}})).status()).toBe(503);
   expect((await request.get('/api/review/reporting?report=statistics')).status()).toBe(503);
+  expect((await request.get('/api/review/realtime')).status()).toBe(503);
   expect((await request.post('/api/review/reporting',{headers:{Origin:'https://foreign.invalid'},data:{}})).status()).toBe(403);
   expect((await request.post('/api/review/reporting',{headers:{Origin:'http://127.0.0.1:3217'},data:{}})).status()).toBe(503);
 });
@@ -307,6 +320,64 @@ test('card header stays visible while content scrolls and keyboard focus returns
   page.once('dialog',d=>d.dismiss());await page.keyboard.press('Escape');await expect(panel).toBeVisible();
   page.once('dialog',d=>d.accept());await close.click();await expect(panel).toHaveCount(0);
   await expect(tile).toBeFocused();
+});
+
+test('realtime coalesces bursts, catches visibility gaps and preserves a dirty assessment',async({page})=>{
+  let boardReads=0,detailVersion=0,hold=false,held=0,release=()=>{};let gate:Promise<void>=Promise.resolve();
+  await fixtures(page)
+  await page.route('**/api/review/boards?**',async route=>{
+    boardReads++;const p=new URL(route.request().url()).searchParams,board=p.get('tab');
+    if(hold){held++;await gate}
+    if(p.get('id'))return route.fulfill({json:{...detail,review:{...assessment,version:detailVersion,score_title:detailVersion?3:null},card:{...card,board,id:board==='notifications'?delivery:id}}});
+    const rows=[{...card,board,id:board==='notifications'?delivery:id}];
+    await route.fulfill({json:{pending:1,columns:{new:{count:1,cards:rows},working:{count:0,cards:[]},done:{count:0,cards:[]}}}});
+  });
+  await page.goto(`/zhezhemon/processing?tab=review&review=${id}`);
+  await expect(page.getByText('Наживо',{exact:true})).toBeVisible();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.waitForTimeout(1000);let baseline=boardReads;
+  await page.evaluate(()=>{const s=(window as any).__reviewRealtime.at(-1);s.emit('invalidate');s.emit('invalidate');s.emit('invalidate')});
+  await expect.poll(()=>boardReads).toBe(baseline+3);
+  await page.waitForTimeout(500);expect(boardReads).toBe(baseline+3);
+
+  baseline=boardReads;gate=new Promise<void>(resolve=>{release=resolve});hold=true;
+  await page.evaluate(()=>{(window as any).__reviewRealtime.at(-1).emit('invalidate')});
+  await expect.poll(()=>held).toBe(3);
+  await page.evaluate(()=>{(window as any).__reviewRealtime.at(-1).emit('invalidate')});
+  hold=false;release();await expect.poll(()=>boardReads).toBe(baseline+6);
+  await page.waitForTimeout(500);expect(boardReads).toBe(baseline+6);
+
+  const score=page.getByRole('dialog').getByLabel('Заголовок: бал');await score.selectOption('5');detailVersion=1;
+  await page.evaluate(()=>{(window as any).__reviewRealtime.at(-1).emit('invalidate')});
+  await expect(page.getByText('Дані змінилися.',{exact:false})).toBeVisible();
+  await expect(score).toHaveValue('5');
+  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Оновити й відкинути чернетку'}).click();
+  await expect(page.getByRole('dialog').getByLabel('Заголовок: бал')).toHaveValue('3');
+
+  await page.evaluate(()=>Object.defineProperty(document,'visibilityState',{value:'hidden',configurable:true}));
+  const hiddenBaseline=boardReads;await page.evaluate(()=>{(window as any).__reviewRealtime.at(-1).emit('invalidate')});await page.waitForTimeout(500);expect(boardReads).toBe(hiddenBaseline);
+  await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{value:'visible',configurable:true});document.dispatchEvent(new Event('visibilitychange'))});
+  await expect.poll(()=>boardReads).toBeGreaterThan(hiddenBaseline);
+  await page.getByRole('button',{name:'Закрити ×'}).click();
+  await page.getByRole('button',{name:/ZheZhemon/}).click();
+  await page.getByRole('link',{name:'Shop',exact:true}).click();await expect(page).toHaveURL(/\/shop$/);
+  await expect.poll(()=>page.evaluate(()=>(window as any).__reviewRealtime[0]?.closed)).toBe(true);
+});
+
+test('realtime fallback polls with backoff only until the stream recovers',async({page})=>{
+  let boardReads=0;await fixtures(page);
+  await page.route('**/api/review/boards?**',async route=>{
+    boardReads++;const board=new URL(route.request().url()).searchParams.get('tab');
+    await route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,board,id:board==='notifications'?delivery:id}]},working:{count:0,cards:[]},done:{count:0,cards:[]}}}});
+  });
+  await page.goto('/zhezhemon/processing?tab=review');await expect(page.getByText('Наживо',{exact:true})).toBeVisible();
+  await page.waitForTimeout(1000);await page.clock.install();let baseline=boardReads;
+  await page.evaluate(()=>{(window as any).__reviewRealtime.at(-1).onerror?.()});
+  await expect(page.getByText('Резервне оновлення',{exact:true})).toBeVisible();
+  await page.clock.fastForward(60250);await expect.poll(()=>boardReads).toBe(baseline+2);
+  await page.evaluate(()=>{(window as any).__reviewRealtime.at(-1).emit('ready')});await page.clock.fastForward(250);
+  await expect(page.getByText('Наживо',{exact:true})).toBeVisible();await expect.poll(()=>boardReads).toBe(baseline+4);
+  baseline=boardReads;await page.clock.fastForward(300000);await page.waitForTimeout(100);expect(boardReads).toBe(baseline);
 });
 
 test('expanded analytics and filters leave usable columns in a low desktop window',async({page})=>{
