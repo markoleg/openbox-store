@@ -317,6 +317,14 @@ Before deploying this dashboard change, apply tracker migration
 adds private snapshot ID/time/availability evidence to the board projection;
 it does not rewrite deliveries, reviews or snapshots. Do not rerun 006–014.
 
+Follow it with `016_delivered_review_eligibility.sql` before deploying the new
+tracker. Any delivered condition-1000 link can then receive its one assessment,
+including legacy/manual links; repeats never reset an existing assessment.
+016 also backfills missing cards from recorded deliveries without resending or
+deleting history. The history page no longer interprets the old registration-time
+`training_eligible` flag as current eligibility. Apply both migrations only as
+part of the separately approved release, with backup and producer coordination.
+
 Both tiles and card details use that same historical snapshot, not the latest
 listing state. The server returns only a compact quantity and observation time
 to tiles (no raw getItem response); detail views retain the original evidence.

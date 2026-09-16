@@ -78,7 +78,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
         ? String((history.state.latest_summary as { title?: string }).title ?? link) : link
     const live = history.live
     const review = history.review
-    const reviewStatus = !review ? (history.state?.training_eligible ? 'кандидат без доставки' : 'не навчальний приклад')
+    const reviewStatus = !review ? 'ще не створена — потрібна підтверджена доставка товару зі станом New (1000)'
         : review.submitted_at && !(review.revision_opened_at && review.revision_opened_at > review.submitted_at)
             ? `оцінено ${kyiv(review.submitted_at)} (v${review.version})`
             : 'потребує завершення оцінки'
