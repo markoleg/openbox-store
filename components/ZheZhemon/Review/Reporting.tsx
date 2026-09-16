@@ -1,5 +1,5 @@
 'use client'
-import {useEffect,useRef,useState} from 'react'
+import {useEffect,useId,useRef,useState} from 'react'
 import {dateLabel,type Board} from '@/lib/reviewBoards'
 import {durationLabel,validateExportPage,type Statistics,type ExportManifest,type ExportPage} from '@/lib/reviewReporting'
 import {outcomeLabels} from '@/lib/reviewKeyboard'
@@ -18,6 +18,7 @@ export default function Reporting({board,query,refresh}:{board:Board;query:strin
     const [threshold,setThreshold]=useState(''),[appliedThreshold,setAppliedThreshold]=useState(''),[retry,setRetry]=useState(0)
     const [busy,setBusy]=useState(false),[progress,setProgress]=useState(''),[exportId,setExportId]=useState<string|null>(null)
     const exportAbort=useRef<AbortController|null>(null)
+    const helpId=useId()
     useEffect(()=>()=>exportAbort.current?.abort(),[])
     useEffect(()=>{
         if(!open || board!=='notifications')return
@@ -52,16 +53,25 @@ export default function Reporting({board,query,refresh}:{board:Board;query:strin
         finally{if(!abort.signal.aborted)setBusy(false)}
     }
     const s=stats?.summary
-    return <details className={styles.reporting} open={open} onToggle={e=>setOpen(e.currentTarget.open)}>
-        <summary>{board==='review'?'Експорт навчальних оцінок':'Аналітика сповіщень'}</summary>
-        {board==='review'?<>
-            <p className={styles.muted}>Уся вибірка за фільтрами вище, не лише завантажені картки. Лише здані придатні оцінки condition 1000 зі знімком не пізніше рішення. JSONL містить знімки, критерії та окрему мітку рішення. Хеші, статус і час архівації фото відокремлено від навчальних ознак; самих файлів фото немає.</p>
+    if(board==='review')return <div className={styles.exportControl}>
+        <button disabled={busy} onClick={download}>{exportId?'Повторити експорт':'Експорт'}</button>
+        <button popoverTarget={helpId} aria-label="Про експорт навчальних оцінок">ⓘ</button>
+        <div id={helpId} popover="auto" className={styles.exportPopover}>
+            <p>Експорт навчальних оцінок</p>
+            <p className={styles.muted}>Уся вибірка за активними фільтрами, не лише завантажені картки. Лише здані придатні оцінки condition 1000 зі знімком не пізніше рішення. JSONL містить знімки, критерії та окрему мітку рішення. Хеші, статус і час архівації фото відокремлено від навчальних ознак; самих файлів фото немає.</p>
             <p className={styles.muted}>Повтор використовує той самий зріз протягом 24 годин. Для свіжої вибірки натисни «Новий зріз». Файл зберігається лише після перевірки всіх сторінок (до 100 МіБ).</p>
-            <div className={styles.actions}><button disabled={busy} onClick={download}>{exportId?'Повторити експорт JSONL':'Експорт JSONL'}</button>{exportId && <button disabled={busy} onClick={()=>{setExportId(null);setProgress('');setError('')}}>Новий зріз</button>}</div>
-            {progress && <p role="status">{progress}</p>}
-        </>:<>
+            {exportId && <button disabled={busy} onClick={()=>{setExportId(null);setProgress('');setError('')}}>Новий зріз</button>}
+        </div>
+        {(progress || error) && <div className={styles.exportFeedback}>
+            {progress && <p role="status" className={styles.muted}>{progress}</p>}
+            {error && <p role="alert" className={styles.error}>{error}</p>}
+        </div>}
+    </div>
+    return <details className={styles.reporting} open={open} onToggle={e=>setOpen(e.currentTarget.open)}>
+        <summary>Аналітика сповіщень</summary>
             <p className={styles.muted}>Усі доставки за фільтрами вище. Період — час відправлення; результати — поточні. Час календарний, лише прямі реакції закупщика. Це не оцінка втрачених одиниць чи прибутку.</p>
-            <form className={styles.filters} onSubmit={e=>{e.preventDefault();setAppliedThreshold(threshold);setRetry(v=>v+1)}}><label>Поріг реакції, хв (необов’язково)<input type="number" min="1" max="525600" step="1" value={threshold} onChange={e=>setThreshold(e.target.value)}/></label><button>Перерахувати</button></form>
+            <form className={styles.filters} onSubmit={e=>{e.preventDefault();setAppliedThreshold(threshold);setRetry(v=>v+1)}}><label>Поріг реакції, хв (необов’язково)<input type="number" min="1" max="525600" step="1" value={threshold} onChange={e=>setThreshold(e.target.value)}/></label><button aria-describedby={helpId}>Перерахувати</button></form>
+            <p id={helpId} className={styles.muted}>Перерахунок оновлює статистику за активними фільтрами та заданим порогом реакції у хвилинах. Без порогу — загальна статистика. Без реакції — не нульовий час. Оцінки, результати та повідомлення не змінюються; eBay не опитується.</p>
             {!stats && !error && open && <p role="status">Обчислюю повну вибірку…</p>}
             {stats && s && <>
                 <p className={styles.muted}>Розраховано: {dateLabel(stats.generatedAt)}</p>
@@ -76,7 +86,6 @@ export default function Reporting({board,query,refresh}:{board:Board;query:strin
                 <details><summary>Причини пропусків і помилок</summary><div className={styles.tableScroll}><table className={styles.technical}><thead><tr><th>Результат / причина</th><th>Доставки</th><th>Тригери</th><th>Лінки</th></tr></thead><tbody>{stats.reasons.map((r,i)=><tr key={i}><td>{outcomeLabels[r.outcome]} · {r.reason_code || 'Не зазначено'}</td><td>{r.deliveries}</td><td>{r.triggers}</td><td>{r.links}</td></tr>)}</tbody></table></div></details>
                 <details><summary>За типом події та condition</summary><div className={styles.tableScroll}><table className={styles.technical}><thead><tr><th>Тип / condition</th><th>Доставки</th><th>Прямі реакції</th><th>Медіана / p90</th></tr></thead><tbody>{stats.breakdown.map((r,i)=><tr key={i}><td>{r.kind} / {r.condition_id ?? 'Невідомо'}</td><td>{r.deliveries}</td><td>{r.direct_samples}</td><td>{durationLabel(r.median_seconds)} / {durationLabel(r.p90_seconds)}</td></tr>)}</tbody></table></div></details>
             </>}
-        </>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
     </details>
 }

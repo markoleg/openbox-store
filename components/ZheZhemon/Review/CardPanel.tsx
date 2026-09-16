@@ -83,14 +83,20 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
     const view=data?.view, raw=data?.snapshot?.raw_payload ?? {}, normalized=data?.snapshot?.normalized_payload ?? {}
     return <div className={styles.overlay} onMouseDown={e=>{if(e.target===e.currentTarget)close()}}>
         <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="card-title" ref={dialog}>
-            <div className={styles.heading}><span>{board==='review'?'Оцінка оголошення':'Конкретне повідомлення'}</span><button ref={closeButton} onClick={close}>Закрити ×</button></div>
+            <div className={styles.cardHeader}>
+                <div className={styles.cardHeading}><span className={styles.muted}>{board==='review'?'Оцінка оголошення':'Конкретне повідомлення'}</span><p id="card-title">{data?.card.title ?? 'Завантаження картки…'}</p></div>
+                <div className={styles.cardActions}>
+                    <button onClick={()=>setRefresh(v=>v+1)}>Оновити картку</button>
+                    <button ref={closeButton} onClick={close}>Закрити ×</button>
+                </div>
+            </div>
+            <div className={styles.cardBody}>
             {error && <p role="alert" className={styles.error}>{error}</p>}
-            <button onClick={()=>setRefresh(v=>v+1)}>Оновити картку</button>
-            {!data ? <h2 id="card-title">Завантаження картки…</h2>:<>
-                <h2 id="card-title">{data.card.title}</h2>
+            {!data ? <p role="status">Завантаження картки…</p>:<>
+                <h2>{data.card.title}</h2>
                 <p><a href={safeListing(normalized.itemWebUrl,data.card.link)} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
                 <section>
-                    <h3>{board==='review'?'Рішення стосується першого доставленого повідомлення':'Результат цього повідомлення'}</h3>
+                    <h3>{board==='review'?'Рішення стосується повідомлення, за яким створено оцінку':'Результат цього повідомлення'}</h3>
                     <p>{dateLabel(data.card.sent_at)} · {data.card.channel==='main'?'основний чат':'sniper'} · {searchLabel(data.card)}</p>
                     <p>{view?.outcome?outcomeLabels[view.outcome]:'Результату немає'}{view?.resolutionKind && view.resolutionKind!=='direct'?` · ${view.resolutionKind==='shared_trigger'?'через пов’язане повідомлення':'через подію'}`:''}</p>
                     <p className={styles.muted}>Перша пряма реакція: {dateLabel(view?.firstReactionAt ?? null)}. Результат: {dateLabel(view?.outcomeAt ?? null)}.</p>
@@ -130,6 +136,7 @@ export default function CardPanel({board,id,onClose,onChanged}:{board:Board;id:s
                 </section>
                 <ReactionHistory key={`${data.card.link}-${refresh}`} link={data.card.link}/>
             </>}
+            </div>
         </div>
     </div>
 }

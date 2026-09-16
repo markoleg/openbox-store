@@ -1,8 +1,21 @@
-.navigation,.tabs { display:flex; gap:.5rem; overflow-x:auto; border-bottom:1px solid #343a42; padding:.65rem 1rem; }
-.navigation a,.tabs button { white-space:nowrap; padding:.65rem 1rem; border-radius:8px; color:#c7d0da; background:transparent; border:1px solid transparent; cursor:pointer; }
+.navigation,.tabs { display:flex; gap:.35rem; min-width:0; }
+.navigation a,.tabs button { padding:.65rem .8rem; border-radius:8px; color:#c7d0da; background:transparent; border:1px solid transparent; cursor:pointer; line-height:1.35; text-align:center; }
+.navigation a { white-space:nowrap; }
 .navigation a[aria-current],.tabs button[aria-selected=true] { color:#fff; background:#223841; border-color:#49727d; }
+.headerNavigation { display:none; }
+.mobileNavigation { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); height:44px; padding:3px .5rem; border-bottom:1px solid #343a42; }
+.mobileNavigation a { padding:.5rem .2rem; font-size:.75rem; align-content:center; }
+.shell,.catalog { min-width:0; }
+.catalog > :global(main) { min-width:0; }
 .fullWidth { min-width:0; width:100%; }
 .workspace { padding:1rem; min-width:0; }
+.srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
+.toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; padding-bottom:.5rem; flex-shrink:0; }
+.toolbarActions { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; margin-left:auto; }
+.tabs { flex:1 1 360px; }
+.tabs button { flex:1; min-width:0; overflow-wrap:anywhere; }
+.controls { min-width:0; }
+.filterPanel[hidden] { display:none; }
 .heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:.5rem; }
 .heading h1 { font-size:1.5rem; }
 .muted { color:#aab4be; font-size:.86rem; line-height:1.5; }
@@ -13,14 +26,17 @@
 .workspace select option,.dialog select option { background:#1c2026; color:#f3f5f7; }
 .workspace button,.dialog button,.button { padding:.5rem .8rem; background:#26363e; border:1px solid #4a626b; border-radius:6px; color:#f3f5f7; cursor:pointer; font:inherit; }
 .workspace button:disabled,.dialog button:disabled { opacity:.5; cursor:not-allowed; }
+.workspace .tabs button[aria-selected=false] { background:transparent; color:#aab4be; border-color:#343a42; }
+.workspace .tabs button[aria-selected=true] { box-shadow:inset 0 -2px #81adba; border-color:#81adba; }
 .workspace button:focus-visible,.dialog button:focus-visible,.navigation a:focus-visible { outline:2px solid #7bdbcc; outline-offset:3px; }
-.columns { display:grid; grid-template-columns:repeat(3,minmax(290px,1fr)); gap:1rem; overflow-x:auto; height:calc(100dvh - 330px); min-height:360px; }
-.column { background:#171c21; border:1px solid #343a42; border-radius:10px; display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+.columns { display:grid; grid-template-columns:repeat(3,minmax(290px,1fr)); gap:.75rem; overflow:auto; height:65dvh; min-height:0; }
+.column { background:#171c21; border:1px solid #343a42; border-radius:10px; display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; }
 .column h2 { padding:.9rem; font-size:.95rem; border-bottom:1px solid #343a42; display:flex; justify-content:space-between; }
+.column h2 { flex-shrink:0; }
 .column[data-stage=new] h2 { border-top:3px solid #77aacf; }
 .column[data-stage=working] h2 { border-top:3px solid #d9ae64; }
 .column[data-stage=done] h2 { border-top:3px solid #6fac98; }
-.stack { display:grid; align-content:start; gap:.65rem; padding:.7rem; overflow-y:auto; flex:1; }
+.stack { display:grid; align-content:start; gap:.65rem; padding:.7rem; overflow-y:auto; flex:1; min-height:0; overscroll-behavior:contain; }
 .workspace .tile { text-align:left; width:100%; display:grid; gap:.55rem; padding:.9rem; border:1px solid #38434b; background:#20272e; }
 .tile:hover { border-color:#81adba; }
 .tile strong { font-size:.95rem; line-height:1.45; overflow-wrap:anywhere; }
@@ -30,7 +46,12 @@
 .empty { padding:1.5rem .5rem; text-align:center; color:#aab4be; }
 .error { padding:.8rem; border:1px solid #b77560; background:#382920; border-radius:7px; margin:.5rem 0; }
 .overlay { position:fixed; inset:0; background:#0008; z-index:900; display:flex; justify-content:flex-end; }
-.dialog { width:min(850px,94vw); height:100dvh; overflow-y:auto; background:#14191f; border-left:1px solid #53616e; padding:1.25rem; color:#f3f5f7; }
+.dialog { width:min(850px,94vw); height:100dvh; display:flex; flex-direction:column; min-height:0; overflow:hidden; background:#14191f; border-left:1px solid #53616e; color:#f3f5f7; }
+.cardHeader { flex-shrink:0; display:flex; gap:.75rem; align-items:center; padding:1rem; padding-top:max(1rem,env(safe-area-inset-top)); border-bottom:1px solid #3c4650; background:#14191f; }
+.cardHeading { flex:1; min-width:0; }
+.cardHeading p { font-size:.9rem; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+.cardActions { display:flex; flex-wrap:wrap; gap:.4rem; flex-shrink:0; }
+.cardBody { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; padding:1.25rem; padding-bottom:max(1.25rem,env(safe-area-inset-bottom)); }
 .dialog h2 { font-size:1.25rem; line-height:1.5; overflow-wrap:anywhere; }
 .dialog h3 { font-size:1rem; margin-bottom:.6rem; }
 .dialog section,.assessment { margin:1rem 0; padding:1rem; border:1px solid #3c4650; border-radius:8px; }
@@ -49,7 +70,11 @@
 .assessment textarea { width:100%; }
 .actions { display:flex; flex-wrap:wrap; gap:.5rem; margin:.65rem 0; }
 .tableScroll { overflow-x:auto; }
-.reporting { padding:.8rem; margin-bottom:1rem; border:1px solid #3c4650; border-radius:8px; }
+.reporting { padding:.5rem .8rem; margin-bottom:.5rem; border:1px solid #3c4650; border-radius:8px; }
+.exportControl { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; }
+.exportFeedback { flex-basis:100%; max-width:36rem; overflow-wrap:anywhere; }
+.exportPopover { position:fixed; inset:5rem .75rem auto auto; margin:0; width:min(380px,calc(100vw - 1.5rem)); max-height:calc(100dvh - 6rem); overflow:auto; padding:1rem; border:1px solid #53616e; border-radius:8px; background:#14191f; color:#f3f5f7; box-shadow:0 8px 30px #0009; }
+.exportPopover p { line-height:1.6; margin-bottom:.8rem; }
 .reporting summary { cursor:pointer; padding:.3rem 0; }
 .reporting p { line-height:1.6; margin:.5rem 0; }
 .metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.7rem; margin:1rem 0; }
@@ -58,4 +83,26 @@
 .metrics dd { font-size:1.5rem; margin-top:.4rem; }
 .technical { width:100%; border-collapse:collapse; }
 .technical th,.technical td { text-align:left; padding:.8rem; border-bottom:1px solid #343a42; }
-@media(max-width:640px) { .workspace {padding:.5rem} .dialog {width:100vw;border:0;padding:1rem} .filters {gap:.5rem} .filters input {max-width:180px} .columns {height:65dvh} .navigation {padding:.5rem} }
+@media(min-width:1024px) {
+    .headerNavigation { display:flex; }
+    .mobileNavigation { display:none; }
+    .catalog { display:grid; grid-template-columns:minmax(220px,1fr) minmax(0,3fr); height:calc(100dvh - 65px); min-height:0; }
+    .catalog > :global(main) { overflow:auto; min-height:0; overscroll-behavior:contain; }
+    .boardWorkspace { height:calc(100dvh - 65px); display:flex; flex-direction:column; gap:.5rem; overflow:hidden; }
+    .controls { flex:0 1 auto; max-height:35%; overflow:auto; overscroll-behavior:contain; }
+    .columns { flex:1; height:auto; }
+}
+@media(max-width:640px) {
+    .workspace {padding:.5rem}
+    .dialog {width:100vw;border:0}
+    .cardHeader {padding:.75rem;padding-top:max(.75rem,env(safe-area-inset-top));flex-wrap:wrap}
+    .cardHeading {flex-basis:100%}
+    .cardActions {width:100%;justify-content:flex-end}
+    .cardBody {padding:.75rem;padding-bottom:max(.75rem,env(safe-area-inset-bottom))}
+    .filters {gap:.5rem}
+    .filters label {max-width:100%;min-width:0}
+    .filters input {max-width:100%}
+    .tabs {flex-basis:100%;gap:.3rem}
+    .tabs button {font-size:.8rem;padding:.5rem .35rem;min-height:44px}
+    .toolbarActions {margin-left:0}
+}

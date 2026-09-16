@@ -31,14 +31,10 @@ export default function AsideMenu() {
 
     return (
         <>
-            <div className={styles.aside_brg}>
-
-                <SquareMenu
-                    className={styles.aside_brg}
-                    onClick={() => setOpen(!open)}
-                />
-            </div>
-            <aside className={`${styles.aside} ${open ? styles.open : ""}`}>
+            <button className={styles.aside_brg} aria-label="Пошуки" aria-expanded={open} aria-controls="zhezhemon-searches" onClick={() => setOpen(!open)}>
+                <SquareMenu aria-hidden="true" />
+            </button>
+            <aside id="zhezhemon-searches" aria-label="Пошуки ZheZhemon" className={`${styles.aside} ${open ? styles.open : ""}`}>
                 <div className={styles.aside_menu}
                     onClick={() => setOpen(false)}
                 >

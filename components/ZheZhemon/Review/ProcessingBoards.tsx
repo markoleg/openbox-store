@@ -37,6 +37,7 @@ export default function ProcessingBoards() {
     const [pages,setPages]=useState<Partial<Record<Board,BoardPage>>>({})
     const [error,setError]=useState(''),[loading,setLoading]=useState(true),[refresh,setRefresh]=useState(0)
     const [more,setMore]=useState<Stage|null>(null)
+    const [filtersOpen,setFiltersOpen]=useState(false)
     const scroll=useRef<Record<string,number>>({})
     const filterKey=(['review','notifications'] as const).map(b=>tabFilters(new URLSearchParams(url),b).toString()).join('|')
     const activeRequest=useRef('');activeRequest.current=board+'|'+filterKey+'|'+refresh
@@ -78,11 +79,22 @@ export default function ProcessingBoards() {
         const interval=setInterval(update,30000);window.addEventListener('focus',update)
         return ()=>{clearInterval(interval);window.removeEventListener('focus',update)}
     },[onChanged])
-    return <main className={styles.workspace}>
-        <div className={styles.heading}><div><h1>Опрацювання</h1><p className={styles.muted}>Спільна історія рішень. Дві дошки — без повторного введення.</p></div><button disabled={loading} onClick={onChanged}>Оновити</button></div>
+    const query=tabFilters(new URLSearchParams(url),board).toString()
+    const activeFilters=Array.from(search.entries()).filter(([k,v])=>k.startsWith(`${board}.`) && v && v!=='false').length
+    return <main className={`${styles.workspace} ${styles.boardWorkspace}`}>
+        <h1 className={styles.srOnly}>Опрацювання</h1>
+        <div className={styles.toolbar}>
         <div className={styles.tabs} role="tablist" aria-label="Канбани">
             {(['review','notifications'] as const).map(b=><button key={b} role="tab" id={`tab-${b}`} aria-controls="board-panel" aria-selected={board===b} onClick={()=>switchTab(b)}>{b==='review'?'Оцінка оголошень':'Усі сповіщення'} · {pages[b]?.pending ?? '—'}</button>)}
         </div>
+        <div className={styles.toolbarActions}>
+            <button aria-expanded={filtersOpen} aria-controls="board-filters" onClick={()=>setFiltersOpen(v=>!v)}>Фільтри{activeFilters?` · ${activeFilters}`:''}</button>
+            <button disabled={loading} onClick={onChanged}>Оновити</button>
+            {board==='review' && <Reporting key={board+'|'+query} board={board} query={query} refresh={refresh}/>}
+        </div>
+        </div>
+        <div className={styles.controls}>
+        <div id="board-filters" className={styles.filterPanel} hidden={!filtersOpen}>
         <form key={board+filterKey} className={styles.filters} onSubmit={e=>{
             e.preventDefault();const data=new FormData(e.currentTarget),p=new URLSearchParams(url)
             Array.from(p.keys()).filter(k=>k.startsWith(`${board}.`)).forEach(k=>p.delete(k))
@@ -108,9 +120,11 @@ export default function ProcessingBoards() {
             <button type="submit">Застосувати</button>
             <button type="button" onClick={()=>{const p=new URLSearchParams(url);Array.from(p.keys()).filter(k=>k.startsWith(`${board}.`)).forEach(k=>p.delete(k));change(p)}}>Скинути</button>
         </form>
-        <Reporting key={board+'|'+tabFilters(new URLSearchParams(url),board).toString()} board={board} query={tabFilters(new URLSearchParams(url),board).toString()} refresh={refresh}/>
+        </div>
+        {board==='notifications' && <Reporting key={board+'|'+query} board={board} query={query} refresh={refresh}/>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {loading && <p role="status" className={styles.muted}>Оновлюю дошки…</p>}
+        </div>
         <div id="board-panel" role="tabpanel" aria-labelledby={`tab-${board}`} className={styles.columns}>
             {stages.map(stage=>{const column=pages[board]?.columns[stage];return <section key={`${board}-${stage}`} className={styles.column} data-stage={stage}>
                 <h2>{labels[board][stage]} <span>{column?.count ?? '—'}</span></h2>

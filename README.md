@@ -330,3 +330,22 @@ listing state. The server returns only a compact quantity and observation time
 to tiles (no raw getItem response); detail views retain the original evidence.
 Missing/unverified quantities display «Кількість невідома». Thresholds such as
 MORE_THAN are displayed as «понад 10 шт.». No eBay call is made by board reads.
+
+## Compact ZheZhemon workspace (local UI follow-up)
+
+At 1024px and wider, section navigation lives in the main header; below that it
+uses one compact row beneath it. Both placements share one route definition and
+only appear inside ZheZhemon. The catalogue search list and item pane scroll
+independently on desktop. The mobile search panel reserves the navigation and
+bottom-toggle space.
+
+Processing keeps its tabs, filter toggle, refresh and export together. Filters
+start collapsed, show an active count and retain their independent URL values.
+Export help/new snapshot live in a keyboard/touch-accessible native popover;
+retry retains the same export ID, with existing completeness and size checks.
+Desktop columns fill the remaining viewport and scroll independently. Expanded
+filters/analytics have a bounded scroller while tabs/actions remain available.
+Mobile columns retain 65dvh height and horizontal swiping. Card details scroll
+below a fixed header; draft/conflict checks, focus return and close confirmation
+remain in place. This change does not replace polling yet; private realtime is
+the next stage. No new dependencies, API calls or rollout flags are required.

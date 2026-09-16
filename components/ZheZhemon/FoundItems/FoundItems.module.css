@@ -9,7 +9,7 @@
 }
 .items_grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 600px), 1fr));
 	gap: 2px;
 }
 .item_card {
@@ -44,6 +44,8 @@
 	display: block;
 }
 .item_info {
+	min-width: 0;
+	overflow-wrap: anywhere;
 	display: flex;
 	flex-direction: column;
 	gap: 5px;
@@ -183,7 +185,7 @@
 .filters select:hover {
 	box-shadow: 0 0 10px var(--primary-o30);
 }
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 1023px) {
 	.found_items {
 		margin-bottom: 50px;
 	}

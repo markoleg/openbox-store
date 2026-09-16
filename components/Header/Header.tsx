@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import styles from "./Header.module.css"
 import AppToggle from "./AppToggle/AppToggle";
 import { sessionCookieName, verifyOwnerSession } from '@/lib/ownerSession';
+import ZhezhemonNavigation from '@/components/ZheZhemon/Review/ZhezhemonNavigation';
 
 export default async function Header() {
   let authorized = false;
@@ -29,6 +30,7 @@ export default async function Header() {
           </span>
         </Link>
         <AppToggle />
+        <ZhezhemonNavigation placement="header" />
 
         {authorized ? (
           <Logout />

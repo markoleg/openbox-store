@@ -40,12 +40,13 @@ test('horizontal navigation and two tabs; independent filters survive switching 
   await expect(page.getByRole('button',{name:/ThinkPad/})).toBeVisible();
   await expect(page.getByRole('button',{name:/ThinkPad/})).toContainText('📦 ≈2 шт. · за знімком');
   await page.screenshot({path:'node_modules/.cache/boards-overview.png'});
+  await page.getByRole('button',{name:'Фільтри',exact:true}).click();
   await page.getByLabel('Лінк або заголовок').fill('none');await page.getByRole('button',{name:'Застосувати'}).click();
   await expect(page.getByRole('button',{name:/ThinkPad/})).toHaveCount(0);
   await page.getByRole('tab',{name:/Усі сповіщення/}).click();await expect(page.getByRole('button',{name:/ThinkPad/})).toBeVisible();
   await expect(page.getByLabel('Лінк або заголовок')).toHaveValue('');
   await page.getByRole('tab',{name:/Оцінка оголошень/}).click();await expect(page.getByLabel('Лінк або заголовок')).toHaveValue('none');
-  await page.reload();await expect(page.getByLabel('Лінк або заголовок')).toHaveValue('none');
+  await page.reload();await page.getByRole('button',{name:/Фільтри/}).click();await expect(page.getByLabel('Лінк або заголовок')).toHaveValue('none');
 });
 
 test('deep-linked review opens safe snapshot, six scores, draft and close return to filters',async({page})=>{
@@ -186,8 +187,7 @@ test('reporting keeps event filters separate from report type; export downloads 
   expect(queries.some(p=>p.get('report')==='statistics' && p.get('kind')==='price_drop')).toBe(true);
   await page.screenshot({path:'node_modules/.cache/boards-reporting.png',fullPage:true});
   await page.getByRole('tab',{name:/Оцінка оголошень/}).click();
-  await page.getByText('Експорт навчальних оцінок',{exact:true}).click();
-  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Експорт JSONL',exact:true}).click();
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Експорт',exact:true}).click();
   const file=await download;expect(file.suggestedFilename()).toMatch(/\.jsonl$/);
   const stream=await file.createReadStream();let text='';for await(const chunk of stream!)text+=chunk.toString();
   const lines=text.trim().split('\n').map(line=>JSON.parse(line));
@@ -221,13 +221,136 @@ test('incomplete export never downloads; retry retains its manifest id',async({p
   });
   await page.setViewportSize({width:390,height:844});
   await page.goto('/zhezhemon/processing?tab=review');
-  await page.getByText('Експорт навчальних оцінок',{exact:true}).click();
-  await page.getByRole('button',{name:'Експорт JSONL',exact:true}).click();
+  await page.getByRole('button',{name:'Експорт',exact:true}).click();
   await expect(page.getByRole('alert').filter({hasText:'Файл не збережено'})).toBeVisible();expect(downloads).toBe(0);
   await page.screenshot({path:'node_modules/.cache/boards-export-mobile.png',fullPage:true});
   valid=true;const download=page.waitForEvent('download');
-  await page.getByRole('button',{name:'Повторити експорт JSONL'}).click();await download;
+  await page.getByRole('button',{name:'Повторити експорт',exact:true}).click();await download;
   expect(ids).toHaveLength(2);expect(ids[0]).toBe(ids[1]);
+  await page.getByRole('button',{name:'Про експорт навчальних оцінок'}).click();
+  await expect(page.getByText(/Уся вибірка за активними фільтрами/)).toBeVisible();
+  await page.getByRole('button',{name:'Новий зріз',exact:true}).click();
+  await page.keyboard.press('Escape');
+  const fresh=page.waitForEvent('download');await page.getByRole('button',{name:'Експорт',exact:true}).click();await fresh;
+  expect(ids[2]).not.toBe(ids[1]);
+});
+
+for(const width of [320,375,390,850,1024,1440]) {
+  test(`compact navigation and tabs fit ${width}px without page overflow`,async({page})=>{
+    await page.setViewportSize({width,height:700});await fixtures(page);
+    await page.route('**/api/review/boards?**',route=>route.fulfill({json:{pending:123456789,columns:{new:{count:0,cards:[]},working:{count:0,cards:[]},done:{count:0,cards:[]}}}}));
+    await page.goto('/zhezhemon/processing?review.link=none');
+    const nav=page.getByRole('navigation',{name:'Розділи ZheZhemon'});
+    await expect(nav).toBeVisible();
+    await expect(nav.getByRole('link',{name:'Опрацювання'})).toHaveAttribute('aria-current','page');
+    const navBox=(await nav.boundingBox())!;
+    if(width>=1024)expect(navBox.y).toBeLessThan(65);else expect(navBox.y).toBe(65);
+    const tabs=page.getByRole('tablist');
+    expect(await tabs.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+    expect(await nav.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await expect(page.getByLabel('Лінк або заголовок')).toBeHidden();
+    const filters=page.getByRole('button',{name:'Фільтри · 1',exact:true});
+    await filters.click();await expect(filters).toHaveAttribute('aria-expanded','true');
+    await expect(page.getByLabel('Лінк або заголовок')).toHaveValue('none');
+    await filters.click();await expect(page.getByLabel('Лінк або заголовок')).toBeHidden();
+    await expect(page).toHaveURL(/review.link=none/);
+    await page.getByRole('button',{name:'Про експорт навчальних оцінок'}).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(/Уся вибірка за активними фільтрами/)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByText(/Уся вибірка за активними фільтрами/)).toBeHidden();
+    if(width===320 || width===1024)await page.screenshot({path:`node_modules/.cache/boards-compact-${width}.png`});
+  });
+}
+
+test('desktop columns fill a short viewport and retain independent scroll across cards, tabs and refresh',async({page})=>{
+  await page.setViewportSize({width:1280,height:600});await fixtures(page);
+  await page.route('**/api/review/boards?**',async route=>{
+    const p=new URL(route.request().url()).searchParams,board=p.get('tab');
+    if(p.get('id'))return route.fulfill({json:detail});
+    const rows=Array.from({length:20},(_,n)=>({...card,id:n===0?id:`row-${n}`,board,title:`Card ${n} — ${card.title}`}));
+    await route.fulfill({json:{pending:40,columns:{new:{count:20,cards:rows},working:{count:20,cards:rows},done:{count:0,cards:[]}}}});
+  });
+  await page.goto('/zhezhemon/processing');
+  const columns=page.getByRole('tabpanel'),stack=page.locator('[data-stage="new"] > div'),other=page.locator('[data-stage="working"] > div');
+  await expect(page.getByRole('button',{name:/Card 0/}).first()).toBeVisible();
+  const box=(await columns.boundingBox())!;expect(box.y).toBeLessThan(150);expect(box.y+box.height).toBeGreaterThan(575);expect(box.y+box.height).toBeLessThanOrEqual(600);
+  expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);
+  await stack.evaluate(el=>el.scrollTop=350);await expect.poll(()=>stack.evaluate(el=>el.scrollTop)).toBe(350);
+  expect(await other.evaluate(el=>el.scrollTop)).toBe(0);
+  // Use a stable deep-link ID while the scroller is away from its start.
+  await stack.locator('button').nth(2).click();await expect(page.getByRole('dialog')).toBeVisible();
+  const before=await stack.evaluate(el=>el.scrollTop);
+  await page.getByRole('button',{name:'Закрити ×'}).click();
+  await expect.poll(()=>stack.evaluate(el=>el.scrollTop)).toBe(before);
+  await page.getByRole('tab',{name:/Усі сповіщення/}).click();await other.evaluate(el=>el.scrollTop=200);
+  await page.getByRole('tab',{name:/Оцінка оголошень/}).click();
+  await expect.poll(()=>stack.evaluate(el=>el.scrollTop)).toBe(before);
+  await page.getByRole('button',{name:'Оновити',exact:true}).click();await expect(page.getByRole('button',{name:'Оновити',exact:true})).toBeEnabled();
+  await expect.poll(()=>stack.evaluate(el=>el.scrollTop)).toBe(before);
+  await page.getByRole('button',{name:'Фільтри',exact:true}).click();
+  const expanded=(await columns.boundingBox())!;expect(expanded.height).toBeGreaterThan(250);expect(expanded.y+expanded.height).toBeLessThanOrEqual(600);
+  expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);
+});
+
+test('card header stays visible while content scrolls and keyboard focus returns on close',async({page})=>{
+  await page.setViewportSize({width:1280,height:650});await fixtures(page);
+  await page.route(`**/api/review/boards?tab=review&id=${id}`,route=>route.fulfill({json:{...detail,card:{...card,title:'Дуже довга назва товару '.repeat(30)}}}));
+  await page.goto('/zhezhemon/processing');
+  const tile=page.getByRole('button',{name:/ThinkPad/});await tile.click();
+  const panel=page.getByRole('dialog'),close=panel.getByRole('button',{name:'Закрити ×'}),refresh=panel.getByRole('button',{name:'Оновити картку'});
+  await expect(close).toBeFocused();const before=(await close.boundingBox())!;
+  await panel.getByLabel('Заголовок: бал').selectOption('5');
+  expect((await close.boundingBox())!.y).toBe(before.y);await expect(refresh).toBeInViewport();
+  await refresh.click();await expect(panel.getByLabel('Заголовок: бал')).toHaveValue('5');
+  page.once('dialog',d=>d.dismiss());await page.keyboard.press('Escape');await expect(panel).toBeVisible();
+  page.once('dialog',d=>d.accept());await close.click();await expect(panel).toHaveCount(0);
+  await expect(tile).toBeFocused();
+});
+
+test('expanded analytics and filters leave usable columns in a low desktop window',async({page})=>{
+  await page.setViewportSize({width:1280,height:480});await fixtures(page);
+  await page.route('**/api/review/reporting?**',route=>route.fulfill({json:{generatedAt:at,thresholdSeconds:null,summary:{deliveries:2},breakdown:[],reasons:[]}}));
+  await page.goto('/zhezhemon/processing?tab=notifications');
+  await page.getByRole('button',{name:'Фільтри',exact:true}).click();
+  await page.getByText('Аналітика сповіщень',{exact:true}).click();
+  await expect(page.getByText('До першої прямої реакції',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Перерахувати'})).toHaveAccessibleDescription(/eBay не опитується/);
+  const box=(await page.getByRole('tabpanel').boundingBox())!;
+  expect(box.height).toBeGreaterThan(170);expect(box.y+box.height).toBeLessThanOrEqual(480);
+  await page.getByRole('button',{name:'Перерахувати'}).scrollIntoViewIfNeeded();
+  await expect(page.getByRole('tab',{name:/Усі сповіщення/})).toBeInViewport();
+  await expect(page.getByRole('button',{name:'Фільтри',exact:true})).toBeInViewport();
+  expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);
+  await page.screenshot({path:'node_modules/.cache/boards-low-desktop.png'});
+});
+
+test('catalog lists scroll independently and mobile search panel stays below navigation',async({page})=>{
+  await page.setViewportSize({width:1280,height:650});await fixtures(page);
+  await page.route('http://127.0.0.1:9/rest/v1/items?**',route=>route.fulfill({json:Array.from({length:30},(_,n)=>({
+    id:n,search_parameter_id:1,title:`Каталог ${n} — довга назва товару для перевірки верстки`,model:'T14',price:200,shipping_cost:2,
+    link:`https://www.ebay.com/itm/${n}`,seller_name:'Local fixture',feedback_score:50,feedback_percentage:99,image_url:'No image',
+    hidden:false,liked:false,condition:'New',more_aspects:[],scraped_links:{count:1,favorite:false},
+  }))}));
+  await page.route('http://127.0.0.1:9/rest/v1/searchparameters?**',route=>route.fulfill({json:Array.from({length:40},(_,n)=>({id:n+1,keywords:`Тестовий пошук ${n}`,condition:1000,rate:60}))}));
+  await page.goto('/zhezhemon');
+  await expect(page.getByRole('img',{name:/Каталог 0/})).toBeVisible();
+  const aside=page.getByRole('complementary',{name:'Пошуки ZheZhemon'}),main=page.getByRole('main');
+  await expect(aside.getByRole('link')).toHaveCount(41);
+  await aside.evaluate(el=>el.scrollTop=200);await main.evaluate(el=>el.scrollTop=300);
+  expect(await aside.evaluate(el=>el.scrollTop)).toBe(200);expect(await main.evaluate(el=>el.scrollTop)).toBe(300);
+  expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight && document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'node_modules/.cache/catalog-desktop-scroll.png'});
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('button',{name:'Пошуки',exact:true}).click();
+  await expect.poll(async()=>(await aside.boundingBox())!.x).toBe(0);
+  const navBox=(await page.getByRole('navigation',{name:'Розділи ZheZhemon'}).boundingBox())!,asideBox=(await aside.boundingBox())!;
+  expect(asideBox.y).toBe(navBox.y+navBox.height);expect(asideBox.y+asideBox.height).toBe(844-50);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'node_modules/.cache/catalog-mobile-searches.png'});
+  await page.getByRole('button',{name:'Пошуки',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Пошуки',exact:true})).toHaveAttribute('aria-expanded','false');
 });
 
 test('catalog keeps its aside while not-sent is a separate full-width section',async({page})=>{
