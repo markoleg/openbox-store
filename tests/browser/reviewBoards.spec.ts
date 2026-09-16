@@ -304,7 +304,7 @@ test('desktop columns fill a short viewport and retain independent scroll across
   await stack.evaluate(el=>el.scrollTop=350);await expect.poll(()=>stack.evaluate(el=>el.scrollTop)).toBe(350);
   expect(await other.evaluate(el=>el.scrollTop)).toBe(0);
   // Use a stable deep-link ID while the scroller is away from its start.
-  await stack.locator('button').nth(2).click();await expect(page.getByRole('dialog')).toBeVisible();
+  await stack.locator('article > button').nth(2).click();await expect(page.getByRole('dialog')).toBeVisible();
   const before=await stack.evaluate(el=>el.scrollTop);
   await page.getByRole('button',{name:'Закрити ×'}).click();
   await expect.poll(()=>stack.evaluate(el=>el.scrollTop)).toBe(before);
@@ -370,6 +370,28 @@ test('captured data has no horizontal overflow on a 320px phone',async({page})=>
   expect(await body.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
   await page.screenshot({path:'node_modules/.cache/card-captured-320.png',fullPage:false});
+});
+
+test('tile quick reactions record an outcome without opening the card; reasons open the card preselected',async({page})=>{
+  const commands=await fixtures(page);await page.goto('/zhezhemon/processing?tab=notifications');
+  const tile=page.locator('article').filter({hasText:'ThinkPad'}).first();
+  const actions=tile.getByRole('group',{name:/Реакція: ThinkPad/});
+  await expect(actions.getByRole('button')).toHaveText(['🖐 Опрацьовую','✅ Купив','⏱ Не встиг','🙈 Приховав би','🐞 Баг']);
+  await page.screenshot({path:'node_modules/.cache/boards-tile-actions.png'});
+  await actions.getByRole('button',{name:'✅ Купив'}).click();
+  await expect.poll(()=>commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({contextId:id,action:'set_outcome',payload:{value:'bought'}});
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await actions.getByRole('button',{name:'⏱ Не встиг'}).click();
+  const panel=page.getByRole('dialog');await expect(panel).toBeVisible();await expect(page).toHaveURL(/action=missed/);
+  await expect(panel.getByRole('radio',{name:'⏱ Не встиг'})).toBeChecked();
+  await panel.getByRole('button',{name:'Закрити ×'}).click();await expect(page).not.toHaveURL(/action=/);
+  await page.route('**/api/review/boards?tab=notifications',route=>{const row={...card,board:'notifications',id:delivery,outcome:'bought',stage:'done'};
+    return route.fulfill({json:{pending:0,columns:{new:{count:0,cards:[]},working:{count:0,cards:[]},done:{count:1,cards:[row]}}}});});
+  await page.getByRole('button',{name:'Оновити'}).click();
+  await expect(page.locator('article').filter({hasText:'ThinkPad'})).toHaveCount(1);
+  await expect(page.getByRole('group',{name:/Реакція:/})).toHaveCount(0);
+  expect(commands.length).toBe(1);
 });
 
 test('card header stays visible while content scrolls and keyboard focus returns on close',async({page})=>{

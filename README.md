@@ -385,3 +385,11 @@ search-fallback snapshots show one note listing the missing sections. Criteria i
 the assessment form show «є дані» / «не зафіксовано» from `missingSources`, and
 «До оцінки ↓» / «До даних ↑» anchors link the two sections. No new database
 fields, migrations, eBay calls or client-side payload parsing were added.
+
+Tiles on both boards show one-click reactions while a message has no result
+(`TileActions`): «🖐 Опрацьовую» (until the first reaction), «✅ Купив» and
+«🙈 Приховав би» post the same delivery-context commands as the card panel and
+refresh the boards; «⏱ Не встиг» and «🐞 Баг» need a reason, so they open the
+card with that outcome preselected (`?action=missed|bug`). Cards with an
+outcome keep corrections inside the panel. The tile is an `<article>` with a
+separate open button, so quick actions never sit inside another button.

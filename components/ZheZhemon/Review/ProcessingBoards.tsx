@@ -5,6 +5,7 @@ import { stages, tabFilters, dateLabel, searchLabel, type Board, type BoardPage,
 import { outcomeLabels } from '@/lib/reviewKeyboard'
 import { stockLabel } from '@/lib/reviewStock'
 import CardPanel from './CardPanel'
+import TileActions from './TileActions'
 import Reporting from './Reporting'
 import styles from './Boards.module.css'
 import {useReviewRealtime} from './useReviewRealtime'
@@ -55,9 +56,9 @@ export default function ProcessingBoards() {
         // Card opening and tab switching must not reset pages/scroll.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     },[filterKey,refresh])
-    const change=(params:URLSearchParams)=>{params.delete('action');router.push(`/zhezhemon/processing?${params}`,{scroll:false})}
+    const change=(params:URLSearchParams,action?:string)=>{params.delete('action');if(action)params.set('action',action);router.push(`/zhezhemon/processing?${params}`,{scroll:false})}
     function switchTab(tab:Board) {const p=new URLSearchParams(url);p.set('tab',tab);p.delete('review');p.delete('delivery');change(p)}
-    function open(card:BoardCard) {const p=new URLSearchParams(url);p.set('tab',board);p.delete('review');p.delete('delivery');p.set(board==='review'?'review':'delivery',card.id);change(p)}
+    function open(card:BoardCard,action?:'missed'|'bug') {const p=new URLSearchParams(url);p.set('tab',board);p.delete('review');p.delete('delivery');p.set(board==='review'?'review':'delivery',card.id);change(p,action)}
     function close() {const p=new URLSearchParams(url);p.delete('review');p.delete('delivery');change(p)}
     async function next(stage:Stage) {
         const cards=pages[board]?.columns[stage].cards, last=cards?.at(-1)
@@ -129,7 +130,8 @@ export default function ProcessingBoards() {
             {stages.map(stage=>{const column=pages[board]?.columns[stage];return <section key={`${board}-${stage}`} className={styles.column} data-stage={stage}>
                 <h2>{labels[board][stage]} <span>{column?.count ?? '—'}</span></h2>
                 <div className={styles.stack} ref={node=>{if(node){const key=`${board}-${stage}-${filterKey}`;let value=scroll.current[key];if(value===undefined){try{value=Number(sessionStorage.getItem('review-scroll:'+key)) || 0}catch{value=0}}node.scrollTop=value}}} onScroll={e=>{const key=`${board}-${stage}-${filterKey}`,value=e.currentTarget.scrollTop;scroll.current[key]=value;try{sessionStorage.setItem('review-scroll:'+key,String(value))}catch{/* storage may be disabled */}}}>
-                    {column?.cards.map(card=><button key={card.id} className={styles.tile} onClick={()=>open(card)}>
+                    {column?.cards.map(card=><article key={card.id} className={styles.tile}>
+                        <button className={styles.tileOpen} onClick={()=>open(card)}>
                         <strong>{card.title}</strong><span className={styles.price}>{card.price===null?'Ціна невідома':`${card.price} ${card.currency ?? ''}`}</span>
                         <span className={styles.muted}>📦 {stockLabel(card.stock_quantity)} · за знімком</span>
                         <span className={styles.tags}><span>{card.channel==='main'?'Основний чат':'Sniper'}</span><span>{eventLabels[card.kind] ?? card.kind}</span></span>
@@ -137,7 +139,10 @@ export default function ProcessingBoards() {
                         <span>{card.outcome?outcomeLabels[card.outcome]:'Рішення ще немає'}</span>
                         {board==='review'?<span className={styles.muted}>Не заповнено критеріїв: {card.missing}/6</span>:<span className={styles.muted}>{card.first_reaction_at?`Перша реакція: ${dateLabel(card.first_reaction_at)}`:'Прямої реакції немає'}{card.resolution_kind && card.resolution_kind!=='direct'?` · ${card.resolution_kind==='shared_trigger'?'через пов’язане повідомлення':'через подію'}`:''}</span>}
                         <span className={styles.muted}>Зараз: {card.stock_blocked?'недоступне':card.hidden?`приховано${card.hidden_until?' / пауза':''}`:'без глобального приховування'}{card.favorite?' · Sniper':''}</span>
-                    </button>)}
+                        </button>
+                        {/* Quick reactions only while the message has no result; done cards are edited in the panel. */}
+                        {!card.outcome && <TileActions card={card} onChanged={onChanged} onOpen={action=>open(card,action)}/>}
+                    </article>)}
                     {column?.count===0 && !loading && <p className={styles.empty}>Карток немає</p>}
                     {!!column && column.cards.length<column.count && <button disabled={!!more || loading} onClick={()=>next(stage)}>{more===stage?'Завантажую…':'Ще 50'}</button>}
                 </div>

@@ -40,8 +40,12 @@
 .column[data-stage=working] h2 { border-top:3px solid #d9ae64; }
 .column[data-stage=done] h2 { border-top:3px solid #6fac98; }
 .stack { display:grid; align-content:start; gap:.65rem; padding:.7rem; overflow-y:auto; flex:1; min-height:0; overscroll-behavior:contain; }
-.workspace .tile { text-align:left; width:100%; display:grid; gap:.55rem; padding:.9rem; border:1px solid #38434b; background:#20272e; }
-.tile:hover { border-color:#81adba; }
+.tile { display:grid; gap:.55rem; padding:.9rem; border:1px solid #38434b; border-radius:6px; background:#20272e; }
+.tile:hover,.tile:focus-within { border-color:#81adba; }
+.workspace .tileOpen { text-align:left; width:100%; display:grid; gap:.55rem; padding:0; border:0; background:transparent; }
+.workspace .tileOpen:focus-visible { outline-offset:6px; }
+.quickActions { display:flex; flex-wrap:wrap; gap:.35rem; padding-top:.35rem; border-top:1px solid #343a42; }
+.workspace .quickActions button { padding:.35rem .5rem; font-size:.78rem; min-height:32px; }
 .tile strong { font-size:.95rem; line-height:1.45; overflow-wrap:anywhere; }
 .tile .price { font-size:1.15rem; color:#e0f7ee; }
 .tags { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; font-size:.75rem; }
