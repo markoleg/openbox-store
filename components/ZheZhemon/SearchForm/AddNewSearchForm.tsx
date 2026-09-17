@@ -115,8 +115,11 @@ export default function AddNewSearchForm() {
                     <input type="text" name="seller" />
                 </label>
 
-                <fieldset className={styles.bannedLinks}>
-                    <legend>Banned Links</legend>
+                <details className={styles.bannedLinks}>
+                    <summary className={styles.bannedLinksSummary}>
+                        Banned Links
+                        <span className={styles.bannedLinksCount}>{bannedLinks.length}</span>
+                    </summary>
 
                     {bannedLinks.map((link, index) => (
                         <div key={index} className={styles.bannedLinkItem}>
@@ -136,7 +139,7 @@ export default function AddNewSearchForm() {
                     <button type="button" onClick={handleAddBannedLink}>
                         + Add Link
                     </button>
-                </fieldset>
+                </details>
 
                 <FiltersFieldset />
 
