@@ -31,6 +31,17 @@ test('fresh layout matches the tracker initial keyboard and keeps URL buttons',(
   assert.equal(m.inline_keyboard[3][1].url,urls[1].url);
   assert.deepEqual(m.inline_keyboard[3].map(b=>b.url),urls.map(b=>b.url));
 });
+test('a super item can call off the ring from the main chat, with or without an outcome',()=>{
+  const sup=extra=>view({live:{...view().live,superFavorite:true},...extra});
+  const callOff=['🔕 Без дзвінка'];
+  const fresh=renderKeyboard(sup(),urls);
+  assert.deepEqual(texts(fresh),[...texts(renderKeyboard(view(),urls)).slice(0,3),callOff,['🎯 Sniper','💳 Баланси','📝 Картка']]);
+  // Legacy ACK data, not a review callback: those never touch the call window.
+  assert.equal(fresh.inline_keyboard[3][0].callback_data,'ack');
+  assert.deepEqual(texts(renderKeyboard(sup({outcome:'bought'}),urls)).at(-2),callOff);
+  assert.ok(!texts(renderKeyboard(view(),urls)).flat().includes(callOff[0]));
+  assert.ok(!texts(renderKeyboard(sup(),urls,'more')).flat().includes(callOff[0]));
+});
 test('after attention the first button reads "в роботі" but every decision stays',()=>{
   const m=renderKeyboard(view({firstReactionAt:'2026-09-11T10:01:00Z'}),urls);
   assert.equal(m.inline_keyboard[0][0].text,'🖐 В роботі');

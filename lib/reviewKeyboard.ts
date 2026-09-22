@@ -27,6 +27,20 @@ export type DeliveryView = {
 };
 export type Menu = 'root' | 'pause' | 'missed' | 'more' | 'change';
 
+/**
+ * Legacy super-sniper ACK — the only callback that calls off the escalation
+ * ring. Must match ACK_CALLBACK_DATA in the tracker's telegram_notifier.py.
+ * Unrelated to the 'ack' review code below, which is namespaced by `rv:`.
+ */
+export const ackData = 'ack';
+/**
+ * Shown on main-chat messages of super items so the ring can be called off
+ * from the chat the item is actually being read in. The call window is global
+ * (one row in sniper_ack), so this button is not scoped to the dispatch and
+ * deliberately carries no review callback: review commands never touch it.
+ */
+export const callOffButton: InlineButton = { text: '🔕 Без дзвінка', callback_data: ackData };
+
 export const callbackCodes = ['ack','bought','hide','pausem','pause','ban','missedm','missed','more','whide',
   'chgm','chg','unhide','unban','back','noop'] as const;
 export type CallbackCode = typeof callbackCodes[number];
@@ -150,10 +164,16 @@ export function renderKeyboard(view: DeliveryView, urls: InlineButton[], menu: M
     ] };
   }
 
+  // A recorded outcome does not close the call window, so the button stays
+  // reachable for as long as the item is a super one. Pressing it twice is
+  // harmless: a new window clears acked_at when it opens.
+  const callOff: InlineButton[][] = view.live.superFavorite ? [[{ ...callOffButton }]] : [];
+
   if (view.outcome) {
     return { inline_keyboard: [
       [{ text: outcomeLabel(view), callback_data: cb('noop') }],
       [{ text: '✏️ Змінити результат', callback_data: cb('chgm') }, { text: 'Ще…', callback_data: cb('more') }],
+      ...callOff,
       ...navigation,
     ] };
   }
@@ -165,6 +185,7 @@ export function renderKeyboard(view: DeliveryView, urls: InlineButton[], menu: M
     [{ text: '🙈 Hide', callback_data: cb('hide') }, { text: '⏸ Пауза…', callback_data: cb('pausem') },
      { text: '🚫 Ban', callback_data: cb('ban') }],
     [{ text: 'Не встиг', callback_data: cb('missedm') }, { text: 'Ще…', callback_data: cb('more') }],
+    ...callOff,
     ...navigation,
   ] };
 }

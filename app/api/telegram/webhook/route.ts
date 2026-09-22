@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/SupaBaseClient";
 import { PAUSE_DAYS, type ReviewAction, type ReviewPayload } from "@/lib/reviewCommands";
-import { describeResult, parseReviewCallback, type Menu, type ReviewCallback } from "@/lib/reviewKeyboard";
+import { ackData, describeResult, parseReviewCallback, type Menu, type ReviewCallback } from "@/lib/reviewKeyboard";
 import {
 	applyReviewCommand, deliveryForMessage, deliveryView, issueReviewContext, reconcileUnknownDelivery,
 	reviewCommandsEnabled,
@@ -10,8 +10,8 @@ import { botId, callTelegram, commandIdForCallback, syncDeliveryKeyboard, syncEv
 
 // Telegram webhook. The tracker on Fly only sends messages — acknowledging a
 // super sniper alert lands here, and the tracker reads the flag when its timer
-// fires. Must match ACK_CALLBACK_DATA in the tracker's telegram_notifier.py.
-const ACK_DATA = "ack";
+// fires. The same callback now also rides on «Без дзвінка» in the main chat.
+const ACK_DATA = ackData;
 const DONE_DATA = "done";
 const DONE_LABEL = "✅ Опрацьовано";
 
@@ -374,15 +374,26 @@ export async function POST(req: NextRequest) {
 
 	// One press covers the whole window — mark every message of it, otherwise the
 	// others keep a live button and it is unclear whether they need pressing too.
-	const chatId = window?.pending_chat_id ?? query.message?.chat?.id;
+	//
+	// The press may come from «Без дзвінка» in the main chat instead. That
+	// message keeps its review keyboard: it is a live procurement message whose
+	// remaining decisions are still needed, and its id belongs to another chat,
+	// where it could collide with a window message's id.
+	const pressedChat = query.message?.chat?.id;
+	const pressedId = query.message?.message_id;
+	const isReviewMessage = (query.message?.reply_markup?.inline_keyboard ?? [])
+		.flat()
+		.some(b => typeof b.callback_data === "string" && b.callback_data.startsWith("rv:"));
+	const chatId = window?.pending_chat_id ?? pressedChat;
+	const pressedIsWindowMessage = !isReviewMessage && chatId === pressedChat && pressedId !== undefined;
 	const messageIds: number[] = window?.pending_message_ids?.length
 		? window.pending_message_ids
-		: query.message?.message_id
-		? [query.message.message_id]
+		: pressedIsWindowMessage
+		? [pressedId!]
 		: [];
 
 	for (const messageId of messageIds) {
-		const isPressedMessage = messageId === query.message?.message_id;
+		const isPressedMessage = pressedIsWindowMessage && messageId === pressedId;
 		await callTelegram("editMessageReplyMarkup", {
 			chat_id: chatId,
 			message_id: messageId,
