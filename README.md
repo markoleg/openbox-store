@@ -393,3 +393,24 @@ refresh the boards; «⏱ Не встиг» and «🐞 Баг» need a reason, s
 card with that outcome preselected (`?action=missed|bug`). Cards with an
 outcome keep corrections inside the panel. The tile is an `<article>` with a
 separate open button, so quick actions never sit inside another button.
+
+## Listing part numbers on the processing boards
+
+Requires ZheZhemon migration `022_listing_part_numbers.sql` (table
+`listing_part_numbers`, RPC `set_listing_part_number`, part number fields and the
+`partNumber` filter in `review_board`). Deploy this dashboard only after 022.
+
+Every tile carries a part-number badge (`PartNumberTag`): amber «Без партійного»
+(also «Кілька товарів», «MXP93? · не перевірено») marks cards a person has to act
+on; «MXED3 · немає в ERP» is a number the CRM catalog lacks; a plain number is
+resolved; «✍️ … · чекає ERP» is a manual value the next notification will confirm.
+The filter «Партійний» narrows a board to «Без партійного» or «Немає в ERP».
+
+The card panel's «Part Number» block is the **only** place to set a number by hand
+(never Telegram): `POST /api/review/part-numbers` (owner session, same origin,
+`REVIEW_COMMANDS_ENABLED`) calls `set_listing_part_number` with a fresh commandId,
+the card's version and the session actor. «Очистити ручне» returns the listing to
+automatic resolution. The value applies to the link: the next preflight sends it to
+the CRM, and that notification's ERP line counts purchases, stock and margin for it.
+`review_board_rows` is unchanged, so the panel reads the part number from
+`listing_part_numbers` by link. No new environment variables.

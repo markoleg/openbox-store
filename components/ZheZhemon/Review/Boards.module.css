@@ -50,6 +50,14 @@
 .tile .price { font-size:1.15rem; color:#e0f7ee; }
 .tags { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; font-size:.75rem; }
 .tags span { padding:.2rem .45rem; border:1px solid #4b5660; border-radius:5px; }
+/* Part number badge: amber when a person has to set it, muted rust when the CRM lacks it. */
+.tags .part_known { color:#cfe3ea; }
+.tags .part_missing { border-color:#d9ae64; background:#3a2e17; color:#f4d08f; font-weight:600; }
+.tags .part_catalog { border-color:#b77560; color:#e8b3a1; }
+.tags .part_pending { border-style:dashed; border-color:#81adba; color:#cfe3ea; }
+.partNumberForm { display:flex; flex-wrap:wrap; align-items:flex-end; gap:.5rem; margin:.5rem 0; }
+.partNumberForm label { display:grid; gap:.35rem; font-size:.8rem; }
+.partNumberForm input { width:16rem; text-transform:uppercase; }
 .empty { padding:1.5rem .5rem; text-align:center; color:#aab4be; }
 .error { padding:.8rem; border:1px solid #b77560; background:#382920; border-radius:7px; margin:.5rem 0; }
 .overlay { position:fixed; inset:0; background:#0008; z-index:900; display:flex; justify-content:flex-end; }

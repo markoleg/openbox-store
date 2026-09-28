@@ -84,6 +84,16 @@ export async function saveSearch(body: { searchId: number; expectedVersion: numb
   return failed(response);
 }
 
+/** Set (or clear with null) the manual part number; the version guards against a stale card. */
+export async function savePartNumber(body: { link: string; partNumber: string | null; version: number | null }) {
+  const response = await post('/api/review/part-numbers', { commandId: crypto.randomUUID(), ...body }, true);
+  if (response.ok || response.status === 409 || response.status === 422) {
+    const result = await response.json().catch(() => null);
+    if (result && typeof result.status === 'string') return result as { status: string; reason?: string };
+  }
+  return failed(response);
+}
+
 const actionDone: Record<string, string> = {
   hide: 'Сховано до подешевшання', unhide: 'Показано знову', pause: 'Пауза встановлена', extend_pause: 'Паузу продовжено',
   ban: 'Забанено в пошуку', unban: 'Бан знято', set_like: 'Лайк збережено', review_ack: 'В роботі',

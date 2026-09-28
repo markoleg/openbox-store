@@ -1,6 +1,7 @@
 import 'server-only';
 import { reviewDatabase } from './reviewCommands';
-import type { Assessment, AssessmentRequest, BoardCard, BoardPage, Cursor, Stage, BoardFilters, Board } from '@/lib/reviewBoards';
+import type { Assessment, AssessmentRequest, BoardCard, BoardPage, Cursor, Stage, BoardFilters, Board, CardPartNumber,
+  PartNumberRequest, PartNumberSource, PartNumberStatus } from '@/lib/reviewBoards';
 import type { DeliveryView } from '@/lib/reviewKeyboard';
 import { deliveryView, listingHistory } from './reviewCommands';
 import { projectStock } from '@/lib/reviewStock';
@@ -9,6 +10,13 @@ import { capturedListingView, type CapturedListingView } from '@/lib/capturedLis
 import { sanitizeDescription, type SafeDescription } from '@/lib/sanitizeDescription';
 
 type StoredCard = Omit<BoardCard,'stock_quantity'> & {stock_evidence:unknown};
+/** One listing_part_numbers row: the CRM's resolution kept apart from the manual value. */
+export type ListingPartNumber = {
+  part_number: string | null; status: PartNumberStatus; source: PartNumberSource | null;
+  manual_part_number: string | null; manual_by: string | null; manual_at: string | null;
+  version: number; crm_checked_at: string | null;
+};
+export type PartNumberResult = {status: 'applied' | 'noop' | 'conflict' | 'rejected'; reason?: string; partNumber?: ListingPartNumber};
 
 async function checked<T>(query: PromiseLike<{data: T; error: unknown}>): Promise<T> {
   const {data,error}=await query;
@@ -29,8 +37,18 @@ export async function saveAssessment(request: AssessmentRequest) {
   if (error) throw new Error(['22023','22P02','23514','P0002'].includes(error.code) ? 'invalid_assessment' : 'review_storage_failed');
   return data as {status:string; reason?:string; version?:number};
 }
+/** set_listing_part_number: idempotent per commandId; the actor comes from the session, never the client. */
+export async function savePartNumber(request: PartNumberRequest, actor: string): Promise<PartNumberResult> {
+  const {data,error}=await reviewDatabase().rpc('set_listing_part_number',{
+    p_command:request.commandId,p_link:request.link,p_part_number:request.partNumber,
+    p_expected_version:request.version,p_actor:actor,
+  });
+  if (error) throw new Error(['22023','22P02','23514'].includes(error.code) ? 'invalid_part_number' : 'review_storage_failed');
+  return data as PartNumberResult;
+}
 export type CardDetail = {
   card: BoardCard; view: DeliveryView | null; review: Assessment | null;
+  partNumber: ListingPartNumber | null;
   snapshot: {id:string; observed_at:string; source:string; normalized_payload: Record<string,unknown>; raw_payload:Record<string,unknown> | null} | null;
   photos: {source_url:string; status:string; content_hash:string | null}[];
   search: Record<string,unknown>;
@@ -44,13 +62,16 @@ export async function readCard(board: Board, id: string): Promise<CardDetail | n
   const db=reviewDatabase();
   const stored=await checked(db.from('review_board_rows').select('*').eq('board',board).eq('id',id).maybeSingle()) as StoredCard | null;
   if (!stored) return null;
-  const card=projectStock(stored);
-  const [view,review,event,history] = await Promise.all([
-    deliveryView(card.delivery_id),
-    card.review_id ? checked(db.from('listing_reviews').select('*').eq('id',card.review_id).single()) : null,
-    checked(db.from('notification_events').select('summary_snapshot_id,search_snapshot').eq('id',card.event_id).single()),
-    listingHistory(card.link),
+  const [view,review,event,history,partNumber] = await Promise.all([
+    deliveryView(stored.delivery_id),
+    stored.review_id ? checked(db.from('listing_reviews').select('*').eq('id',stored.review_id).single()) : null,
+    checked(db.from('notification_events').select('summary_snapshot_id,search_snapshot').eq('id',stored.event_id).single()),
+    listingHistory(stored.link),
+    // review_board_rows stays as migration 016 defines it; the part number is joined here, as review_board does.
+    checked(db.from('listing_part_numbers').select('part_number,status,source,manual_part_number,manual_by,manual_at,version,crm_checked_at')
+      .eq('link',stored.link).maybeSingle()) as Promise<ListingPartNumber | null>,
   ]);
+  const card=projectStock({...stored,...cardPartNumber(partNumber)});
   // Use the same historical source selected for the tile, not mutable latest data.
   const snapshotId=card.stock_snapshot_id;
   const [snapshot,photos,revisions]=await Promise.all([
@@ -72,6 +93,10 @@ export async function readCard(board: Board, id: string): Promise<CardDetail | n
   const captured=capturedListingView({snapshot,search,photoCount:(photos ?? []).length,conditionId:card.condition_id});
   const description=sanitizeDescription(captured.descriptionSource);
   // The original description already travels inside raw_payload for the technical block.
-  return {card,view,review:review as Assessment | null,snapshot,photos,search,history,revisions,missingSources,
+  return {card,view,review:review as Assessment | null,partNumber,snapshot,photos,search,history,revisions,missingSources,
     captured:{...captured,descriptionSource:null},description} as CardDetail;
+}
+function cardPartNumber(row: ListingPartNumber | null): CardPartNumber {
+  return {part_number:row?.part_number ?? null,part_number_status:row?.status ?? null,part_number_source:row?.source ?? null,
+    manual_part_number:row?.manual_part_number ?? null,part_number_version:row?.version ?? null};
 }

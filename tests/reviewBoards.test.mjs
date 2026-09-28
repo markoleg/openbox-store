@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseAssessment,parseBoardQuery,tabFilters,isSubmitted,reactionDelay,historyBoardDestination,searchLabel} from '../lib/reviewBoards.ts';
+import {parseAssessment,parseBoardQuery,tabFilters,isSubmitted,reactionDelay,historyBoardDestination,searchLabel,parsePartNumberRequest,partNumberBadge} from '../lib/reviewBoards.ts';
 import {estimatedQuantity,stockLabel,projectStock} from '../lib/reviewStock.ts';
 const id='11111111-1111-4111-8111-111111111111';
 const req=(payload={},action='draft')=>({commandId:id,reviewId:id,version:0,action,payload});
@@ -80,4 +80,34 @@ test('evaluation link opens origin review; repeats and explicit corrections reta
   assert.match(historyBoardDestination(d),/tab=review&review=review-id/);
   assert.match(historyBoardDestination(d,'missed'),/tab=notifications.*action=missed/);
   assert.match(historyBoardDestination({...d,deliveryId:'repeat-id'}),/tab=notifications&delivery=repeat-id/);
+});
+
+test('part number filter accepts only the two board values',()=>{
+  assert.equal(parseBoardQuery(new URLSearchParams('tab=notifications&partNumber=missing')).filters.partNumber,'missing');
+  assert.equal(parseBoardQuery(new URLSearchParams('partNumber=not_in_catalog')).filters.partNumber,'not_in_catalog');
+  assert.throws(()=>parseBoardQuery(new URLSearchParams('partNumber=identified')));
+});
+
+test('part number request is normalized like the RPC and never carries an actor',()=>{
+  const body=(extra={})=>({commandId:id,link:'https://www.ebay.com/itm/123',partNumber:' mxp93ll/a ',version:3,...extra});
+  assert.deepEqual(parsePartNumberRequest(body()),{commandId:id,link:'https://www.ebay.com/itm/123',partNumber:'MXP93LL/A',version:3});
+  assert.equal(parsePartNumberRequest(body({partNumber:null,version:null})).partNumber,null);
+  assert.equal(parsePartNumberRequest(body({partNumber:'   '})).partNumber,null);
+  for(const bad of [body({partNumber:'M'}),body({partNumber:'MX P93'}),body({partNumber:'x'.repeat(65)}),body({partNumber:42}),
+    body({version:0}),body({version:'3'}),body({link:'http://ebay.com/itm/1'}),body({commandId:'nope'}),body({actor:'someone'})])
+    assert.throws(()=>parsePartNumberRequest(bad));
+});
+
+test('part number badge highlights exactly the cards a person must act on',()=>{
+  const card=(extra={})=>({part_number:null,part_number_status:null,part_number_source:null,manual_part_number:null,part_number_version:null,...extra});
+  assert.deepEqual(partNumberBadge(card()),{label:'Без партійного',tone:'missing'});
+  assert.deepEqual(partNumberBadge(card({part_number_status:'unknown'})),{label:'Без партійного',tone:'missing'});
+  assert.equal(partNumberBadge(card({part_number_status:'ambiguous'})).tone,'missing');
+  assert.deepEqual(partNumberBadge(card({part_number:'MXP93LL/A',part_number_status:'unverified',part_number_source:'listing_mpn'})),{label:'MXP93LL/A? · не перевірено',tone:'missing'});
+  assert.deepEqual(partNumberBadge(card({part_number:'MXP63',part_number_status:'identified',part_number_source:'purchase'})),{label:'MXP63',tone:'known'});
+  assert.deepEqual(partNumberBadge(card({part_number:'MXED3',part_number_status:'not_in_catalog',part_number_source:'mpn'})),{label:'MXED3 · немає в ERP',tone:'catalog'});
+  // A manual value waits for the next preflight before the CRM confirms it.
+  assert.deepEqual(partNumberBadge(card({part_number_status:'unknown',manual_part_number:'MXP93'})),{label:'✍️ MXP93 · чекає ERP',tone:'pending'});
+  assert.deepEqual(partNumberBadge(card({part_number:'MXP93',part_number_status:'identified',part_number_source:'manual',manual_part_number:'MXP93LL/A'})),{label:'✍️ MXP93',tone:'known'});
+  assert.deepEqual(partNumberBadge(card({part_number:'MXED3',part_number_status:'not_in_catalog',part_number_source:'manual',manual_part_number:'MXED3'})),{label:'✍️ MXED3 · немає в ERP',tone:'catalog'});
 });

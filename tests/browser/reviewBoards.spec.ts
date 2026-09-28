@@ -520,3 +520,33 @@ test('catalog keeps its aside while not-sent is a separate full-width section',a
   await expect(page.getByRole('heading',{name:'Не надіслано'})).toBeVisible();
   await expect(page.getByRole('tab')).toHaveCount(0);
 });
+
+test('part number: tile badge, manual entry only in the panel, and the board filter',async({page})=>{
+  await fixtures(page);
+  const saved:any[]=[];
+  await page.route('**/api/review/part-numbers',async(route:any)=>{saved.push(route.request().postDataJSON());await route.fulfill({json:{status:'applied'}});});
+  await page.goto('/zhezhemon/processing?tab=notifications');
+  const tile=page.getByRole('button',{name:/ThinkPad/});
+  await expect(tile.locator('[data-part-number="missing"]')).toHaveText('Без партійного');
+  await expect(page.getByRole('button',{name:'Зберегти',exact:true})).toHaveCount(0);
+
+  await tile.click();
+  const panel=page.getByRole('dialog');await expect(panel).toBeVisible();
+  await expect(panel.getByRole('heading',{name:'Part Number'})).toBeVisible();
+  await expect(panel.getByText('ERP ще не відповідала для цього лінка.')).toBeVisible();
+  const input=panel.getByLabel('Вказати вручну');
+  await input.fill('MX P93');
+  await expect(panel.getByRole('button',{name:'Зберегти',exact:true})).toBeDisabled();
+  await input.fill(' mxp93ll/a ');
+  await panel.getByRole('button',{name:'Зберегти',exact:true}).click();
+  await expect(panel.getByText(/Збережено\. Наступне сповіщення цього лінка/)).toBeVisible();
+  expect(saved).toHaveLength(1);
+  expect(saved[0]).toMatchObject({link,partNumber:'MXP93LL/A',version:null});
+  expect(saved[0].commandId).toMatch(/^[0-9a-f-]{36}$/);
+  await panel.getByRole('button',{name:'Закрити ×'}).click();
+
+  await page.getByRole('button',{name:'Фільтри',exact:true}).click();
+  await page.getByLabel('Партійний').selectOption('missing');
+  await page.getByRole('button',{name:'Застосувати'}).click();
+  await expect(page).toHaveURL(/notifications\.partNumber=missing/);
+});

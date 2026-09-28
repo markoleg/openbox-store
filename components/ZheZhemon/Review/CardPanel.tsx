@@ -12,6 +12,7 @@ import OutcomeForm from './OutcomeForm'
 import AssessmentForm from './AssessmentForm'
 import ReactionHistory from './ReactionHistory'
 import CapturedData from './CapturedData'
+import PartNumberForm from './PartNumberForm'
 import styles from './Boards.module.css'
 
 function safeListing(url:unknown,fallback:string) {try{const u=new URL(String(url));return u.protocol==='https:' && (u.hostname==='ebay.com'||u.hostname.endsWith('.ebay.com'))?u.href:fallback}catch{return fallback}}
@@ -107,6 +108,7 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
             {!data ? <p role="status">Завантаження картки…</p>:<>
                 <h2>{data.card.title}</h2>
                 <p><a href={safeListing(normalized.itemWebUrl,data.card.link)} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
+                <PartNumberForm key={`${data.card.link}-${data.partNumber?.version ?? 0}`} link={data.card.link} partNumber={data.partNumber ?? null} onSaved={changed}/>
                 <section>
                     <h3>{board==='review'?'Рішення стосується повідомлення, за яким створено оцінку':'Результат цього повідомлення'}</h3>
                     <p>{dateLabel(data.card.sent_at)} · {data.card.channel==='main'?'основний чат':'sniper'} · {searchLabel(data.card)}</p>
