@@ -553,29 +553,32 @@ test('part number: tile badge, manual entry only in the panel, and the board fil
 
 test('ERP purchases: tile badge, closed-by-ERP note, purchase list and the bought filter',async({page})=>{
   await fixtures(page);
-  const erp={erp_units:3,erp_purchases:2,erp_last_purchase_date:'2026-09-24T00:00:00+00:00',buyer_bought:false};
+  const erp={erp_units:2,erp_purchases:1,buyer_bought:false};
   const row={...card,...erp,board:'notifications',id:delivery,outcome:'bought',stage:'done',resolution_kind:'erp_purchase'};
   await page.route('**/api/review/boards?tab=notifications',route=>route.fulfill({json:{pending:0,columns:{new:{count:0,cards:[]},working:{count:0,cards:[]},done:{count:1,cards:[row]}}}}));
   await page.route(`**/api/review/boards?tab=notifications&id=${delivery}`,route=>route.fulfill({json:{...detail,card:row,
     view:{...view,outcome:'bought',resolutionKind:'erp_purchase'},
     erpPurchases:[
-      {erp_purchase_id:12,erp_product_id:427,model_number:'MEU64',purchase_condition_class:'OPENBOX',purchase_date:'2026-09-24T00:00:00+00:00',units:2,cancelled_units:1,first_synced_at:at,removed_at:null,reaction_id:id},
-      {erp_purchase_id:11,erp_product_id:427,model_number:'MEU64',purchase_condition_class:'OPENBOX',purchase_date:'2026-09-20T00:00:00+00:00',units:1,cancelled_units:0,first_synced_at:at,removed_at:at,reaction_id:null},
+      {erp_purchase_id:12,erp_product_id:427,model_number:'MEU64',purchase_condition_class:'OPENBOX',purchase_date:'2026-09-24T00:00:00+00:00',units:2,cancelled_units:1,first_synced_at:at,removed_at:null,reaction_id:id,after_notification:true},
+      {erp_purchase_id:10,erp_product_id:427,model_number:'MEU64',purchase_condition_class:'OPENBOX',purchase_date:'2026-09-22T00:00:00+00:00',units:5,cancelled_units:0,first_synced_at:at,removed_at:null,reaction_id:null,after_notification:false},
+      {erp_purchase_id:11,erp_product_id:427,model_number:'MEU64',purchase_condition_class:'OPENBOX',purchase_date:'2026-09-20T00:00:00+00:00',units:1,cancelled_units:0,first_synced_at:at,removed_at:at,reaction_id:null,after_notification:false},
     ]}}));
   await page.goto('/zhezhemon/processing?tab=notifications');
   const tile=page.getByRole('button',{name:/ThinkPad/});
-  await expect(tile.locator('[data-erp-purchase="erp_only"]')).toHaveText('🧾 ERP: 3 шт · закупівель 2 · остання 24.09');
+  await expect(tile.locator('[data-erp-purchase="erp_only"]')).toHaveText('🧾 ERP після цього: 2 шт');
   await expect(tile).toContainText('за закупівлею в ERP');
 
   await tile.click();
   const panel=page.getByRole('dialog');await expect(panel).toBeVisible();
   await expect(panel.getByText('✅ Купив · за закупівлею в ERP')).toBeVisible();
   const purchases=panel.locator('section').filter({has:page.getByRole('heading',{name:/Закупівлі ERP/})});
-  await expect(purchases.getByRole('heading')).toHaveText('Закупівлі ERP · 1');
-  await expect(purchases.getByRole('row')).toHaveCount(3);
+  await expect(purchases.getByRole('heading')).toHaveText('Закупівлі ERP · після цього сповіщення 2 шт');
+  await expect(purchases).toContainText('Усього з цього лінка: 7 шт у 2 закупівлях.');
+  await expect(purchases.getByRole('row')).toHaveCount(4);
   await expect(purchases.getByRole('row').nth(1)).toContainText('скасовано 1');
-  await expect(purchases.getByRole('row').nth(1)).toContainText('закрила сповіщення');
-  await expect(purchases.getByRole('row').nth(2)).toContainText('знято з ERP');
+  await expect(purchases.getByRole('row').nth(1)).toContainText('закрила сповіщення · ← після цього сповіщення');
+  await expect(purchases.getByRole('row').nth(2)).not.toContainText('після цього сповіщення');
+  await expect(purchases.getByRole('row').nth(3)).toContainText('знято з ERP');
   await panel.getByRole('button',{name:'Закрити ×'}).click();
 
   await page.getByRole('button',{name:'Фільтри',exact:true}).click();

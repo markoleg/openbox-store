@@ -21,6 +21,8 @@ export type ListingErpPurchase = {
   erp_purchase_id: number; erp_product_id: number; model_number: string | null; purchase_condition_class: 'NEW' | 'OPENBOX' | null;
   purchase_date: string; units: number; cancelled_units: number; first_synced_at: string;
   removed_at: string | null; reaction_id: string | null;
+  /** Counted for this card: made after its notification and before the listing's next one. */
+  after_notification: boolean;
 };
 export type PartNumberResult = {status: 'applied' | 'noop' | 'conflict' | 'rejected'; reason?: string; partNumber?: ListingPartNumber};
 
@@ -69,7 +71,7 @@ export async function readCard(board: Board, id: string): Promise<CardDetail | n
   const db=reviewDatabase();
   const stored=await checked(db.from('review_board_rows').select('*').eq('board',board).eq('id',id).maybeSingle()) as StoredCard | null;
   if (!stored) return null;
-  const [view,review,event,history,partNumber,erpPurchases,buyerBought] = await Promise.all([
+  const [view,review,event,history,partNumber,erpRows,erpAfter] = await Promise.all([
     deliveryView(stored.delivery_id),
     stored.review_id ? checked(db.from('listing_reviews').select('*').eq('id',stored.review_id).single()) : null,
     checked(db.from('notification_events').select('summary_snapshot_id,search_snapshot').eq('id',stored.event_id).single()),
@@ -79,10 +81,13 @@ export async function readCard(board: Board, id: string): Promise<CardDetail | n
       .eq('link',stored.link).maybeSingle()) as Promise<ListingPartNumber | null>,
     // Removed purchases stay listed, marked, so a withdrawn system reaction is explained.
     checked(db.from('listing_erp_purchases').select('erp_purchase_id,erp_product_id,model_number,purchase_condition_class,purchase_date,units,cancelled_units,first_synced_at,removed_at,reaction_id')
-      .eq('link',stored.link).order('purchase_date',{ascending:false}).order('erp_purchase_id',{ascending:false})) as Promise<ListingErpPurchase[]>,
-    checked(db.from('listing_reactions').select('id').eq('link',stored.link).eq('actor_id','buyer').eq('outcome','bought').limit(1)) as Promise<{id:string}[]>,
+      .eq('link',stored.link).order('purchase_date',{ascending:false}).order('erp_purchase_id',{ascending:false})) as Promise<Omit<ListingErpPurchase,'after_notification'>[]>,
+    // The rule review_board counts per card, so the open card matches its tile.
+    checked(db.rpc('erp_purchases_after_delivery',{p_link:stored.link,p_event:stored.event_id,p_sent:stored.sent_at}))
+      .then(rows=>new Set((rows as {erp_purchase_id:number;erp_product_id:number}[]).map(erpPurchaseKey))),
   ]);
-  const card=projectStock({...stored,...cardPartNumber(partNumber),...cardErpPurchases(erpPurchases,buyerBought.length>0)});
+  const erpPurchases:ListingErpPurchase[]=erpRows.map(row=>({...row,after_notification:erpAfter.has(erpPurchaseKey(row))}));
+  const card=projectStock({...stored,...cardPartNumber(partNumber),...cardErpPurchases(erpPurchases,stored)});
   // Use the same historical source selected for the tile, not mutable latest data.
   const snapshotId=card.stock_snapshot_id;
   const [snapshot,photos,revisions]=await Promise.all([
@@ -111,9 +116,10 @@ function cardPartNumber(row: ListingPartNumber | null): CardPartNumber {
   return {part_number:row?.part_number ?? null,part_number_status:row?.status ?? null,part_number_source:row?.source ?? null,
     manual_part_number:row?.manual_part_number ?? null,part_number_version:row?.version ?? null};
 }
-/** The same aggregate review_board computes, so the open card matches its tile. */
-function cardErpPurchases(rows: ListingErpPurchase[], buyerBought: boolean): CardErpPurchases {
-  const live=rows.filter(row=>!row.removed_at), bought=live.filter(row=>row.units>0);
-  return {erp_units:live.reduce((sum,row)=>sum+row.units,0),erp_purchases:bought.length,
-    erp_last_purchase_date:bought.map(row=>row.purchase_date).sort().at(-1) ?? null,buyer_bought:buyerBought};
+const erpPurchaseKey=(row:{erp_purchase_id:number;erp_product_id:number})=>`${row.erp_purchase_id}:${row.erp_product_id}`;
+/** The same per-card aggregate review_board computes. */
+function cardErpPurchases(rows: ListingErpPurchase[], card: Pick<StoredCard,'outcome'|'resolution_kind'>): CardErpPurchases {
+  const after=rows.filter(row=>row.after_notification);
+  return {erp_units:after.reduce((sum,row)=>sum+row.units,0),erp_purchases:after.length,
+    buyer_bought:card.outcome==='bought' && card.resolution_kind!=='erp_purchase'};
 }

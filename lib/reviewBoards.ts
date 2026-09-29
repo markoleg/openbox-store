@@ -19,10 +19,11 @@ export const erpPurchaseFilters = ['erp_only', 'manual_only', 'both'] as const;
 export const erpPurchaseFilterLabels: Record<typeof erpPurchaseFilters[number], string> = {
   erp_only: 'ERP купив, кнопки немає', manual_only: 'Кнопка є, в ERP немає', both: 'Кнопка й ERP',
 };
-/** Card fields `review_board` aggregates from the listing's live ERP purchases and buyer reactions. */
-export type CardErpPurchases = {
-  erp_units: number; erp_purchases: number; erp_last_purchase_date: string | null; buyer_bought: boolean;
-};
+/**
+ * Card fields `review_board` computes for the card's own notification: live ERP purchases made after it and
+ * before the listing's next notification (erp_purchases_after_delivery), and whether a person marked it bought.
+ */
+export type CardErpPurchases = {erp_units: number; erp_purchases: number; buyer_bought: boolean};
 /** Card fields `review_board` joins from listing_part_numbers; null when the listing has no row. */
 export type CardPartNumber = {
   part_number: string | null; part_number_status: PartNumberStatus | null; part_number_source: PartNumberSource | null;
@@ -131,12 +132,12 @@ export function partNumberBadge(card: CardPartNumber): PartNumberBadge {
   if (status === 'ambiguous') return {label: 'Кілька товарів · вкажи партійний', tone: 'missing'};
   return {label: 'Без партійного', tone: 'missing'};
 }
-/** Tile badge of the ERP purchases of the listing, or null when the ERP has none. */
+/** Tile badge of what the ERP bought after this notification, or null when it bought nothing. */
 export function erpPurchaseBadge(card: CardErpPurchases): string | null {
   if (!card.erp_purchases) return null;
   if (card.buyer_bought) return `✅ Купив · ERP ✓ ${card.erp_units} шт`;
-  const last = card.erp_last_purchase_date ? ` · остання ${shortDay(card.erp_last_purchase_date)}` : '';
-  return `🧾 ERP: ${card.erp_units} шт · закупівель ${card.erp_purchases}${last}`;
+  const purchases = card.erp_purchases > 1 ? ` · закупівель ${card.erp_purchases}` : '';
+  return `🧾 ERP після цього: ${card.erp_units} шт${purchases}`;
 }
 /** How a result reached a message other than by a press on it; empty for a direct press. */
 export function resolutionNote(kind: string | null): string {
@@ -145,8 +146,6 @@ export function resolutionNote(kind: string | null): string {
   if (kind === 'erp_purchase') return 'за закупівлею в ERP';
   return '';
 }
-// ERP purchase dates are calendar days stored at UTC midnight.
-const shortDay = (iso: string) => new Date(iso).toLocaleDateString('uk-UA', {timeZone: 'UTC', day: '2-digit', month: '2-digit'});
 export const dateLabel = (iso: string | null) => iso ? new Date(iso).toLocaleString('uk-UA', {timeZone:'Europe/Kyiv'}) : '—';
 export function searchLabel(search:{search_id:number|null;search_name:string|null}):string {
   if(search.search_id===null)return search.search_name?`${search.search_name} (пошук видалено)`:'Пошук видалено';

@@ -57,6 +57,7 @@
 .tags .part_pending { border-style:dashed; border-color:#81adba; color:#cfe3ea; }
 .tags .erp_only { border-color:#6fae7d; background:#1e3325; color:#bfe5c7; font-weight:600; }
 .tags .erp_confirmed { border-color:#6fae7d; color:#bfe5c7; }
+.erp_after td { color:#bfe5c7; font-weight:600; }
 .partNumberForm { display:flex; flex-wrap:wrap; align-items:flex-end; gap:.5rem; margin:.5rem 0; }
 .partNumberForm label { display:grid; gap:.35rem; font-size:.8rem; }
 .partNumberForm input { width:16rem; text-transform:uppercase; }

@@ -118,14 +118,13 @@ test('ERP purchase filter accepts only its three values',()=>{
   assert.throws(()=>parseBoardQuery(new URLSearchParams('erpPurchase=bought')));
 });
 
-test('ERP purchase badge tells an unmarked purchase from a confirmed button',()=>{
-  const card=(extra={})=>({erp_units:0,erp_purchases:0,erp_last_purchase_date:null,buyer_bought:false,...extra});
+test('ERP purchase badge shows what was bought after this notification',()=>{
+  const card=(extra={})=>({erp_units:0,erp_purchases:0,buyer_bought:false,...extra});
   assert.equal(erpPurchaseBadge(card()),null);
   assert.equal(erpPurchaseBadge(card({buyer_bought:true})),null);
-  assert.equal(erpPurchaseBadge(card({erp_units:5,erp_purchases:3,erp_last_purchase_date:'2026-09-24T00:00:00+00:00'})),
-    '🧾 ERP: 5 шт · закупівель 3 · остання 24.09');
-  assert.equal(erpPurchaseBadge(card({erp_units:2,erp_purchases:1,erp_last_purchase_date:'2026-09-24T00:00:00+00:00',buyer_bought:true})),
-    '✅ Купив · ERP ✓ 2 шт');
+  assert.equal(erpPurchaseBadge(card({erp_units:2,erp_purchases:1})),'🧾 ERP після цього: 2 шт');
+  assert.equal(erpPurchaseBadge(card({erp_units:5,erp_purchases:3})),'🧾 ERP після цього: 5 шт · закупівель 3');
+  assert.equal(erpPurchaseBadge(card({erp_units:2,erp_purchases:1,buyer_bought:true})),'✅ Купив · ERP ✓ 2 шт');
 });
 
 test('resolution note names every way a result reaches a message',()=>{

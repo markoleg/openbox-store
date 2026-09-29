@@ -427,16 +427,20 @@ The CRM is the record of what was bought; the tracker pulls its eBay purchases a
 closes notifications nobody marked «Купив» with a system reaction (`actor_id='system'`,
 `source='erp'`). On the boards:
 
-- the tile badge `ErpPurchaseTag` shows «🧾 ERP: N шт · закупівель M · остання dd.mm»
-  when the ERP bought from the link and nobody pressed the button, and
-  «✅ Купив · ERP ✓ N шт» when both agree;
+- the tile badge `ErpPurchaseTag` counts only what was bought **after this notification**
+  (ZheZhemon migration 024, `erp_purchases_after_delivery`: purchases entered into the ERP
+  after it and before the link's next notification, at most 72 hours): «🧾 ERP після цього:
+  N шт» when nobody pressed «Купив» on this notification, «✅ Купив · ERP ✓ N шт» when a
+  person did;
 - a result the ERP set reads «за закупівлею в ERP» (`resolutionNote`) on the tile, in the
   panel and in history; the Telegram keyboard label, when re-rendered, ends with «· ERP»;
-- the card panel's «Закупівлі ERP» lists every purchase of the link (date, units,
+- the card panel's «Закупівлі ERP» heads with the units after this notification and the
+  link's total, and lists every purchase of the link, marking those counted for this card (date, units,
   cancelled units, part number and condition class, when the tracker learned of it,
   whether it closed notifications, and purchases later removed from the ERP);
-- the filter «Куплено» narrows a board to «ERP купив, кнопки немає», «Кнопка є, в ERP
-  немає» (reconciliation; the ERP may lag) or «Кнопка й ERP».
+- the filter «Куплено» works on the same per-notification facts: «ERP купив, кнопки немає»,
+  «Кнопка є, в ERP немає» (reconciliation; the ERP may lag) or «Кнопка й ERP».
 
-`review_board_rows` is unchanged, so the panel reads `listing_erp_purchases` and the
-buyer's «bought» reactions by link. No new environment variables.
+`review_board_rows` is unchanged, so the panel reads `listing_erp_purchases` by link and
+marks the rows `erp_purchases_after_delivery` returns for the card. Deploy after migration
+024. No new environment variables.
