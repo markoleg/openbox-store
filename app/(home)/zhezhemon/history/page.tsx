@@ -6,7 +6,7 @@ import { deliveryView, eventLink, listingHistory, resolveDispatch, reviewCommand
 import { requireOwnerSession } from '@/lib/server/owner'
 import OutcomeForm from '@/components/ZheZhemon/Review/OutcomeForm'
 import GeneralOutcomeForm from '@/components/ZheZhemon/Review/GeneralOutcomeForm'
-import { historyBoardDestination } from '@/lib/reviewBoards'
+import { historyBoardDestination, resolutionNote } from '@/lib/reviewBoards'
 import type { ReviewTarget } from '@/lib/reviewClient'
 import styles from '@/components/ZheZhemon/Review/Review.module.css'
 
@@ -111,7 +111,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                         <h2>{!context?'Про оголошення загалом':view ? `Повідомлення ${kyiv(view.sentAt)} · ${view.kind} · ${view.channel === 'main' ? 'основний чат' : 'sniper-чат'}` : 'Подія (toast / повідомлення ще без підтвердження)'}</h2>
                         {view && <p>Ціна в повідомленні: ${view.contextPrice ?? '?'}{view.currentPrice != null ? ` · зараз $${view.currentPrice}` : ''}{view.searchName ? ` · пошук «${view.searchName}»${view.searchExists ? '' : ' (видалений)'}` : ''}</p>}
                         <p>Результат: <b>{currentOutcome ? outcomeLabels[currentOutcome] ?? currentOutcome : firstReactionAt ? 'в роботі' : 'нове'}</b>
-                            {view?.resolutionKind && view.resolutionKind !== 'direct' ? ` (${view.resolutionKind === 'event_context' ? 'з дашборда до відправки' : 'через пов’язане повідомлення'})` : ''}</p>
+                            {view?.resolutionKind && view.resolutionKind !== 'direct' ? ` (${view.resolutionKind === 'event_context' ? 'з дашборда до відправки' : resolutionNote(view.resolutionKind)})` : ''}</p>
                         {reviewCommandsEnabled() ? (
                             target.kind==='listing' ? <GeneralOutcomeForm link={link} version={history.state?.state_version ?? 0}
                                 current={{outcome:currentOutcome,firstReactionAt,hidden:!!live?.hidden,bannedInSearch:null}}/> : <OutcomeForm target={target} initialAction={params.action ?? null}

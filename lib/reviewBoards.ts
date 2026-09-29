@@ -8,12 +8,21 @@ export type Criterion = typeof criteria[number][0];
 export type Board = 'review' | 'notifications';
 export type Stage = 'new' | 'working' | 'done';
 export const stages: Stage[] = ['new', 'working', 'done'];
-export type BoardFilters = Partial<Record<'search' | 'link' | 'outcome' | 'stage' | 'kind' | 'channel' | 'condition' | 'from' | 'to' | 'partNumber', string>> &
+export type BoardFilters = Partial<Record<'search' | 'link' | 'outcome' | 'stage' | 'kind' | 'channel' | 'condition' | 'from' | 'to' | 'partNumber' | 'erpPurchase', string>> &
   {needsReaction?: boolean; withoutReview?: boolean};
 /** `review_board` filter values: no part number yet, or one the CRM catalog lacks. */
 export const partNumberFilters = ['missing', 'not_in_catalog'] as const;
 export type PartNumberStatus = 'identified' | 'not_in_catalog' | 'ambiguous' | 'unknown' | 'unverified';
 export type PartNumberSource = 'purchase' | 'mpn' | 'title' | 'manual' | 'listing_mpn';
+/** `review_board` filter values: the ERP bought it without the button, the button without an ERP purchase, or both. */
+export const erpPurchaseFilters = ['erp_only', 'manual_only', 'both'] as const;
+export const erpPurchaseFilterLabels: Record<typeof erpPurchaseFilters[number], string> = {
+  erp_only: 'ERP купив, кнопки немає', manual_only: 'Кнопка є, в ERP немає', both: 'Кнопка й ERP',
+};
+/** Card fields `review_board` aggregates from the listing's live ERP purchases and buyer reactions. */
+export type CardErpPurchases = {
+  erp_units: number; erp_purchases: number; erp_last_purchase_date: string | null; buyer_bought: boolean;
+};
 /** Card fields `review_board` joins from listing_part_numbers; null when the listing has no row. */
 export type CardPartNumber = {
   part_number: string | null; part_number_status: PartNumberStatus | null; part_number_source: PartNumberSource | null;
@@ -28,7 +37,7 @@ export type BoardCard = {
   resolution_kind: string | null; sent_at: string; missing: number | null;
   hidden: boolean; hidden_until: string | null; favorite: boolean; stock_blocked: boolean;
   stock_snapshot_id: string | null; stock_observed_at: string | null; stock_quantity: StockQuantity | null;
-} & CardPartNumber;
+} & CardPartNumber & CardErpPurchases;
 export type BoardPage = {columns: Record<Stage, {count: number; cards: BoardCard[]}>; pending: number; searches?:{id:number;name:string|null}[]};
 export type Assessment = {
   id: string; link: string; origin_delivery_id: string; version: number; submitted_at: string | null;
@@ -65,11 +74,12 @@ export function parseBoardQuery(params: URLSearchParams): {board: Board; filters
   const board = params.get('tab') ?? 'review';
   if (board !== 'review' && board !== 'notifications') throw new Error('invalid_board');
   const filters: BoardFilters = {};
-  for (const key of ['search','link','outcome','stage','kind','channel','condition','from','to','partNumber'] as const) {
+  for (const key of ['search','link','outcome','stage','kind','channel','condition','from','to','partNumber','erpPurchase'] as const) {
     const value = params.get(key);
     if (!value) continue;
     if (value.length>500) throw new Error('filter_too_long');
     if (key==='partNumber' && !(partNumberFilters as readonly string[]).includes(value)) throw new Error('invalid_part_number_filter');
+    if (key==='erpPurchase' && !(erpPurchaseFilters as readonly string[]).includes(value)) throw new Error('invalid_erp_purchase_filter');
     if (['search','condition'].includes(key) && !(key==='search' && value==='deleted') && !/^[1-9][0-9]{0,8}$/.test(value)) throw new Error('invalid_number');
     if (['from','to'].includes(key) && (!/^\d{4}-\d{2}-\d{2}T/.test(value) || !Number.isFinite(Date.parse(value)))) throw new Error('invalid_date');
     filters[key] = value;
@@ -121,6 +131,22 @@ export function partNumberBadge(card: CardPartNumber): PartNumberBadge {
   if (status === 'ambiguous') return {label: 'Кілька товарів · вкажи партійний', tone: 'missing'};
   return {label: 'Без партійного', tone: 'missing'};
 }
+/** Tile badge of the ERP purchases of the listing, or null when the ERP has none. */
+export function erpPurchaseBadge(card: CardErpPurchases): string | null {
+  if (!card.erp_purchases) return null;
+  if (card.buyer_bought) return `✅ Купив · ERP ✓ ${card.erp_units} шт`;
+  const last = card.erp_last_purchase_date ? ` · остання ${shortDay(card.erp_last_purchase_date)}` : '';
+  return `🧾 ERP: ${card.erp_units} шт · закупівель ${card.erp_purchases}${last}`;
+}
+/** How a result reached a message other than by a press on it; empty for a direct press. */
+export function resolutionNote(kind: string | null): string {
+  if (kind === 'shared_trigger') return 'через пов’язане повідомлення';
+  if (kind === 'event_context') return 'через подію';
+  if (kind === 'erp_purchase') return 'за закупівлею в ERP';
+  return '';
+}
+// ERP purchase dates are calendar days stored at UTC midnight.
+const shortDay = (iso: string) => new Date(iso).toLocaleDateString('uk-UA', {timeZone: 'UTC', day: '2-digit', month: '2-digit'});
 export const dateLabel = (iso: string | null) => iso ? new Date(iso).toLocaleString('uk-UA', {timeZone:'Europe/Kyiv'}) : '—';
 export function searchLabel(search:{search_id:number|null;search_name:string|null}):string {
   if(search.search_id===null)return search.search_name?`${search.search_name} (пошук видалено)`:'Пошук видалено';

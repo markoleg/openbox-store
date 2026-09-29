@@ -414,3 +414,29 @@ automatic resolution. The value applies to the link: the next preflight sends it
 the CRM, and that notification's ERP line counts purchases, stock and margin for it.
 `review_board_rows` is unchanged, so the panel reads the part number from
 `listing_part_numbers` by link. No new environment variables.
+
+## ERP purchases on the processing boards
+
+Requires ZheZhemon migration `023_listing_erp_purchases.sql` (table
+`listing_erp_purchases`, resolution kind `erp_purchase`, ERP fields and the
+`erpPurchase` filter in `review_board`). Deploy this dashboard after 023 and
+**before** the tracker's ERP purchase sync is enabled: its first pass closes old
+notifications with system reactions, and older builds label them «через подію».
+
+The CRM is the record of what was bought; the tracker pulls its eBay purchases and
+closes notifications nobody marked «Купив» with a system reaction (`actor_id='system'`,
+`source='erp'`). On the boards:
+
+- the tile badge `ErpPurchaseTag` shows «🧾 ERP: N шт · закупівель M · остання dd.mm»
+  when the ERP bought from the link and nobody pressed the button, and
+  «✅ Купив · ERP ✓ N шт» when both agree;
+- a result the ERP set reads «за закупівлею в ERP» (`resolutionNote`) on the tile, in the
+  panel and in history; the Telegram keyboard label, when re-rendered, ends with «· ERP»;
+- the card panel's «Закупівлі ERP» lists every purchase of the link (date, units,
+  cancelled units, part number and condition class, when the tracker learned of it,
+  whether it closed notifications, and purchases later removed from the ERP);
+- the filter «Куплено» narrows a board to «ERP купив, кнопки немає», «Кнопка є, в ERP
+  немає» (reconciliation; the ERP may lag) or «Кнопка й ERP».
+
+`review_board_rows` is unchanged, so the panel reads `listing_erp_purchases` and the
+buyer's «bought» reactions by link. No new environment variables.

@@ -15,7 +15,7 @@ export type ReplyMarkup = { inline_keyboard: InlineButton[][] };
 export type DeliveryView = {
   deliveryId: string; eventId: string; dispatchId: string; link: string; channel: 'main' | 'sniper';
   kind: string; botId: number; chatId: number; messageId: number; sentAt: string; stateVersion: number;
-  resolutionKind: 'direct' | 'shared_trigger' | 'event_context' | null;
+  resolutionKind: 'direct' | 'shared_trigger' | 'event_context' | 'erp_purchase' | null;
   searchId: number | null; searchExists: boolean; searchName: string | null;
   firstReactionAt: string | null; outcome: string | null; outcomeReason: string | null;
   outcomeNote: string | null; outcomeAt: string | null; outcomeSource: string | null;
@@ -89,6 +89,7 @@ export function outcomeLabel(view: DeliveryView): string {
   }
   if (view.resolutionKind === 'event_context') label += ' · з дашборда';
   else if (view.resolutionKind === 'shared_trigger') label += ' · через пов’язане';
+  else if (view.resolutionKind === 'erp_purchase') label += ' · ERP';
   return label;
 }
 

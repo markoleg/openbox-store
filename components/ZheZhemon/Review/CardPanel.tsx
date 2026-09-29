@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { CardDetail } from '@/lib/server/reviewBoards'
 import type { Board } from '@/lib/reviewBoards'
-import { dateLabel, reactionDelay, searchLabel } from '@/lib/reviewBoards'
+import { dateLabel, reactionDelay, resolutionNote, searchLabel } from '@/lib/reviewBoards'
 import { outcomeLabels } from '@/lib/reviewKeyboard'
 import { applyCommand, issueContext, explainError, explainResult } from '@/lib/reviewClient'
 import { PAUSE_DAYS, tokenFromDispatchId, type ReviewContext, type ReviewAction, type ReviewPayload, type ReviewCommandResult } from '@/lib/reviewCommands'
@@ -13,6 +13,7 @@ import AssessmentForm from './AssessmentForm'
 import ReactionHistory from './ReactionHistory'
 import CapturedData from './CapturedData'
 import PartNumberForm from './PartNumberForm'
+import ErpPurchases from './ErpPurchases'
 import styles from './Boards.module.css'
 
 function safeListing(url:unknown,fallback:string) {try{const u=new URL(String(url));return u.protocol==='https:' && (u.hostname==='ebay.com'||u.hostname.endsWith('.ebay.com'))?u.href:fallback}catch{return fallback}}
@@ -109,10 +110,11 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
                 <h2>{data.card.title}</h2>
                 <p><a href={safeListing(normalized.itemWebUrl,data.card.link)} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
                 <PartNumberForm key={`${data.card.link}-${data.partNumber?.version ?? 0}`} link={data.card.link} partNumber={data.partNumber ?? null} onSaved={changed}/>
+                <ErpPurchases rows={data.erpPurchases ?? []}/>
                 <section>
                     <h3>{board==='review'?'Рішення стосується повідомлення, за яким створено оцінку':'Результат цього повідомлення'}</h3>
                     <p>{dateLabel(data.card.sent_at)} · {data.card.channel==='main'?'основний чат':'sniper'} · {searchLabel(data.card)}</p>
-                    <p>{view?.outcome?outcomeLabels[view.outcome]:'Результату немає'}{view?.resolutionKind && view.resolutionKind!=='direct'?` · ${view.resolutionKind==='shared_trigger'?'через пов’язане повідомлення':'через подію'}`:''}</p>
+                    <p>{view?.outcome?outcomeLabels[view.outcome]:'Результату немає'}{resolutionNote(view?.resolutionKind ?? null)?` · ${resolutionNote(view?.resolutionKind ?? null)}`:''}</p>
                     <p className={styles.muted}>Перша пряма реакція: {dateLabel(view?.firstReactionAt ?? null)}. Результат: {dateLabel(view?.outcomeAt ?? null)}.</p>
                     <p className={styles.muted}>Час до першої реакції: {reactionDelay(data.card.sent_at,view?.firstReactionAt ?? null)}. Це календарний час, без нормативу SLA.</p>
                     {message && <p role="status" className={styles.error}>{message}</p>}

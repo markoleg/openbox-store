@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseAssessment,parseBoardQuery,tabFilters,isSubmitted,reactionDelay,historyBoardDestination,searchLabel,parsePartNumberRequest,partNumberBadge} from '../lib/reviewBoards.ts';
+import {parseAssessment,parseBoardQuery,tabFilters,isSubmitted,reactionDelay,historyBoardDestination,searchLabel,parsePartNumberRequest,partNumberBadge,erpPurchaseBadge,resolutionNote} from '../lib/reviewBoards.ts';
 import {estimatedQuantity,stockLabel,projectStock} from '../lib/reviewStock.ts';
 const id='11111111-1111-4111-8111-111111111111';
 const req=(payload={},action='draft')=>({commandId:id,reviewId:id,version:0,action,payload});
@@ -110,4 +110,28 @@ test('part number badge highlights exactly the cards a person must act on',()=>{
   assert.deepEqual(partNumberBadge(card({part_number_status:'unknown',manual_part_number:'MXP93'})),{label:'✍️ MXP93 · чекає ERP',tone:'pending'});
   assert.deepEqual(partNumberBadge(card({part_number:'MXP93',part_number_status:'identified',part_number_source:'manual',manual_part_number:'MXP93LL/A'})),{label:'✍️ MXP93',tone:'known'});
   assert.deepEqual(partNumberBadge(card({part_number:'MXED3',part_number_status:'not_in_catalog',part_number_source:'manual',manual_part_number:'MXED3'})),{label:'✍️ MXED3 · немає в ERP',tone:'catalog'});
+});
+
+test('ERP purchase filter accepts only its three values',()=>{
+  for(const value of ['erp_only','manual_only','both'])
+    assert.equal(parseBoardQuery(new URLSearchParams(`tab=notifications&erpPurchase=${value}`)).filters.erpPurchase,value);
+  assert.throws(()=>parseBoardQuery(new URLSearchParams('erpPurchase=bought')));
+});
+
+test('ERP purchase badge tells an unmarked purchase from a confirmed button',()=>{
+  const card=(extra={})=>({erp_units:0,erp_purchases:0,erp_last_purchase_date:null,buyer_bought:false,...extra});
+  assert.equal(erpPurchaseBadge(card()),null);
+  assert.equal(erpPurchaseBadge(card({buyer_bought:true})),null);
+  assert.equal(erpPurchaseBadge(card({erp_units:5,erp_purchases:3,erp_last_purchase_date:'2026-09-24T00:00:00+00:00'})),
+    '🧾 ERP: 5 шт · закупівель 3 · остання 24.09');
+  assert.equal(erpPurchaseBadge(card({erp_units:2,erp_purchases:1,erp_last_purchase_date:'2026-09-24T00:00:00+00:00',buyer_bought:true})),
+    '✅ Купив · ERP ✓ 2 шт');
+});
+
+test('resolution note names every way a result reaches a message',()=>{
+  assert.equal(resolutionNote(null),'');
+  assert.equal(resolutionNote('direct'),'');
+  assert.equal(resolutionNote('shared_trigger'),'через пов’язане повідомлення');
+  assert.equal(resolutionNote('event_context'),'через подію');
+  assert.equal(resolutionNote('erp_purchase'),'за закупівлею в ERP');
 });

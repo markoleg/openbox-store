@@ -1,12 +1,13 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { stages, tabFilters, dateLabel, searchLabel, type Board, type BoardPage, type BoardCard, type Stage } from '@/lib/reviewBoards'
+import { stages, tabFilters, dateLabel, searchLabel, resolutionNote, erpPurchaseFilterLabels, type Board, type BoardPage, type BoardCard, type Stage } from '@/lib/reviewBoards'
 import { outcomeLabels } from '@/lib/reviewKeyboard'
 import { stockLabel } from '@/lib/reviewStock'
 import CardPanel from './CardPanel'
 import TileActions from './TileActions'
 import { PartNumberTag } from './PartNumberForm'
+import { ErpPurchaseTag } from './ErpPurchases'
 import Reporting from './Reporting'
 import styles from './Boards.module.css'
 import {useReviewRealtime} from './useReviewRealtime'
@@ -112,6 +113,7 @@ export default function ProcessingBoards() {
             <label>Результат<select name="outcome" defaultValue={search.get(`${board}.outcome`) ?? ''}><option value="">Усі</option>{Object.entries(outcomeLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
             <label>Колонка<select name="stage" defaultValue={search.get(`${board}.stage`) ?? ''}><option value="">Усі</option>{stages.map(s=><option key={s} value={s}>{labels[board][s]}</option>)}</select></label>
             <label>Партійний<select name="partNumber" defaultValue={search.get(`${board}.partNumber`) ?? ''}><option value="">Усі</option><option value="missing">Без партійного</option><option value="not_in_catalog">Немає в ERP</option></select></label>
+            <label>Куплено<select name="erpPurchase" defaultValue={search.get(`${board}.erpPurchase`) ?? ''}><option value="">Усі</option>{Object.entries(erpPurchaseFilterLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
             {(['from','to'] as const).map(k=>{const iso=search.get(`${board}.${k}`);const local=iso && Number.isFinite(Date.parse(iso))?new Date(new Date(iso).getTime()-new Date(iso).getTimezoneOffset()*60000).toISOString().slice(0,16):'';return <label key={k}>{k==='from'?'Від':'До (не включно)'}<input type="datetime-local" name={k} defaultValue={local}/></label>})}
             {board==='notifications' && <>
                 <label>Тип<select name="kind" defaultValue={search.get(`${board}.kind`) ?? ''}><option value="">Усі</option>{Object.entries(eventLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
@@ -136,10 +138,10 @@ export default function ProcessingBoards() {
                         <button className={styles.tileOpen} onClick={()=>open(card)}>
                         <strong>{card.title}</strong><span className={styles.price}>{card.price===null?'Ціна невідома':`${card.price} ${card.currency ?? ''}`}</span>
                         <span className={styles.muted}>📦 {stockLabel(card.stock_quantity)} · за знімком</span>
-                        <span className={styles.tags}><span>{card.channel==='main'?'Основний чат':'Sniper'}</span><span>{eventLabels[card.kind] ?? card.kind}</span><PartNumberTag card={card}/></span>
+                        <span className={styles.tags}><span>{card.channel==='main'?'Основний чат':'Sniper'}</span><span>{eventLabels[card.kind] ?? card.kind}</span><PartNumberTag card={card}/><ErpPurchaseTag card={card}/></span>
                         <span className={styles.muted}>{dateLabel(card.sent_at)} · {searchLabel(card)}</span>
                         <span>{card.outcome?outcomeLabels[card.outcome]:'Рішення ще немає'}</span>
-                        {board==='review'?<span className={styles.muted}>Не заповнено критеріїв: {card.missing}/6</span>:<span className={styles.muted}>{card.first_reaction_at?`Перша реакція: ${dateLabel(card.first_reaction_at)}`:'Прямої реакції немає'}{card.resolution_kind && card.resolution_kind!=='direct'?` · ${card.resolution_kind==='shared_trigger'?'через пов’язане повідомлення':'через подію'}`:''}</span>}
+                        {board==='review'?<span className={styles.muted}>Не заповнено критеріїв: {card.missing}/6</span>:<span className={styles.muted}>{card.first_reaction_at?`Перша реакція: ${dateLabel(card.first_reaction_at)}`:'Прямої реакції немає'}{resolutionNote(card.resolution_kind)?` · ${resolutionNote(card.resolution_kind)}`:''}</span>}
                         <span className={styles.muted}>Зараз: {card.stock_blocked?'недоступне':card.hidden?`приховано${card.hidden_until?' / пауза':''}`:'без глобального приховування'}{card.favorite?' · Sniper':''}</span>
                         </button>
                         {/* Quick reactions only while the message has no result; done cards are edited in the panel. */}

@@ -52,6 +52,7 @@ test('after an outcome the message shows it with correction, more, sniper, balan
   assert.equal(m.inline_keyboard[0][0].text,'🚫 Забанено в «iphone 15»');
   assert.deepEqual(texts(m).slice(1),[['✏️ Змінити результат','Ще…'],['🎯 Sniper','💳 Баланси','📝 Оцінити']]);
   assert.equal(outcomeLabel(view({outcome:'bought',resolutionKind:'event_context'})),'✅ Купив · з дашборда');
+  assert.equal(outcomeLabel(view({outcome:'bought',resolutionKind:'erp_purchase'})),'✅ Купив · ERP');
   assert.equal(renderKeyboard(view({outcome:'bought',review:{id:'r',submittedAt:'2026-09-11T11:00:00Z',revisionOpenedAt:null,originDeliveryId:'d1'}}),urls)
     .inline_keyboard.at(-1).at(-1).text,'📝 Переглянути оцінку');
 });
