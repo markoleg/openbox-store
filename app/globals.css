@@ -102,6 +102,10 @@ button {
 	background: var(--primary);
 	opacity: 1;
 }
+.review-toast .Toastify__toast-icon {
+	align-self: flex-start;
+	margin-top: 3px;
+}
 .Toastify__toast-icon svg {
 	fill: var(--primary);
 }

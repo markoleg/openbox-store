@@ -100,7 +100,7 @@ export function ItemsProvider({ children }: { children: React.ReactNode }) {
                     seenEvents.current.add(event.event_id)
                     toast.info(<ReviewToast event={event} />, {
                         toastId: `event:${event.event_id}`,
-                        className: "custom-toast",
+                        className: "custom-toast review-toast",
                         progressClassName: "Toastify__progress-bar",
                         closeOnClick: false,
                     });
