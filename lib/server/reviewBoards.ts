@@ -5,6 +5,7 @@ import type {DeliveryView} from '@/lib/reviewKeyboard';
 import {projectStock} from '@/lib/reviewStock';
 import {capturedListingView,type CapturedListingView} from '@/lib/capturedListing';
 import {sanitizeDescription,type SafeDescription} from '@/lib/sanitizeDescription';
+import {availablePhotos,type ListingPhoto} from '@/lib/listingPhotos';
 type StoredCard=Omit<BoardCard,'stock_quantity'> & {stock_evidence:unknown};
 export type ListingPartNumber = {
   part_number: string | null; status: PartNumberStatus; source: PartNumberSource | null;
@@ -17,11 +18,25 @@ export type ListingErpPurchase = {
   draft_created_at:string|null;purchase_created_at:string|null;time_basis:string;active:boolean;assigned_event_id:string|null;
   assignment_source:'automatic'|'manual'|'excluded';version:number;first_synced_at:string;
 };
-export type PartNumberResult={status:'applied'|'noop'|'conflict'|'rejected';reason?:string;partNumber?:ListingPartNumber};
+export type PartNumberResult={status:'applied'|'noop'|'conflict'|'rejected';reason?:string;partNumber?:ListingPartNumber;current?:ListingPartNumber};
 async function checked<T>(query:PromiseLike<{data:T;error:unknown}>):Promise<T>{const {data,error}=await query;if(error)throw new Error('review_storage_failed');return data}
 export async function readBoard(board:Board,filters:BoardFilters,cursors:Partial<Record<Stage,Cursor>>):Promise<BoardPage>{
   const page=await checked(reviewDatabase().rpc('review_board',{p_board:board,p_filters:filters,p_cursors:cursors})) as Omit<BoardPage,'columns'> & {columns:Record<Stage,{count:number;cards:StoredCard[]}>};
-  return {...page,columns:Object.fromEntries(stages.map(stage=>[stage,{...page.columns[stage],cards:page.columns[stage].cards.map(projectStock)}])) as BoardPage['columns']};
+  const snapshots=[...new Set(stages.flatMap(stage=>page.columns[stage].cards.map(card=>card.stock_snapshot_id)).filter((id):id is string=>!!id))];
+  const bySnapshot=new Map<string,ListingPhoto[]>();
+  // Batch by snapshot and page past PostgREST's row limit; avoid one query per card.
+  if(snapshots.length)for(let start=0;;start+=1000) {
+    const photos=await checked(reviewDatabase().from('snapshot_photos').select('snapshot_id,source_url,status,position')
+      .in('snapshot_id',snapshots).order('snapshot_id').order('position').range(start,start+999));
+    for(const photo of photos ?? []) {
+      const group=bySnapshot.get(photo.snapshot_id) ?? [];
+      group.push({source_url:photo.source_url,status:photo.status});bySnapshot.set(photo.snapshot_id,group);
+    }
+    if(!photos || photos.length<1000)break;
+  }
+  return {...page,columns:Object.fromEntries(stages.map(stage=>[stage,{...page.columns[stage],cards:page.columns[stage].cards.map(card=>({
+    ...projectStock(card),photos:availablePhotos(bySnapshot.get(card.stock_snapshot_id ?? '') ?? []),
+  }))}])) as BoardPage['columns']};
 }
 /** set_listing_part_number: idempotent per commandId; the actor comes from the session, never the client. */
 export async function savePartNumber(request: PartNumberRequest, actor: string): Promise<PartNumberResult> {

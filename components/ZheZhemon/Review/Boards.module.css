@@ -31,10 +31,29 @@
 .workspace button:focus-visible,.dialog button:focus-visible,.navigation a:focus-visible { outline:2px solid #7bdbcc; outline-offset:3px; }
 .tile { display:grid; gap:.55rem; padding:.9rem; border:1px solid #38434b; border-radius:6px; background:#20272e; }
 .tile:hover,.tile:focus-within { border-color:#81adba; }
-.workspace .tileOpen { text-align:left; width:100%; display:grid; gap:.55rem; padding:0; border:0; background:transparent; }
-.workspace .tileOpen:focus-visible { outline-offset:6px; }
+.tileHeading { display:flex; align-items:flex-start; gap:.6rem; }
+.tileTitle { flex:1; min-width:0; color:#e1f0f4; font-size:.95rem; font-weight:600; line-height:1.45; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:3px; }
+.tileTitle:hover { color:#9de4da; }
+.tileTitle:focus-visible { outline:2px solid #7bdbcc; outline-offset:3px; }
+.workspace .drawerButton { display:grid; place-items:center; flex-shrink:0; padding:.4rem; width:32px; height:32px; }
+.tileOverview { display:grid; gap:.75rem; grid-template-columns:minmax(0,1fr); align-items:start; }
+.tileOverview[data-photo=true] { grid-template-columns:96px minmax(0,1fr); }
+.tileFacts { display:grid; gap:.45rem; min-width:0; }
+.workspace .tilePhoto { position:relative; width:96px; height:96px; padding:0; overflow:hidden; background:#fff; border-color:#53616e; }
+.tilePhoto img { width:100%; height:100%; object-fit:contain; }
+.tilePhoto > span { font-size:.7rem; color:#394751; }
+.tilePhoto .photoCount { position:absolute; bottom:0; right:0; padding:.15rem .3rem; color:#fff; background:#17232ed9; }
+.tilePartNumber { display:grid; gap:.4rem; padding-top:.5rem; border-top:1px solid #343a42; min-width:0; }
+.tags .partCaption { border:0; padding:0; color:#aab4be; }
+.tilePartNumberForm { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; }
+.tilePartNumberForm label { flex:1; min-width:6rem; }
+.tilePartNumberForm input { width:100%; min-width:0; text-transform:uppercase; font-size:.8rem; }
+.workspace .tilePartNumberForm button { font-size:.78rem; padding:.45rem .6rem; }
 .quickActions { display:flex; flex-wrap:wrap; gap:.35rem; padding-top:.35rem; border-top:1px solid #343a42; }
 .workspace .quickActions button { padding:.35rem .5rem; font-size:.78rem; min-height:32px; }
+.workspace .quickActions button,.workspace .drawerButton,.workspace .tilePartNumber button { transition:background-color .15s,border-color .15s,box-shadow .15s; }
+.workspace .quickActions button:hover:not(:disabled),.workspace .drawerButton:hover,.workspace .tilePartNumber button:hover:not(:disabled) { background:#34515b; border-color:#83c7bb; box-shadow:0 0 0 1px #83c7bb33; }
+.workspace .quickActions button:active:not(:disabled) { background:#41646e; }
 .tile strong { font-size:.95rem; line-height:1.45; overflow-wrap:anywhere; }
 .tile .price { font-size:1.15rem; color:#e0f7ee; }
 .tags { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; font-size:.75rem; }
@@ -123,6 +142,26 @@
 .copy { display:inline-flex; gap:.5rem; align-items:center; margin:.4rem 0; }
 .gallery figure { min-width:0; }
 .gallery figcaption { font-size:.75rem; margin-top:.25rem; }
+.lightboxOverlay { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:1rem; background:#000c; }
+.lightbox { display:flex; flex-direction:column; width:min(1100px,100%); max-height:calc(100dvh - 2rem); min-height:0; padding:.8rem; gap:.6rem; border:1px solid #53616e; border-radius:10px; background:#14191f; }
+.lightboxHeader { display:flex; align-items:center; gap:.75rem; }
+.lightboxHeader strong { flex:1; min-width:0; font-size:.9rem; overflow-wrap:anywhere; }
+.lightboxImage { min-height:0; height:min(65dvh,700px); display:grid; place-items:center; background:#fff; border-radius:6px; overflow:hidden; color:#394751; }
+.lightboxImage img { width:100%; height:100%; object-fit:contain; }
+.lightboxNavigation { display:flex; justify-content:center; align-items:center; gap:1rem; }
+.lightboxThumbnails { display:flex; gap:.4rem; overflow-x:auto; flex-shrink:0; }
+.workspace .lightboxThumbnails button { width:64px; height:64px; padding:.15rem; background:#fff; flex-shrink:0; }
+.lightboxThumbnails img { width:100%; height:100%; object-fit:contain; }
+.workspace .lightboxThumbnails button[aria-pressed=true] { border:2px solid #7bdbcc; }
+@media(max-width:640px) {
+    .tileOverview[data-photo=true] { grid-template-columns:76px minmax(0,1fr); }
+    .workspace .tilePhoto { width:76px; height:76px; }
+    .lightboxOverlay { padding:.4rem; }
+    .lightbox { max-height:calc(100dvh - .8rem); padding:.5rem; }
+}
+@media(prefers-reduced-motion:reduce) {
+    .workspace .quickActions button,.workspace .drawerButton,.workspace .tilePartNumber button { transition:none; }
+}
 
 .queue {flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:.5rem 0;}
 .mobileNavigation {gap:.15rem;}

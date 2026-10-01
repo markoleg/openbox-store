@@ -1,11 +1,8 @@
 'use client'
 import {useState} from 'react'
+import {safePhoto,type ListingPhoto as Photo} from '@/lib/listingPhotos'
 import styles from './Boards.module.css'
 
-type Photo={source_url:string;status:string}
-function safePhoto(url:string) {
-    try {const u=new URL(url);return u.protocol==='https:' && !u.username && !u.password && (!u.port || u.port==='443') && (u.hostname==='ebayimg.com'||u.hostname.endsWith('.ebayimg.com'))}catch{return false}
-}
 // Only a non-default status changes what the user can do; url_only is the norm and gets no badge.
 const statusNote:Record<string,string>={archived:'є архівна копія; показано зовнішнє джерело',failed:'архівування не вдалося; показано зовнішнє джерело'}
 function Photo({photo,index,total,title}:{photo:Photo;index:number;total:number;title:string}) {

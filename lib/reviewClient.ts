@@ -6,6 +6,7 @@
  */
 import type { ReviewAction, ReviewCommandResult, ReviewContext, ReviewContextRequest, ReviewPayload, ReviewSource }
   from '@/lib/reviewCommands';
+import type {PartNumberResult} from '@/lib/server/reviewBoards';
 
 export type ReviewTarget =
   | { kind: 'listing'; link: string; searchId?: number; register?: boolean }
@@ -89,7 +90,7 @@ export async function savePartNumber(body: { link: string; partNumber: string | 
   const response = await post('/api/review/part-numbers', { commandId: crypto.randomUUID(), ...body }, true);
   if (response.ok || response.status === 409 || response.status === 422) {
     const result = await response.json().catch(() => null);
-    if (result && typeof result.status === 'string') return result as { status: string; reason?: string };
+    if (result && typeof result.status === 'string') return result as PartNumberResult;
   }
   return failed(response);
 }

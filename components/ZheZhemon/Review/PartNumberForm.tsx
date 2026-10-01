@@ -17,7 +17,7 @@ export function PartNumberTag({card}:{card:CardPartNumber}) {
 }
 
 /**
- * The only place a part number is set by hand. The value applies to this listing link: the next
+ * Drawer editor for the same manual part number exposed on each board tile. The next
  * notification of the link sends it to the CRM, which then counts purchases, stock and margin for it.
  */
 export default function PartNumberForm({link,partNumber,onSaved}:{link:string;partNumber:ListingPartNumber|null;onSaved:()=>void}) {

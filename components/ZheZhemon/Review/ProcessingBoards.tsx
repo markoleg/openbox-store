@@ -1,16 +1,14 @@
 'use client'
 import {useCallback,useEffect,useRef,useState} from 'react'
 import {useRouter,useSearchParams} from 'next/navigation'
-import {dateLabel,searchLabel,tabFilters,type BoardCard,type BoardPage,type Stage} from '@/lib/reviewBoards'
+import {eventLabels,tabFilters,type BoardCard,type BoardPage,type Stage} from '@/lib/reviewBoards'
+import type {ListingPhoto} from '@/lib/listingPhotos'
 import {outcomeLabels} from '@/lib/reviewKeyboard'
-import {stockLabel} from '@/lib/reviewStock'
 import CardPanel from './CardPanel'
-import TileActions from './TileActions'
-import {PartNumberTag} from './PartNumberForm'
-import {ErpPurchaseTag} from './ErpPurchases'
+import NotificationTile from './NotificationTile'
+import PhotoLightbox from './PhotoLightbox'
 import {useReviewRealtime} from './useReviewRealtime'
 import styles from './Boards.module.css'
-export const eventLabels:Record<string,string>={first_seen:'Перша поява',returned:'Повернення',price_drop:'Подешевшання',pause_over:'Після паузи',availability_restored:'Знову доступно'};
 async function load(query:URLSearchParams,signal?:AbortSignal):Promise<BoardPage>{
   const response=await fetch(`/api/review/boards?${query}`,{signal,cache:'no-store'});
   if(response.status===401){location.href=`/login?next=${encodeURIComponent(location.pathname+location.search)}`;throw new Error('Потрібен вхід')}
@@ -20,6 +18,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
   const router=useRouter(),search=useSearchParams(),url=search.toString(),path=stage==='new'?'/zhezhemon/processing':'/zhezhemon/processed';
   const query=tabFilters(new URLSearchParams(url),'notifications');query.set('stage',stage);const filterKey=query.toString(),id=search.get('card') ?? search.get('delivery');
   const [page,setPage]=useState<BoardPage|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[more,setMore]=useState(false),[refresh,setRefresh]=useState(0),[filtersOpen,setFiltersOpen]=useState(false),[externalVersion,setExternalVersion]=useState(0);
+  const [gallery,setGallery]=useState<{photos:ListingPhoto[];title:string}|null>(null);
   const requestKey=filterKey+'|'+refresh;
   const loaded=useRef(page);loaded.current=page;const active=useRef(requestKey),lastFilter=useRef(filterKey);active.current=requestKey;
   const scroll=useRef<HTMLDivElement>(null),position=useRef<Record<string,number>>({});
@@ -60,18 +59,12 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
     </div>{error && <p role="alert" className={styles.error}>{error}</p>}</div>
     <div ref={scroll} className={styles.queue} onScroll={e=>{position.current[filterKey]=e.currentTarget.scrollTop}}>
       <div className={stage==='new'?styles.newQueue:styles.journal}>
-        {column?.cards.map(card=><article key={card.id} className={styles.tile}>
-          <button className={styles.tileOpen} onClick={()=>open(card)}><strong>{card.title}</strong><span className={styles.price}>{card.price===null?'Ціна невідома':`${card.price} ${card.currency ?? ''}`}</span>
-            <span className={styles.muted}>📦 {stockLabel(card.stock_quantity)} · знімок</span><span className={styles.tags}><span>{eventLabels[card.kind] ?? card.kind}</span><PartNumberTag card={card}/><ErpPurchaseTag card={card}/></span>
-            <span className={styles.muted}>{dateLabel(card.sent_at)} · {searchLabel(card)}</span>
-            {stage==='processed' && <span>{card.outcome?outcomeLabels[card.outcome]:card.legacy_outcome==='manual_bought'?'Старе «Купив» · без ERP':'Старе «Приховав би»'}</span>}
-          </button>
-          {stage==='new' && <TileActions card={card} onChanged={onChanged} onOpen={action=>open(card,action)}/>}
-        </article>)}
+        {column?.cards.map(card=><NotificationTile key={card.id} card={card} onChanged={onChanged} onOpen={action=>open(card,action)} onPhotos={photos=>setGallery({photos,title:card.title})}/>)}
       </div>
       {column?.count===0 && !loading && <p className={styles.empty}>Карток немає</p>}
       {column && column.cards.length<column.count && <button disabled={more || loading} onClick={next}>{more?'Завантажую…':'Ще 50'}</button>}
     </div>
     {id && <CardPanel key={id} board="notifications" id={id} externalVersion={externalVersion} onClose={close} onChanged={onChanged}/>}
+    {gallery && <PhotoLightbox photos={gallery.photos} title={gallery.title} onClose={()=>setGallery(null)}/>}
   </main>
 }

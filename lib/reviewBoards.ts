@@ -1,15 +1,17 @@
 /** Operational notification queue contracts. */
 import type { StockQuantity } from './reviewStock.ts';
+import type { ListingPhoto } from './listingPhotos.ts';
 export type Board = 'notifications';
 export type Stage = 'new' | 'processed';
 export const stages: Stage[] = ['new','processed'];
+export const eventLabels:Record<string,string>={first_seen:'Перша поява',returned:'Повернення',price_drop:'Подешевшання',pause_over:'Після паузи',availability_restored:'Знову доступно'};
 export type BoardFilters = Partial<Record<'search'|'link'|'outcome'|'stage'|'kind'|'condition'|'from'|'to'|'partNumber',string>>;
 export const partNumberFilters = ['missing','not_in_catalog'] as const;
 export type PartNumberStatus = 'identified'|'not_in_catalog'|'ambiguous'|'unknown'|'unverified';
 export type PartNumberSource = 'purchase'|'mpn'|'title'|'manual'|'listing_mpn';
 export type CardPartNumber = {part_number:string|null;part_number_status:PartNumberStatus|null;part_number_source:PartNumberSource|null;manual_part_number:string|null;part_number_version:number|null};
 export type CardErpPurchases = {erp_units:number;erp_purchases:number;erp_unknown_quantities:number;erp_drafts:number;listing_erp_purchases:number;listing_erp_units:number;erp_candidates:number};
-export type BoardCard = {board:Board;id:string;event_id:string;delivery_id:string;link:string;card_at:string;sent_at:string;stage:Stage;
+export type BoardCard = {board:Board;id:string;event_id:string;delivery_id:string;link:string;card_at:string;sent_at:string;stage:Stage;photos?:ListingPhoto[];
   search_id:number|null;search_name:string|null;kind:string;channel:'main';condition_id:string|null;title:string;price:string|null;currency:string|null;
   outcome:string|null;manual_outcome:string|null;legacy_outcome:string|null;note:string|null;outcome_at:string|null;state_version:number;
   hidden:boolean;hidden_until:string|null;favorite:boolean;stock_blocked:boolean;

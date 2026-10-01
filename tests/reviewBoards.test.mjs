@@ -2,8 +2,17 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parseBoardQuery,tabFilters,searchLabel,parsePartNumberRequest,partNumberBadge,erpPurchaseBadge} from '../lib/reviewBoards.ts';
 import {estimatedQuantity,stockLabel,projectStock} from '../lib/reviewStock.ts';
+import {safePhoto,availablePhotos} from '../lib/listingPhotos.ts';
 const id='11111111-1111-4111-8111-111111111111';
 const stock=(extra={})=>({estimatedAvailabilityStatus:'IN_STOCK',deliveryOptions:['SHIP_TO_HOME'],...extra});
+
+test('gallery accepts saved eBay photos, rejects foreign sources and removes duplicates in order',()=>{
+  for(const url of ['https://i.ebayimg.com/one.jpg','https://ebayimg.com/two.jpg'])assert.equal(safePhoto(url),true);
+  for(const url of ['http://i.ebayimg.com/one.jpg','https://evil-ebayimg.com/one.jpg','https://i.ebayimg.com.evil.test/a',
+    'https://user:pass@i.ebayimg.com/a','https://i.ebayimg.com:8080/a','javascript:alert(1)','garbage'])assert.equal(safePhoto(url),false);
+  const first={source_url:'https://i.ebayimg.com/one.jpg',status:'url_only'},second={source_url:'https://i.ebayimg.com/two.jpg',status:'archived'};
+  assert.deepEqual(availablePhotos([first,{source_url:'https://evil.test/a',status:'url_only'},first,second]),[first,second]);
+});
 test('quantity follows backend field, threshold and delivery rules without inventing stock',()=>{
   const quantity=entries=>estimatedQuantity(entries);
   assert.deepEqual(quantity([stock({estimatedAvailableQuantity:3})]),{value:3,relation:'approx'});
