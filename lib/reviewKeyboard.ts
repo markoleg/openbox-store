@@ -63,14 +63,17 @@ export function outcomeLabel(view:DeliveryView):string {
 export function urlButtons(markup:ReplyMarkup|null|undefined):InlineButton[]{return (markup?.inline_keyboard ?? []).flat().filter(b=>typeof b.url==='string' && b.text)}
 export function renderKeyboard(view:DeliveryView,urls:InlineButton[],menu:Menu='root'):ReplyMarkup {
   const token=view.dispatchId.replace(/-/g,''),cb=(code:CallbackCode,arg?:string|number)=>callback(token,code,arg);
-  const history=urls.find(b=>b.url?.includes('/zhezhemon/history'));
-  const navigation=urls.map(b=>b===history?{...b,text:'📝 Картка'}:b);
+  const links=urls.filter(b=>!b.url?.includes('action=bug'));
+  const history=links.find(b=>b.url?.includes('/zhezhemon/history'));
+  const sniper=links.find(b=>b.url?.includes('/sniper'));
+  const balances=links.find(b=>b.url?.includes('/purchase-funding') || /баланс/i.test(b.text));
+  const navigation:InlineButton[]=[];
+  for(const [button,text] of [[sniper,'🎯'],[balances,'💳'],[history,'📝']] as const)if(button)navigation.push({...button,text});
   const callOff:InlineButton[][]=view.live.superFavorite?[[{...callOffButton}]]:[];
   if(menu==='pause')return {inline_keyboard:[PAUSE_DAYS.map(days=>({text:`⏸ ${days}д`,callback_data:cb('pause',days)})),[{text:'⬅️ Назад',callback_data:cb('back')}],...callOff]};
-  const bug=history?.url?{text:'🐞 Баг…',url:history.url+(history.url.includes('?')?'&':'?')+'action=bug'}:{text:'🐞 Баг…',callback_data:cb('noop')};
   const actions:InlineButton[][]=[
-    [{text:'⏱ Не встиг',callback_data:cb('missed')},{text:'💰 Кошти',callback_data:cb('funds')},bug],
-    [{text:'🙈 Приховати',callback_data:cb('hide')},{text:'⏸ Пауза…',callback_data:cb('pausem')},{text:'🚫 Бан',callback_data:cb('ban')}],
+    [{text:'🙈 Hide',callback_data:cb('hide')},{text:'⏸ Пауза',callback_data:cb('pausem')},{text:'🚫 Ban',callback_data:cb('ban')},...navigation.filter(b=>b.text==='🎯')],
+    [{text:'⏱ Не встиг',callback_data:cb('missed')},{text:'💰 Кошти',callback_data:cb('funds')},...navigation.filter(b=>b.text!=='🎯')],
   ];
   const corrections:InlineButton[]=[];
   if(view.live.hidden)corrections.push({text:'👁 Показати',callback_data:cb('unhide')});
@@ -78,7 +81,7 @@ export function renderKeyboard(view:DeliveryView,urls:InlineButton[],menu:Menu='
   const result=outcomeLabel(view);
   return {inline_keyboard:[...(result?[[{text:result,callback_data:cb('noop')}]]:[]),
     ...(view.stage==='processed' && menu==='root'?[[{text:'✏️ Змінити результат',callback_data:cb('chgm')}]]:actions),
-    ...(corrections.length?[corrections]:[]),...callOff,...(navigation.length?[navigation]:[])]};
+    ...(corrections.length?[corrections]:[]),...callOff,...(view.stage==='processed' && menu==='root' && navigation.length?[navigation]:[])]};
 }
 
 /** Short Ukrainian toast for answerCallbackQuery from a command result. */

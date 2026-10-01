@@ -26,11 +26,22 @@ test('callbacks carry the dispatch token, fit 64 bytes and parse back',()=>{
   assert.throws(()=>callback(token,'missed','x'.repeat(40)));
 });
 
-test('main keyboard has six manual choices, no manual bought or processing ACK',()=>{
+test('main keyboard keeps the requested two rows and per-message URLs, including old layouts',()=>{
   const keyboard=renderKeyboard(view(),urls),codes=callbacks(keyboard).map(s=>parseReviewCallback(s).code);
-  assert.deepEqual(codes,['missed','funds','hide','pausem','ban']);
-  assert.equal(keyboard.inline_keyboard[0][2].url,urls[2].url+'&action=bug');
-  assert.deepEqual(keyboard.inline_keyboard.at(-1).map(b=>b.url),urls.map(b=>b.url));
+  assert.deepEqual(codes,['hide','pausem','ban','missed','funds']);
+  assert.deepEqual(texts(keyboard),[['🙈 Hide','⏸ Пауза','🚫 Ban','🎯'],['⏱ Не встиг','💰 Кошти','💳','📝']]);
+  assert.equal(keyboard.inline_keyboard[0][3].url,urls[0].url);
+  assert.deepEqual(keyboard.inline_keyboard[1].slice(2).map(b=>b.url),urls.slice(1).map(b=>b.url));
+  const legacyBug={text:'🐞 Баг…',url:urls[2].url+'&action=bug'};
+  assert.deepEqual(renderKeyboard(view(),[legacyBug,...urls]),keyboard);
+  assert.deepEqual(renderKeyboard(view(),urlButtons(keyboard)),keyboard);
+});
+
+test('unconfigured balances are omitted; editing a result keeps the same action layout',()=>{
+  const keyboard=renderKeyboard(view(),urls.filter(b=>!b.url.includes('/purchase-funding')));
+  assert.deepEqual(texts(keyboard)[1],['⏱ Не встиг','💰 Кошти','📝']);
+  const editing=renderKeyboard(view({stage:'processed',outcome:'funds'}),urls,'change');
+  assert.deepEqual(texts(editing).slice(1),texts(renderKeyboard(view(),urls)));
 });
 test('processed card keeps ERP result and editing, super call-off remains independent',()=>{
   const result=view({stage:'processed',outcome:'bought',resolutionKind:'erp_purchase',live:{...view().live,superFavorite:true}});
