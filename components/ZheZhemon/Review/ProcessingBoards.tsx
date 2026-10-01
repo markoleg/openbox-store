@@ -45,7 +45,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
   }
   const column=page?.columns[stage];
   return <main className={`${styles.workspace} ${styles.boardWorkspace}`}>
-    <div className={styles.toolbar}><h1>{stage==='new'?'Нові сповіщення':'Журнал оброблених'} · {column?.count ?? '—'}</h1><div className={styles.toolbarActions}><button onClick={()=>setFiltersOpen(v=>!v)} aria-expanded={filtersOpen}>Фільтри</button><button className={styles.refreshButton} disabled={loading || more} aria-busy={loading} onClick={onChanged}>{loading?'Оновлюю…':'Оновити'}</button><span className={styles.liveStatus} data-status={live}>{live==='polling'?'Кожні 30 с':live==='live'?'Наживо':live==='fallback'?'Резервне оновлення':'Підключення…'}</span></div></div>
+    <div className={styles.toolbar}><h1>{stage==='new'?'Нові сповіщення':'Журнал оброблених'} · {column?.count ?? '—'}</h1><div className={styles.toolbarActions}><button onClick={()=>setFiltersOpen(v=>!v)} aria-expanded={filtersOpen}>Фільтри</button><button className={styles.refreshButton} disabled={loading || more} aria-busy={loading} onClick={onChanged}>{loading?'Оновлюю…':'Оновити'}</button>{live!=='polling' && <span className={styles.liveStatus} data-status={live}>{live==='live'?'Наживо':live==='fallback'?'Резервне оновлення':'Підключення…'}</span>}</div></div>
     <div className={styles.controls}><div hidden={!filtersOpen} className={styles.filterPanel}>
       <form key={filterKey} className={styles.filters} onSubmit={e=>{e.preventDefault();const p=new URLSearchParams();for(const [key,value] of new FormData(e.currentTarget))if(String(value).trim())p.set('notifications.'+key,['from','to'].includes(key)?new Date(String(value)).toISOString():String(value).trim());change(p)}}>
         <label>Лінк або заголовок<input name="link" defaultValue={search.get('notifications.link') ?? ''}/></label>
@@ -57,7 +57,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
         <button>Застосувати</button><button type="button" onClick={()=>change(new URLSearchParams())}>Скинути</button>
       </form>
     </div>{error && <p role="alert" className={styles.error}>{error}</p>}</div>
-    <div ref={scroll} className={styles.queue} onScroll={e=>{position.current[filterKey]=e.currentTarget.scrollTop}}>
+    <div ref={scroll} className={styles.queue} role="region" aria-label={stage==='new'?'Нові картки':'Оброблені картки'} onScroll={e=>{position.current[filterKey]=e.currentTarget.scrollTop}}>
       <div className={stage==='new'?styles.newQueue:styles.journal}>
         {column?.cards.map(card=><NotificationTile key={card.id} card={card} onChanged={onChanged} onOpen={action=>open(card,action)} onPhotos={photos=>setGallery({photos,title:card.title})}/>)}
       </div>

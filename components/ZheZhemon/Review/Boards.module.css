@@ -9,6 +9,7 @@
 .catalog > :global(main) { min-width:0; }
 .fullWidth { min-width:0; width:100%; }
 .workspace { padding:1rem; min-width:0; }
+.boardWorkspace { height:calc(100dvh - 65px - 44px); min-height:0; display:flex; flex-direction:column; gap:.35rem; overflow:hidden; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
 .toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; padding-bottom:.5rem; flex-shrink:0; }
 .toolbarActions { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; margin-left:auto; }
@@ -16,7 +17,7 @@
 .liveStatus { font-size:.72rem; color:#aab4be; white-space:nowrap; }
 .liveStatus[data-status=live] { color:#75cfaa; }
 .liveStatus[data-status=fallback] { color:#d9ae64; }
-.controls { min-width:0; }
+.controls { min-width:0; flex:0 1 auto; max-height:35%; overflow:auto; overscroll-behavior:contain; }
 .filterPanel[hidden] { display:none; }
 .heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:.5rem; }
 .heading h1 { font-size:1.5rem; }
@@ -29,22 +30,27 @@
 .workspace button,.dialog button,.button { padding:.5rem .8rem; background:#26363e; border:1px solid #4a626b; border-radius:6px; color:#f3f5f7; cursor:pointer; font:inherit; }
 .workspace button:disabled,.dialog button:disabled { opacity:.5; cursor:not-allowed; }
 .workspace button:focus-visible,.dialog button:focus-visible,.navigation a:focus-visible { outline:2px solid #7bdbcc; outline-offset:3px; }
-.tile { display:grid; gap:.55rem; padding:.9rem; border:1px solid #38434b; border-radius:6px; background:#20272e; }
+.tile { display:grid; gap:.45rem; padding:.75rem; border:1px solid #38434b; border-radius:6px; background:#20272e; }
 .tile:hover,.tile:focus-within { border-color:#81adba; }
 .tileHeading { display:flex; align-items:flex-start; gap:.6rem; }
-.tileTitle { flex:1; min-width:0; color:#e1f0f4; font-size:.95rem; font-weight:600; line-height:1.45; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:3px; }
+.tileTitle { flex:1; min-width:0; color:#e1f0f4; font-size:.95rem; font-weight:600; line-height:1.4; overflow-wrap:anywhere; text-decoration:none; }
 .tileTitle:hover { color:#9de4da; }
 .tileTitle:focus-visible { outline:2px solid #7bdbcc; outline-offset:3px; }
 .workspace .drawerButton { display:grid; place-items:center; flex-shrink:0; padding:.4rem; width:32px; height:32px; }
-.tileOverview { display:grid; gap:.75rem; grid-template-columns:minmax(0,1fr); align-items:start; }
-.tileOverview[data-photo=true] { grid-template-columns:96px minmax(0,1fr); }
-.tileFacts { display:grid; gap:.45rem; min-width:0; }
-.workspace .tilePhoto { position:relative; width:96px; height:96px; padding:0; overflow:hidden; background:#fff; border-color:#53616e; }
+.tileOverview { display:flow-root; min-width:0; }
+.tileFacts { min-width:0; }
+.tileFacts > * + * { margin-top:.35rem; }
+.priceRow { display:flex; align-items:baseline; flex-wrap:wrap; gap:.3rem .7rem; }
+.priceRow .price { white-space:nowrap; }
+.tileMeta { font-size:.75rem; line-height:1.45; overflow-wrap:anywhere; }
+.workspace .tilePhoto { float:left; margin:0 .65rem .25rem 0; position:relative; width:80px; height:80px; padding:0; overflow:hidden; background:#fff; border-color:#53616e; }
 .tilePhoto img { width:100%; height:100%; object-fit:contain; }
 .tilePhoto > span { font-size:.7rem; color:#394751; }
 .tilePhoto .photoCount { position:absolute; bottom:0; right:0; padding:.15rem .3rem; color:#fff; background:#17232ed9; }
 .tilePartNumber { display:grid; gap:.4rem; padding-top:.5rem; border-top:1px solid #343a42; min-width:0; }
-.tags .partCaption { border:0; padding:0; color:#aab4be; }
+.tilePartNumber[hidden] { display:none; }
+.workspace .partNumberToggle { display:inline-flex; padding:0; border:0; border-radius:5px; background:transparent; font:inherit; text-align:left; }
+.partNumberToggle:hover { filter:brightness(1.2); }
 .tilePartNumberForm { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; }
 .tilePartNumberForm label { flex:1; min-width:6rem; }
 .tilePartNumberForm input { width:100%; min-width:0; text-transform:uppercase; font-size:.8rem; }
@@ -57,6 +63,7 @@
 .tile strong { font-size:.95rem; line-height:1.45; overflow-wrap:anywhere; }
 .tile .price { font-size:1.15rem; color:#e0f7ee; }
 .tags { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; font-size:.75rem; }
+.tags > * { max-width:100%; overflow-wrap:anywhere; }
 .tags span { padding:.2rem .45rem; border:1px solid #4b5660; border-radius:5px; }
 /* Part number badge: amber when a person has to set it, muted rust when the CRM lacks it. */
 .tags .part_known { color:#cfe3ea; }
@@ -99,8 +106,7 @@
     .mobileNavigation { display:none; }
     .catalog { display:grid; grid-template-columns:minmax(220px,1fr) minmax(0,3fr); height:calc(100dvh - 65px); min-height:0; }
     .catalog > :global(main) { overflow:auto; min-height:0; overscroll-behavior:contain; }
-    .boardWorkspace { height:calc(100dvh - 65px); display:flex; flex-direction:column; gap:.5rem; overflow:hidden; }
-    .controls { flex:0 1 auto; max-height:35%; overflow:auto; overscroll-behavior:contain; }
+    .boardWorkspace { height:calc(100dvh - 65px); }
 }
 @media(max-width:640px) {
     .workspace {padding:.5rem}
@@ -154,8 +160,18 @@
 .lightboxThumbnails img { width:100%; height:100%; object-fit:contain; }
 .workspace .lightboxThumbnails button[aria-pressed=true] { border:2px solid #7bdbcc; }
 @media(max-width:640px) {
-    .tileOverview[data-photo=true] { grid-template-columns:76px minmax(0,1fr); }
-    .workspace .tilePhoto { width:76px; height:76px; }
+    .tile { padding:.65rem; gap:.4rem; }
+    .tileTitle { font-size:.8rem; line-height:1.4; }
+    .tile .price { font-size:1rem; }
+    .priceRow .muted { font-size:.75rem; }
+    .tags { gap:.3rem; font-size:.7rem; }
+    .tags span { padding:.15rem .3rem; }
+    .workspace .tilePhoto { width:64px; height:64px; margin-right:.55rem; }
+    .toolbar { gap:.4rem; padding-bottom:.15rem; }
+    .toolbar h1 { font-size:1.1rem; line-height:1.3; }
+    .toolbarActions { gap:.3rem; }
+    .workspace .toolbarActions button { font-size:.75rem; padding:.4rem .55rem; }
+    .refreshButton { width:6rem; }
     .lightboxOverlay { padding:.4rem; }
     .lightbox { max-height:calc(100dvh - .8rem); padding:.5rem; }
 }

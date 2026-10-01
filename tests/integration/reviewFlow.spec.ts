@@ -19,6 +19,7 @@ test('owner API and real PostgreSQL: queue, journal, corrections and ERP fact as
   await expect(tile.getByText('✍️ MANUAL123 · чекає ERP',{exact:true})).toBeVisible();
   const saved=(await (await request.get('/api/review/boards?stage=new')).json()).columns.new.cards[0];
   expect(saved.manual_part_number).toBe('MANUAL123');expect(saved.part_number_version).toBeGreaterThan(0);
+  await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
   await tile.getByRole('button',{name:'Очистити',exact:true}).click();await expect(tile.getByRole('textbox',{name:'Партійний номер'})).toHaveValue('');
   await page.getByRole('button',{name:/Відкрити картку: An item/}).click();const panel=page.getByRole('dialog');
   await expect(panel.getByText('📦 В наявності · ≈2 шт.',{exact:true})).toBeVisible();

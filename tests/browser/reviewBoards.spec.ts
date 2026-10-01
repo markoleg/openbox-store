@@ -24,7 +24,7 @@ test.beforeEach(async({context})=>{
   await context.addCookies([{name:'review_test_session',value:`${payload}.${signature}`,domain:'127.0.0.1',path:'/',httpOnly:true,sameSite:'Strict'}]);
 });
 
-async function fixtures(page:any,photos:any[]=[]) {
+async function fixtures(page:any,photos:any[]=[],cardFields:Record<string,unknown>={}) {
   const commands:any[]=[];
   await page.addInitScript(()=>{
     class TestEventSource {
@@ -41,7 +41,7 @@ async function fixtures(page:any,photos:any[]=[]) {
   await page.route('**/api/review/boards?**',async(route:any)=>{
     const url=new URL(route.request().url());
     if(url.searchParams.get('id')){await route.fulfill({json:{...detail,...captured(photos),photos}});return;}
-    const stage=url.searchParams.get('stage') ?? 'new',rows=url.searchParams.get('link')==='none'?[]:Array.from({length:4},(_,i)=>({...card,photos,id:i===0?id:`33333333-3333-4333-8333-${String(i).padStart(12,'0')}`,title:`${card.title} ${i+1}`,stage,...(stage==='processed'?{outcome:'funds'}:{})}));
+    const stage=url.searchParams.get('stage') ?? 'new',rows=url.searchParams.get('link')==='none'?[]:Array.from({length:4},(_,i)=>({...card,...cardFields,photos,id:i===0?id:`33333333-3333-4333-8333-${String(i).padStart(12,'0')}`,title:`${card.title} ${i+1}`,stage,...(stage==='processed'?{outcome:'funds'}:{})}));
     await route.fulfill({json:{pending:stage==='new'?rows.length:0,columns:{new:{count:stage==='new'?rows.length:0,cards:stage==='new'?rows:[]},processed:{count:stage==='processed'?rows.length:0,cards:stage==='processed'?rows:[]}}}});
   });
   await page.route('**/api/review/contexts',async(route:any)=>route.fulfill({json:{id,kind:'delivery',link,delivery_id:delivery,event_id:id,listing_version:0,result_version:0,snapshot_id:id,live:{listing_version:0}}}));
@@ -65,13 +65,14 @@ test('one new queue has two desktop columns and no scoring or manual bought',asy
 test('tile separates product, photos and drawer; gallery survives polling and supports keyboard',async({page})=>{
   await page.clock.install();
   const photos=[{source_url:'https://i.ebayimg.com/one.jpg',status:'url_only'},{source_url:'https://i.ebayimg.com/two.jpg',status:'url_only'}];
-  await fixtures(page,photos);
+  await fixtures(page,photos,{part_number:'MWWT3',part_number_status:'identified',part_number_source:'mpn',manual_part_number:null,part_number_version:1});
   await page.route('https://i.ebayimg.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" fill="#cbd8dd"/><text x="22" y="85" fill="#17232e">Фото товару</text></svg>'}));
   await page.goto('/zhezhemon/processing');const tile=page.locator('article').first();
   await expect(tile.getByRole('link',{name:/ThinkPad/})).toHaveAttribute('href',link);
   await expect(tile.getByRole('link',{name:/ThinkPad/})).toHaveAttribute('target','_blank');
-  await tile.getByText('📦 Кількість на момент сповіщення: ≈2 шт.',{exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(tile.getByText('Пошук: Lenovo',{exact:true})).toBeVisible();
+  await tile.getByText('📦 ≈2 шт.',{exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(tile.getByText(/ · Lenovo$/)).toBeVisible();
+  await expect(page.getByText('Кожні 30 с',{exact:true})).toHaveCount(0);
   const cover=tile.getByRole('button',{name:/Переглянути фото:/});await cover.click();
   const gallery=page.getByRole('dialog',{name:/Фото товару:/});await expect(gallery).toBeVisible();
   await expect(gallery.getByRole('img',{name:'Фото 1 з 2',exact:true})).toHaveAttribute('src',photos[0].source_url);
@@ -80,7 +81,7 @@ test('tile separates product, photos and drawer; gallery survives polling and su
   await page.keyboard.press('Escape');await expect(gallery).toHaveCount(0);await expect(cover).toBeFocused();
   await page.screenshot({path:'node_modules/.cache/board-tile-photos-desktop.png'});
   await page.setViewportSize({width:390,height:844});
-  await expect.poll(async()=>Math.round((await cover.boundingBox())!.width)).toBe(76);
+  await expect.poll(async()=>Math.round((await cover.boundingBox())!.width)).toBe(64);
   const photoBox=(await cover.boundingBox())!,priceBox=(await tile.getByText('202.30 USD',{exact:true}).boundingBox())!;
   expect(priceBox.x).toBeGreaterThan(photoBox.x+photoBox.width);
   await page.screenshot({path:'node_modules/.cache/board-tile-photos-mobile.png'});
@@ -101,8 +102,9 @@ test('inline part number normalizes, saves and clears using the current version 
   await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
   await input.fill(' mxp93ll/a ');await tile.getByRole('button',{name:'Зберегти',exact:true}).click();
   await expect.poll(()=>writes.length).toBe(1);expect(writes[0]).toMatchObject({link,partNumber:'MXP93LL/A',version:null});
-  await expect(input).toHaveValue('MXP93LL/A');await expect(tile.getByText('✍️ MXP93LL/A · чекає ERP',{exact:true})).toBeVisible();
+  await expect(input).toBeHidden();await expect(tile.getByText('✍️ MXP93LL/A · чекає ERP',{exact:true})).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();await expect(input).toHaveValue('MXP93LL/A');
   await tile.getByRole('button',{name:'Очистити',exact:true}).click();await expect.poll(()=>writes.length).toBe(2);
   expect(writes[1]).toMatchObject({link,partNumber:null,version:1});await expect(input).toHaveValue('');
 });
@@ -111,9 +113,52 @@ test('polling preserves an inline draft and requires reconciliation after a conc
   await page.clock.install();await fixtures(page);let manual='OLD123',version=1;
   await page.route('**/api/review/boards?**',async route=>route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,manual_part_number:manual,part_number_version:version}]},processed:{count:0,cards:[]}}}}));
   await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await expect(input).toBeHidden();await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
   await input.fill('MY-DRAFT');manual='OTHER123';version=2;await page.clock.runFor(30300);
   await expect(input).toHaveValue('MY-DRAFT');await expect(tile.getByRole('button',{name:'Зберегти',exact:true})).toBeDisabled();
   await tile.getByRole('button',{name:'Оновити значення',exact:true}).click();await expect(input).toHaveValue('OTHER123');
+});
+
+test('identified part number opens on badge click and closes without changing the automatic number',async({page})=>{
+  await fixtures(page);
+  await page.route('**/api/review/boards?**',async route=>route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,part_number:'MWWT3',part_number_status:'identified',part_number_source:'mpn',manual_part_number:null,part_number_version:1}]},processed:{count:0,cards:[]}}}}));
+  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await expect(input).toBeHidden();await tile.getByRole('button',{name:'Змінити партійний номер: MWWT3',exact:true}).click();
+  await expect(input).toBeVisible();await expect(input).toHaveAttribute('placeholder','MWWT3');
+  await input.fill('UNSAVED123');await tile.getByRole('button',{name:'Закрити редагування партійного',exact:true}).click();await expect(input).toBeHidden();
+  await expect(tile.getByText('MWWT3',{exact:true})).toBeVisible();
+});
+
+test('newly identified automatic part number does not collapse or erase an unsaved manual draft',async({page})=>{
+  await page.clock.install();await fixtures(page);let identified=false;
+  await page.route('**/api/review/boards?**',async route=>route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,part_number:identified?'AUTO123':null,part_number_status:identified?'identified':'unknown',part_number_source:identified?'mpn':null,part_number_version:identified?2:1}]},processed:{count:0,cards:[]}}}}));
+  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await input.fill('MY-DRAFT');identified=true;await page.clock.runFor(30300);
+  await expect(input).toBeVisible();await expect(input).toHaveValue('MY-DRAFT');await expect(tile.getByRole('button',{name:'Зберегти',exact:true})).toBeDisabled();
+});
+
+test.describe('mobile queue scrolling',()=>{
+  test.use({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  for(const stage of ['new','processed'])test(`${stage} queue responds to touch scrolling and retains its position after refresh`,async({page})=>{
+    await fixtures(page);
+    await page.route('**/api/review/boards?**',async route=>{
+      const rows=Array.from({length:20},(_,i)=>({...card,id:`33333333-3333-4333-8333-${String(i).padStart(12,'0')}`,title:`Mobile item ${i}`,stage,part_number:'MWWT3',part_number_status:'identified',part_number_source:'mpn',...(stage==='processed'?{outcome:'funds'}:{})}));
+      await route.fulfill({json:{pending:stage==='new'?20:0,columns:{new:{count:stage==='new'?20:0,cards:stage==='new'?rows:[]},processed:{count:stage==='processed'?20:0,cards:stage==='processed'?rows:[]}}}});
+    });
+    await page.goto(`/zhezhemon/${stage==='new'?'processing':'processed'}`);await expect(page.locator('article')).toHaveCount(20);
+    const queue=page.getByRole('region',{name:stage==='new'?'Нові картки':'Оброблені картки'});
+    const dimensions=await queue.evaluate(el=>({height:el.clientHeight,content:el.scrollHeight}));expect(dimensions.content).toBeGreaterThan(dimensions.height);
+    const box=(await queue.boundingBox())!;expect(box.y+box.height).toBeLessThanOrEqual(844);
+    const cdp=await page.context().newCDPSession(page);
+    const x=Math.round(box.x+box.width/2),y=Math.round(box.y+box.height-80);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    for(let distance=35;distance<=350;distance+=35)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-distance}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await expect.poll(()=>queue.evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
+    const before=await queue.evaluate(el=>el.scrollTop);await page.getByRole('button',{name:'Оновити',exact:true}).click();await expect(page.getByRole('button',{name:'Оновити',exact:true})).toBeEnabled();
+    await expect.poll(()=>queue.evaluate(el=>el.scrollTop)).toBe(before);await cdp.detach();
+    await page.screenshot({path:`node_modules/.cache/compact-${stage}-mobile-scroll.png`});
+  });
 });
 
 test('journal has processed cards with editing through the panel',async({page})=>{
