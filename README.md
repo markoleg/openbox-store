@@ -114,8 +114,10 @@ commands additionally require the webhook secret and allowlisted buyer identity.
 Do not expose service-role keys in public environment variables. Anonymous and
 authenticated browser database roles cannot write operational state. Commands
 and purchase assignments check both current versions and command idempotency.
-Private Realtime invalidation refreshes the queue/journal without overwriting
-unsaved panel text. Durable ERP keyboard jobs use current state before sending.
+The new queue polls every 30 seconds while visible, and refreshes on returning
+to the tab. The processed journal retains private Realtime invalidation. Both
+preserve loaded pages and unsaved panel text; the toolbar shows loading without
+moving the cards. Durable ERP keyboard jobs use current state before sending.
 Sniper ACK and call cancellation remain separate from processing decisions.
 
 Inactive assessment form/route/contracts live as text in

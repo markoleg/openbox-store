@@ -81,7 +81,7 @@ test('card uses pinned delivery context, safe snapshot and note-required bug',as
   let reads=0;page.on('response',r=>{const p=new URL(r.url());if(p.pathname==='/api/review/boards' && !p.searchParams.has('id'))reads++});
   const commands=await fixtures(page);await page.goto(`/zhezhemon/processing?card=${id}&action=bug&notifications.search=1`);
   const panel=page.getByRole('dialog');await expect(panel).toBeVisible();
-  await expect.poll(()=>reads).toBeGreaterThanOrEqual(2);await expect(panel.getByRole('button',{name:'⏱ Не встиг',exact:true})).toBeEnabled();
+  await expect.poll(()=>reads).toBeGreaterThanOrEqual(1);await expect(panel.getByRole('button',{name:'⏱ Не встиг',exact:true})).toBeEnabled();
   const save=panel.getByRole('button',{name:'Записати баг'});await expect(save).toBeDisabled();
   await panel.getByLabel('Що пішло не так').fill('Wrong model');await save.click();
   await expect.poll(()=>commands.length).toBe(1);expect(commands[0].action).toBe('set_outcome');expect(commands[0].payload).toEqual({value:'bug',note:'Wrong model'});
@@ -112,14 +112,38 @@ test('actual ERP fact assignment posts existing fact with both versions',async({
   await page.goto(`/zhezhemon/processing?card=${id}`);const button=page.getByRole('button',{name:'Прив’язати до цієї картки'});await expect(button).toBeEnabled();await button.click();
   await expect.poll(()=>assignments.length).toBe(1);expect(assignments[0]).toMatchObject({contextId:id,key:'draft:3:123',version:4,assign:true});expect(assignments[0].commandId).toMatch(/^[0-9a-f-]{36}$/);
 });
-test('ERP assignment and realtime preserve unsaved bug text until explicit reload',async({page})=>{
+test('new queue polls every 30 seconds without overlapping or shifting cards',async({page})=>{
+  await page.clock.install();await fixtures(page);
+  let reads=0,release:()=>void=()=>{};
+  const held=new Promise<void>(resolve=>{release=resolve});
+  await page.route('**/api/review/boards?**',async route=>{
+    const params=new URL(route.request().url()).searchParams;if(params.get('id'))return route.fallback();
+    reads++;if(reads===2)await held;
+    const rows=Array.from({length:4},(_,i)=>({...card,id:i===0?id:`33333333-3333-4333-8333-${String(i).padStart(12,'0')}`,title:`Poll item ${i}`}));
+    await route.fulfill({json:{pending:4,columns:{new:{count:4,cards:rows},processed:{count:0,cards:[]}}}});
+  });
+  await page.goto('/zhezhemon/processing');await expect(page.locator('article')).toHaveCount(4);
+  expect(await page.evaluate(()=>(window as any).__reviewRealtime.length)).toBe(0);
+  const before=(await page.locator('article').first().boundingBox())!;
+  await page.clock.runFor(29999);expect(reads).toBe(1);
+  await page.clock.runFor(301);await expect.poll(()=>reads).toBe(2);
+  await expect(page.getByRole('button',{name:'Оновлюю…',exact:true})).toBeDisabled();
+  const during=(await page.locator('article').first().boundingBox())!;
+  expect(during.y).toBe(before.y);expect(during.x).toBe(before.x);
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await page.clock.runFor(30000);expect(reads).toBe(2);
+  release();await expect(page.getByRole('button',{name:'Оновити',exact:true})).toBeEnabled();
+  await page.clock.runFor(300);await expect.poll(()=>reads).toBe(3);
+});
+test('ERP assignment and polling preserve unsaved bug text until explicit reload',async({page})=>{
+  await page.clock.install();
   await fixtures(page);
   await page.route('**/api/review/boards?**',async route=>{if(!new URL(route.request().url()).searchParams.get('id'))return route.fallback();return route.fulfill({json:{...detail,erpPurchases:[{order_key:'draft:3:123',lifecycle:'draft',quantity:null,time_basis:'email',email_at:at,active:true,assigned_event_id:null,assignment_source:'automatic',version:4}]}})});
   await page.route('**/api/review/purchases',route=>route.fulfill({json:{status:'applied'}}));
   await page.goto(`/zhezhemon/processing?card=${id}&action=bug`);const panel=page.getByRole('dialog'),note=panel.getByLabel('Що пішло не так');
   await note.fill('Keep this draft');await panel.getByRole('button',{name:'Прив’язати до цієї картки'}).click();
   await expect(note).toHaveValue('Keep this draft');await expect(panel.getByRole('button',{name:'Записати баг'})).toBeDisabled();
-  await page.evaluate(()=>{for(const source of (window as any).__reviewRealtime)source.emit('invalidate')});
+  await page.clock.runFor(30300);
   await expect(note).toHaveValue('Keep this draft');page.once('dialog',d=>d.dismiss());await panel.getByRole('button',{name:'Оновити',exact:true}).click();await expect(note).toHaveValue('Keep this draft');
 });
 test('pagination preserves all loaded cards across queue invalidation',async({page})=>{

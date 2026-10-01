@@ -38,7 +38,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
   const change=(params:URLSearchParams)=>router.push(`${path}?${params}`,{scroll:false});
   function open(card:BoardCard,action?:'bug'){const p=new URLSearchParams(url);p.delete('delivery');p.delete('action');p.set('card',card.id);if(action)p.set('action',action);change(p)}
   function close(){const p=new URLSearchParams(url);p.delete('card');p.delete('delivery');p.delete('action');change(p)}
-  const onChanged=useCallback(()=>setRefresh(v=>v+1),[]),external=useCallback(()=>{setExternalVersion(v=>v+1);setRefresh(v=>v+1)},[]),live=useReviewRealtime(external,loading);
+  const onChanged=useCallback(()=>setRefresh(v=>v+1),[]),external=useCallback(()=>{setExternalVersion(v=>v+1);setRefresh(v=>v+1)},[]),live=useReviewRealtime(external,loading || more,stage==='new'?'polling':'realtime');
   async function next(){const last=page?.columns[stage].cards.at(-1);if(!last || more)return;setMore(true);const generation=requestKey;
     try{const q=new URLSearchParams(filterKey);q.set(stage+'At',last.card_at);q.set(stage+'Id',last.id);const extra=await load(q);if(active.current!==generation)return;
       setPage(current=>{if(!current)return current;const ids=new Set(current.columns[stage].cards.map(c=>c.id));return {...current,columns:{...current.columns,[stage]:{count:extra.columns[stage].count,cards:[...current.columns[stage].cards,...extra.columns[stage].cards.filter(c=>!ids.has(c.id))]}}}});
@@ -46,7 +46,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
   }
   const column=page?.columns[stage];
   return <main className={`${styles.workspace} ${styles.boardWorkspace}`}>
-    <div className={styles.toolbar}><h1>{stage==='new'?'Нові сповіщення':'Журнал оброблених'} · {column?.count ?? '—'}</h1><div className={styles.toolbarActions}><button onClick={()=>setFiltersOpen(v=>!v)} aria-expanded={filtersOpen}>Фільтри</button><button disabled={loading} onClick={onChanged}>Оновити</button><span className={styles.liveStatus} data-status={live}>{live==='live'?'Наживо':live==='fallback'?'Резервне оновлення':'Підключення…'}</span></div></div>
+    <div className={styles.toolbar}><h1>{stage==='new'?'Нові сповіщення':'Журнал оброблених'} · {column?.count ?? '—'}</h1><div className={styles.toolbarActions}><button onClick={()=>setFiltersOpen(v=>!v)} aria-expanded={filtersOpen}>Фільтри</button><button className={styles.refreshButton} disabled={loading || more} aria-busy={loading} onClick={onChanged}>{loading?'Оновлюю…':'Оновити'}</button><span className={styles.liveStatus} data-status={live}>{live==='polling'?'Кожні 30 с':live==='live'?'Наживо':live==='fallback'?'Резервне оновлення':'Підключення…'}</span></div></div>
     <div className={styles.controls}><div hidden={!filtersOpen} className={styles.filterPanel}>
       <form key={filterKey} className={styles.filters} onSubmit={e=>{e.preventDefault();const p=new URLSearchParams();for(const [key,value] of new FormData(e.currentTarget))if(String(value).trim())p.set('notifications.'+key,['from','to'].includes(key)?new Date(String(value)).toISOString():String(value).trim());change(p)}}>
         <label>Лінк або заголовок<input name="link" defaultValue={search.get('notifications.link') ?? ''}/></label>
@@ -57,7 +57,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
         {(['from','to'] as const).map(k=>{const iso=search.get('notifications.'+k),local=iso && Number.isFinite(Date.parse(iso))?new Date(Date.parse(iso)-new Date(iso).getTimezoneOffset()*60000).toISOString().slice(0,16):'';return <label key={k}>{k==='from'?'Від':'До (не включно)'}<input name={k} type="datetime-local" defaultValue={local}/></label>})}
         <button>Застосувати</button><button type="button" onClick={()=>change(new URLSearchParams())}>Скинути</button>
       </form>
-    </div>{error && <p role="alert" className={styles.error}>{error}</p>}{loading && <p role="status" className={styles.muted}>Оновлюю…</p>}</div>
+    </div>{error && <p role="alert" className={styles.error}>{error}</p>}</div>
     <div ref={scroll} className={styles.queue} onScroll={e=>{position.current[filterKey]=e.currentTarget.scrollTop}}>
       <div className={stage==='new'?styles.newQueue:styles.journal}>
         {column?.cards.map(card=><article key={card.id} className={styles.tile}>
