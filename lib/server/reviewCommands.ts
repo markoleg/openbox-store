@@ -106,25 +106,6 @@ export async function mainDeliveriesForEvent(eventId: string): Promise<{id: stri
   return (data ?? []) as {id: string; message_payload: {reply_markup?: ReplyMarkup}}[];
 }
 
-/** History page data: reactions and deliveries of a link, newest first, no raw payloads. */
-export async function listingHistory(link: string) {
-  const db = reviewDatabase();
-  const [reactions, deliveries, review, state, live, events] = await Promise.all([
-    db.from('listing_reactions').select('id, action, outcome, reason_code, note, source, received_at, delivery_id, event_id, supersedes_reaction_id')
-      .eq('link', link).order('received_at', {ascending: false}).limit(200),
-    db.from('notification_deliveries').select('id, event_id, channel, chat_id, message_id, telegram_sent_at, resolution_kind, first_reaction_id, resolved_by_reaction_id')
-      .eq('link', link).order('telegram_sent_at', {ascending: false}).limit(100),
-    db.from('listing_reviews').select('id, submitted_at, revision_opened_at, origin_delivery_id, version').eq('link', link).maybeSingle(),
-    db.from('listing_review_state').select('liked, registration_source, observed_total, latest_seen_at, latest_summary, state_version').eq('link', link).maybeSingle(),
-    db.from('scraped_links').select('hidden, hidden_until, price, favorite, super_favorite, desired_price, description, count').eq('link', link).maybeSingle(),
-    db.from('notification_events').select('id, kind, detected_at, source_search_id, preflight_status, suppression_reason, search_snapshot')
-      .eq('link', link).order('detected_at', {ascending: false}).limit(50),
-  ]);
-  if ([reactions,deliveries,review,state,live,events].some(result=>result.error)) throw new Error('review_storage_failed');
-  return {reactions: reactions.data ?? [], deliveries: deliveries.data ?? [], review: review.data ?? null,
-    state: state.data ?? null, live: live.data ?? null, events: events.data ?? []};
-}
-
 /** A durable retry for a keyboard edit that failed after the command committed. */
 export async function enqueueKeyboardSync(view: DeliveryView, replyMarkup: ReplyMarkup) {
   const {error} = await reviewDatabase().from('review_jobs').upsert({

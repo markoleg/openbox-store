@@ -6,7 +6,7 @@
 		"test:session": "node --test tests/ownerSession.test.mjs",
 		"test:boards": "playwright test",
 		"test:dependencies": "node --test tests/dependencies.test.mjs",
-		"test:review": "node --test tests/reviewCommands.test.mjs tests/reviewKeyboard.test.mjs tests/reviewBoards.test.mjs tests/reviewReporting.test.mjs tests/capturedListing.test.mjs",
+		"test:review": "node --test tests/reviewCommands.test.mjs tests/reviewKeyboard.test.mjs tests/reviewBoards.test.mjs tests/capturedListing.test.mjs",
 		"dev": "next dev --turbopack",
 		"devs": "next dev",
 		"build": "next build",

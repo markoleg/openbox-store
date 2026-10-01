@@ -8,9 +8,9 @@ const urls=[{text:'🎯 Sniper',url:'https://d.example/sniper?link=x&ctx='+token
   {text:'📝 Картка та історія',url:'https://d.example/zhezhemon/history?dispatch='+token}];
 const view=(extra={})=>({deliveryId:'d1',eventId:'e1',dispatchId:dispatch,link:'https://www.ebay.com/itm/1',channel:'main',kind:'first_seen',
   botId:1,chatId:2,messageId:3,sentAt:'2026-09-11T10:00:00Z',stateVersion:0,resolutionKind:null,searchId:1,searchExists:true,searchName:'iphone 15',
-  firstReactionAt:null,outcome:null,outcomeReason:null,outcomeNote:null,outcomeAt:null,outcomeSource:null,contextPrice:'100',currentPrice:100,title:'t',
+  outcome:null,outcomeReason:null,outcomeNote:null,outcomeAt:null,outcomeSource:null,contextPrice:'100',currentPrice:100,title:'t',
   live:{hidden:false,hiddenUntil:null,hidePrice:null,favorite:false,superFavorite:false,desiredPrice:null,bannedInSearch:false,stockBlocked:false,liked:false,listingVersion:0},
-  review:null,...extra});
+  stage:'new',legacyOutcome:null,...extra});
 const texts=m=>m.inline_keyboard.map(r=>r.map(b=>b.text));
 const callbacks=m=>m.inline_keyboard.flat().filter(b=>b.callback_data).map(b=>b.callback_data);
 
@@ -25,72 +25,24 @@ test('callbacks carry the dispatch token, fit 64 bytes and parse back',()=>{
   assert.equal(parseReviewCallback('rv:'+token+':missed:DROP TABLE'),null);
   assert.throws(()=>callback(token,'missed','x'.repeat(40)));
 });
-test('fresh layout matches the tracker initial keyboard and keeps URL buttons',()=>{
-  const m=renderKeyboard(view(),urls);
-  assert.deepEqual(texts(m),[['🖐 Опрацьовую','✅ Купив'],['🙈 Hide','⏸ Пауза…','🚫 Ban'],['Не встиг','Ще…'],['🎯 Sniper','💳 Баланси','📝 Картка']]);
-  assert.equal(m.inline_keyboard[3][1].url,urls[1].url);
-  assert.deepEqual(m.inline_keyboard[3].map(b=>b.url),urls.map(b=>b.url));
+
+test('main keyboard has six manual choices, no manual bought or processing ACK',()=>{
+  const keyboard=renderKeyboard(view(),urls),codes=callbacks(keyboard).map(s=>parseReviewCallback(s).code);
+  assert.deepEqual(codes,['missed','funds','hide','pausem','ban']);
+  assert.equal(keyboard.inline_keyboard[0][2].url,urls[2].url+'&action=bug');
+  assert.deepEqual(keyboard.inline_keyboard.at(-1).map(b=>b.url),urls.map(b=>b.url));
 });
-test('a super item can call off the ring from the main chat, with or without an outcome',()=>{
-  const sup=extra=>view({live:{...view().live,superFavorite:true},...extra});
-  const callOff=['🔕 Без дзвінка'];
-  const fresh=renderKeyboard(sup(),urls);
-  assert.deepEqual(texts(fresh),[...texts(renderKeyboard(view(),urls)).slice(0,3),callOff,['🎯 Sniper','💳 Баланси','📝 Картка']]);
-  // Legacy ACK data, not a review callback: those never touch the call window.
-  assert.equal(fresh.inline_keyboard[3][0].callback_data,'ack');
-  assert.deepEqual(texts(renderKeyboard(sup({outcome:'bought'}),urls)).at(-2),callOff);
-  assert.ok(!texts(renderKeyboard(view(),urls)).flat().includes(callOff[0]));
-  assert.ok(!texts(renderKeyboard(sup(),urls,'more')).flat().includes(callOff[0]));
+test('processed card keeps ERP result and editing, super call-off remains independent',()=>{
+  const result=view({stage:'processed',outcome:'bought',resolutionKind:'erp_purchase',live:{...view().live,superFavorite:true}});
+  const keyboard=renderKeyboard(result,urls);
+  assert.equal(outcomeLabel(result),'✅ Купив · ERP');
+  assert.ok(keyboard.inline_keyboard.flat().some(b=>b.callback_data==='ack'));
+  assert.ok(callbacks(keyboard).some(s=>s.endsWith(':chgm')));
+  assert.ok(!callbacks(keyboard).some(s=>s.endsWith(':bought')));
+  assert.equal(parseReviewCallback('ack'),null);
 });
-test('after attention the first button reads "в роботі" but every decision stays',()=>{
-  const m=renderKeyboard(view({firstReactionAt:'2026-09-11T10:01:00Z'}),urls);
-  assert.equal(m.inline_keyboard[0][0].text,'🖐 В роботі');
-  assert.ok(callbacks(m).some(c=>c.endsWith(':hide')));
-});
-test('after an outcome the message shows it with correction, more, sniper, balances and evaluation access',()=>{
-  const m=renderKeyboard(view({outcome:'banned',resolutionKind:'direct',review:{id:'r',submittedAt:null,revisionOpenedAt:null,originDeliveryId:'d1'}}),urls);
-  assert.equal(m.inline_keyboard[0][0].text,'🚫 Забанено в «iphone 15»');
-  assert.deepEqual(texts(m).slice(1),[['✏️ Змінити результат','Ще…'],['🎯 Sniper','💳 Баланси','📝 Оцінити']]);
-  assert.equal(outcomeLabel(view({outcome:'bought',resolutionKind:'event_context'})),'✅ Купив · з дашборда');
-  assert.equal(outcomeLabel(view({outcome:'bought',resolutionKind:'erp_purchase'})),'✅ Купив · ERP');
-  assert.equal(renderKeyboard(view({outcome:'bought',review:{id:'r',submittedAt:'2026-09-11T11:00:00Z',revisionOpenedAt:null,originDeliveryId:'d1'}}),urls)
-    .inline_keyboard.at(-1).at(-1).text,'📝 Переглянути оцінку');
-});
-test('menus only navigate and offer live undo when the state exists',()=>{
-  assert.deepEqual(texts(renderKeyboard(view(),urls,'pause')),[['⏸ 1д','⏸ 3д','⏸ 5д','⏸ 7д'],['⬅️ Назад']]);
-  const more=renderKeyboard(view({live:{...view().live,hidden:true,bannedInSearch:true}}),urls,'more');
-  assert.ok(texts(more).flat().includes('👁 Показати знову') && texts(more).flat().includes('♻️ Зняти бан'));
-  assert.ok(!texts(renderKeyboard(view(),urls,'more')).flat().includes('👁 Показати знову'));
-  const missed=renderKeyboard(view(),urls,'missed');
-  assert.equal(missed.inline_keyboard[1][1].url,urls[2].url+'&action=missed');
-  const change=renderKeyboard(view({outcome:'bought'}),urls,'change');
-  assert.ok(change.inline_keyboard.flat().some(b=>b.url?.endsWith('action=clear')));
-});
-test('repeat message does not offer evaluation of a different origin as its own',()=>{
-  const m=renderKeyboard(view({review:{id:'r',submittedAt:null,revisionOpenedAt:null,originDeliveryId:'another-message'}}),urls);
-  assert.equal(m.inline_keyboard.at(-1).at(-1).text,'📝 Картка');
-});
-test('compact navigation supports missing CRM, old stored rows and reopened assessment',()=>{
-  const original=structuredClone(urls);
-  const legacy=urlButtons({inline_keyboard:[[urls[0],urls[1]],[urls[2]]]});
-  assert.deepEqual(texts(renderKeyboard(view(),legacy)).at(-1),['🎯 Sniper','💳 Баланси','📝 Картка']);
-  for(const state of [view(),view({firstReactionAt:'2026-09-11T11:00:00Z'}),view({outcome:'bought'})]) {
-    const m=renderKeyboard(state,[urls[0],urls[2]]);
-    assert.deepEqual(texts(m).at(-1),['🎯 Sniper','📝 Картка']);
-    assert.equal(m.inline_keyboard.length,state.outcome ? 3 : 4);
-  }
-  const reopened=view({review:{id:'r',originDeliveryId:'d1',submittedAt:'2026-09-11T11:00:00Z',revisionOpenedAt:'2026-09-11T12:00:00Z'}});
-  assert.deepEqual(texts(renderKeyboard(reopened,urls)).at(-1),['🎯 Sniper','💳 Баланси','📝 Оцінити']);
-  assert.deepEqual(urls,original);
-  assert.equal(renderKeyboard(view(),[]).inline_keyboard.length,3);
-  assert.deepEqual(texts(renderKeyboard(view(),[urls[2]])).at(-1),['📝 Картка']);
-});
-test('conflicts and rejections are never described as success',()=>{
-  assert.match(describeResult('hide',{status:'conflict',reason:'price_changed',contextPrice:200,currentPrice:180}),/200.*180/);
-  assert.equal(describeResult('review_ack',{status:'noop'}),'Уже в роботі');
-  assert.equal(describeResult('ban',{status:'rejected',reason:'x'}),'Не виконано');
-});
-test('url buttons are read from a stored keyboard only',()=>{
-  assert.equal(urlButtons({inline_keyboard:[[{text:'a',callback_data:'x'},{text:'b',url:'https://u'}]]}).length,1);
-  assert.equal(urlButtons(null).length,0);
+test('pause offers supported days and retired callbacks remain parsable for safe rejection',()=>{
+  assert.deepEqual(callbacks(renderKeyboard(view(),urls,'pause')).filter(s=>s.includes(':pause:')).map(s=>parseReviewCallback(s).arg),['1','3','5','7']);
+  for(const code of ['ack','bought','whide'])assert.equal(parseReviewCallback(`rv:${token}:${code}`).code,code);
+  assert.match(describeResult('hide',{status:'conflict',reason:'price_changed',currentPrice:90,contextPrice:100}),/Ціна змінилась/);
 });

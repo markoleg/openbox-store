@@ -1,10 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseAssessment,parseBoardQuery,tabFilters,isSubmitted,reactionDelay,historyBoardDestination,searchLabel,parsePartNumberRequest,partNumberBadge,erpPurchaseBadge,resolutionNote} from '../lib/reviewBoards.ts';
+import {parseBoardQuery,tabFilters,searchLabel,parsePartNumberRequest,partNumberBadge,erpPurchaseBadge} from '../lib/reviewBoards.ts';
 import {estimatedQuantity,stockLabel,projectStock} from '../lib/reviewStock.ts';
 const id='11111111-1111-4111-8111-111111111111';
-const req=(payload={},action='draft')=>({commandId:id,reviewId:id,version:0,action,payload});
-
 const stock=(extra={})=>({estimatedAvailabilityStatus:'IN_STOCK',deliveryOptions:['SHIP_TO_HOME'],...extra});
 test('quantity follows backend field, threshold and delivery rules without inventing stock',()=>{
   const quantity=entries=>estimatedQuantity(entries);
@@ -42,52 +40,6 @@ test('missing search title never implies deletion; deleted search keeps historic
   assert.equal(searchLabel({search_id:null,search_name:'Original'}),'Original (пошук видалено)');
   assert.equal(searchLabel({search_id:1,search_name:'Original'}),'Original');
 });
-test('assessment accepts partial draft, never actor or automatic submitted_at',()=>{
-  assert.equal(parseAssessment(req({score_title:4,note_title:'Reason'})).payload.score_title,4);
-  for(const payload of [{actor_id:'buyer'},{submitted_at:'now'},{score_title:6},{score_title:1.5},{score_title:'3'},{note_title:2}])assert.throws(()=>parseAssessment(req(payload)));
-  assert.throws(()=>parseAssessment({...req(),version:-1}));
-});
-test('reopening needs explicit reason; photos and decisions have bounded shape',()=>{
-  assert.throws(()=>parseAssessment(req({},'reopen')));
-  assert.throws(()=>parseAssessment(req({reason:' '},'reopen')));
-  assert.equal(parseAssessment(req({reason:'Correction'},'reopen')).action,'reopen');
-  assert.throws(()=>parseAssessment(req({photo_notes:{image:123}})));
-  assert.throws(()=>parseAssessment(req({decision_reaction_id:'latest'})));
-});
-test('filters and cursor contract rejects injected expressions and invalid dates',()=>{
-  for(const text of ['tab=bad','search=1,or(id.gt.0)','from=yesterday','newAt=2026-09-11T00:00:00Z','newId='+id,'from=2026-09-12T00:00:00Z&to=2026-09-11T00:00:00Z'])assert.throws(()=>parseBoardQuery(new URLSearchParams(text)));
-  const parsed=parseBoardQuery(new URLSearchParams({tab:'notifications',newAt:'2026-09-11T00:00:00Z',newId:id,withoutReview:'true'}));
-  assert.equal(parsed.cursors.new.id,id);assert.equal(parsed.filters.withoutReview,true);
-});
-test('tabs keep independent URL filters without leaking selected cards',()=>{
-  const p=new URLSearchParams({'review.link':'abc','notifications.channel':'sniper',tab:'review',review:id});
-  assert.equal(tabFilters(p,'review').toString(),'tab=review&link=abc');
-  assert.equal(tabFilters(p,'notifications').toString(),'tab=notifications&channel=sniper');
-});
-test('only explicit revision opens a submitted assessment again',()=>{
-  const r={submitted_at:'2026-09-11T01:00:00Z',revision_opened_at:null};
-  assert.equal(isSubmitted(r),true);
-  assert.equal(isSubmitted({...r,revision_opened_at:'2026-09-11T01:00:01Z'}),false);
-});
-test('reaction delay never fabricates zero or negative SLA',()=>{
-  const sent='2026-09-11T10:00:00Z';
-  assert.equal(reactionDelay(sent,null),'немає прямої реакції');
-  assert.equal(reactionDelay(sent,'2026-09-11T09:59:59Z'),'реакція до доставки');
-  assert.equal(reactionDelay(sent,'2026-09-11T10:03:00Z'),'3 хв');
-});
-test('evaluation link opens origin review; repeats and explicit corrections retain their delivery',()=>{
-  const d={deliveryId:id,review:{id:'review-id',originDeliveryId:id}};
-  assert.match(historyBoardDestination(d),/tab=review&review=review-id/);
-  assert.match(historyBoardDestination(d,'missed'),/tab=notifications.*action=missed/);
-  assert.match(historyBoardDestination({...d,deliveryId:'repeat-id'}),/tab=notifications&delivery=repeat-id/);
-});
-
-test('part number filter accepts only the two board values',()=>{
-  assert.equal(parseBoardQuery(new URLSearchParams('tab=notifications&partNumber=missing')).filters.partNumber,'missing');
-  assert.equal(parseBoardQuery(new URLSearchParams('partNumber=not_in_catalog')).filters.partNumber,'not_in_catalog');
-  assert.throws(()=>parseBoardQuery(new URLSearchParams('partNumber=identified')));
-});
-
 test('part number request is normalized like the RPC and never carries an actor',()=>{
   const body=(extra={})=>({commandId:id,link:'https://www.ebay.com/itm/123',partNumber:' mxp93ll/a ',version:3,...extra});
   assert.deepEqual(parsePartNumberRequest(body()),{commandId:id,link:'https://www.ebay.com/itm/123',partNumber:'MXP93LL/A',version:3});
@@ -112,25 +64,15 @@ test('part number badge highlights exactly the cards a person must act on',()=>{
   assert.deepEqual(partNumberBadge(card({part_number:'MXED3',part_number_status:'not_in_catalog',part_number_source:'manual',manual_part_number:'MXED3'})),{label:'✍️ MXED3 · немає в ERP',tone:'catalog'});
 });
 
-test('ERP purchase filter accepts only its three values',()=>{
-  for(const value of ['erp_only','manual_only','both'])
-    assert.equal(parseBoardQuery(new URLSearchParams(`tab=notifications&erpPurchase=${value}`)).filters.erpPurchase,value);
-  assert.throws(()=>parseBoardQuery(new URLSearchParams('erpPurchase=bought')));
-});
 
-test('ERP purchase badge shows what was bought after this notification',()=>{
-  const card=(extra={})=>({erp_units:0,erp_purchases:0,buyer_bought:false,...extra});
-  assert.equal(erpPurchaseBadge(card()),null);
-  assert.equal(erpPurchaseBadge(card({buyer_bought:true})),null);
-  assert.equal(erpPurchaseBadge(card({erp_units:2,erp_purchases:1})),'🧾 ERP після цього: 2 шт');
-  assert.equal(erpPurchaseBadge(card({erp_units:5,erp_purchases:3})),'🧾 ERP після цього: 5 шт · закупівель 3');
-  assert.equal(erpPurchaseBadge(card({erp_units:2,erp_purchases:1,buyer_bought:true})),'✅ Купив · ERP ✓ 2 шт');
+test('one queue has only new and processed cursors',()=>{
+  assert.equal(parseBoardQuery(new URLSearchParams()).board,'notifications');
+  const parsed=parseBoardQuery(new URLSearchParams({stage:'processed',processedAt:'2026-10-01T10:00:00Z',processedId:id}));
+  assert.equal(parsed.filters.stage,'processed');assert.equal(parsed.cursors.processed.id,id);
+  for(const text of ['tab=review','stage=working','stage=done','outcome=would_hide','partNumber=invalid','newId='+id,'from=yesterday','search=1,or(id.gt.0)'])assert.throws(()=>parseBoardQuery(new URLSearchParams(text)));
+  assert.equal(tabFilters(new URLSearchParams({'notifications.link':'abc',card:id}),'notifications').toString(),'tab=notifications&link=abc');
 });
-
-test('resolution note names every way a result reaches a message',()=>{
-  assert.equal(resolutionNote(null),'');
-  assert.equal(resolutionNote('direct'),'');
-  assert.equal(resolutionNote('shared_trigger'),'через пов’язане повідомлення');
-  assert.equal(resolutionNote('event_context'),'через подію');
-  assert.equal(resolutionNote('erp_purchase'),'за закупівлею в ERP');
+test('ERP badge distinguishes unknown quantity from zero',()=>{
+  assert.equal(erpPurchaseBadge({erp_purchases:0}),null);
+  assert.equal(erpPurchaseBadge({erp_purchases:2,erp_units:3,erp_unknown_quantities:1}),'ERP · 2 закуп. · 3 шт + невідома кількість');
 });

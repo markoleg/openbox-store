@@ -188,31 +188,20 @@ async function handleLegacyZheAction(data: string, commandId: string): Promise<s
 	}
 }
 
-const outcomeCodes: Record<string, string> = { bought: "bought", would_hide: "would_hide" };
-
-/** Which command a review button stands for; menu buttons return null. */
-function commandFor(cb: ReviewCallback): { action: ReviewAction; payload: ReviewPayload } | null {
-	switch (cb.code) {
-		case "ack": return { action: "review_ack", payload: {} };
-		case "bought": return { action: "set_outcome", payload: { value: "bought" } };
-		case "hide": return { action: "hide", payload: {} };
-		case "ban": return { action: "ban", payload: {} };
-		case "unhide": return { action: "unhide", payload: {} };
-		case "unban": return { action: "unban", payload: {} };
-		case "whide": return { action: "set_outcome", payload: { value: "would_hide" } };
-		case "pause": {
-			const days = Number(cb.arg);
-			return (PAUSE_DAYS as readonly number[]).includes(days) ? { action: "pause", payload: { days } } : null;
-		}
-		case "missed":
-			return ["sold_out", "price_changed", "limit_or_funds", "other"].includes(cb.arg ?? "")
-				? { action: "set_outcome", payload: { value: "would_buy_missed", reason: cb.arg! } } : null;
-		case "chg":
-			return outcomeCodes[cb.arg ?? ""] ? { action: "set_outcome", payload: { value: outcomeCodes[cb.arg!] } } : null;
-		default: return null;
-	}
+/** Menu buttons and retired callbacks cannot create manual purchase facts. */
+function commandFor(cb:ReviewCallback):{action:ReviewAction;payload:ReviewPayload}|null {
+  switch(cb.code){
+    case 'hide':return {action:'hide',payload:{}};
+    case 'ban':return {action:'ban',payload:{}};
+    case 'unhide':return {action:'unhide',payload:{}};
+    case 'unban':return {action:'unban',payload:{}};
+    case 'pause':{const days=Number(cb.arg);return (PAUSE_DAYS as readonly number[]).includes(days)?{action:'pause',payload:{days}}:null}
+    case 'missedm':case 'missed':return {action:'set_outcome',payload:{value:cb.arg==='limit_or_funds'?'funds':'missed'}};
+    case 'funds':return {action:'set_outcome',payload:{value:'funds'}};
+    default:return null;
+  }
 }
-const menuFor: Partial<Record<ReviewCallback["code"], Menu>> = { pausem: "pause", missedm: "missed", more: "more", chgm: "change", back: "root", noop: "root" };
+const menuFor:Partial<Record<ReviewCallback['code'],Menu>>={pausem:'pause',more:'more',chgm:'change',back:'root',noop:'root'};
 
 type CallbackQuery = {
 	id: string; data?: string; from?: { id?: number };
@@ -247,6 +236,10 @@ async function handleReviewCallback(query: CallbackQuery, cb: ReviewCallback): P
 	}
 	if (delivery.dispatch_id !== cb.dispatchId) { await answer("Кнопка не від цього повідомлення", true); return; }
 
+	if(['ack','bought','whide','chg'].includes(cb.code)){
+		await answer(cb.code==='bought'?'Купив тепер підтверджується ERP':'Ця кнопка більше не використовується',true);
+		await syncDeliveryKeyboard(delivery.id);return;
+	}
 	const menu = menuFor[cb.code];
 	if (menu) {
 		await answer();

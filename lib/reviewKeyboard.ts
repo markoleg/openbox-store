@@ -12,19 +12,10 @@ import { PAUSE_DAYS, dispatchIdFromToken } from './reviewCommands.ts';
 
 export type InlineButton = { text: string; url?: string; callback_data?: string };
 export type ReplyMarkup = { inline_keyboard: InlineButton[][] };
-export type DeliveryView = {
-  deliveryId: string; eventId: string; dispatchId: string; link: string; channel: 'main' | 'sniper';
-  kind: string; botId: number; chatId: number; messageId: number; sentAt: string; stateVersion: number;
-  resolutionKind: 'direct' | 'shared_trigger' | 'event_context' | 'erp_purchase' | null;
-  searchId: number | null; searchExists: boolean; searchName: string | null;
-  firstReactionAt: string | null; outcome: string | null; outcomeReason: string | null;
-  outcomeNote: string | null; outcomeAt: string | null; outcomeSource: string | null;
-  contextPrice: string | null; currentPrice: number | null; title: string | null;
-  live: { hidden: boolean | null; hiddenUntil: string | null; hidePrice: number | null; favorite: boolean | null;
-    superFavorite: boolean | null; desiredPrice: number | null; bannedInSearch: boolean | null;
-    stockBlocked: boolean; liked: boolean; listingVersion: number };
-  review: { id: string; submittedAt: string | null; revisionOpenedAt: string | null; originDeliveryId: string } | null;
-};
+export type DeliveryView={deliveryId:string;eventId:string;dispatchId:string;link:string;channel:'main'|'sniper';kind:string;botId:number;chatId:number;messageId:number;sentAt:string;stateVersion:number;
+  resolutionKind:string|null;searchId:number|null;searchExists:boolean;searchName:string|null;outcome:string|null;outcomeNote:string|null;outcomeAt:string|null;outcomeSource:string|null;legacyOutcome:string|null;stage:'new'|'processed'|null;erpDrafts?:number;
+  contextPrice:string|null;currentPrice:number|null;title:string|null;
+  live:{hidden:boolean|null;hiddenUntil:string|null;hidePrice:number|null;favorite:boolean|null;superFavorite:boolean|null;desiredPrice:number|null;bannedInSearch:boolean|null;stockBlocked:boolean;liked:boolean;listingVersion:number}};
 export type Menu = 'root' | 'pause' | 'missed' | 'more' | 'change';
 
 /**
@@ -42,7 +33,7 @@ export const ackData = 'ack';
 export const callOffButton: InlineButton = { text: '🔕 Без дзвінка', callback_data: ackData };
 
 export const callbackCodes = ['ack','bought','hide','pausem','pause','ban','missedm','missed','more','whide',
-  'chgm','chg','unhide','unban','back','noop'] as const;
+  'funds','chgm','chg','unhide','unban','back','noop'] as const;
 export type CallbackCode = typeof callbackCodes[number];
 export type ReviewCallback = { dispatchId: string; code: CallbackCode; arg: string | null };
 
@@ -63,132 +54,31 @@ export function callback(token: string, code: CallbackCode, arg?: string | numbe
   return data;
 }
 
-export const outcomeLabels: Record<string, string> = {
-  hidden: '🙈 Приховано', paused: '⏸ Пауза', banned: '🚫 Забанено', bought: '✅ Купив',
-  would_buy_missed: '⏱ Не встиг', would_hide: '🙈 Приховав би', bug: '🐞 Баг',
-};
-export const missedReasonLabels: Record<string, string> = {
-  sold_out: 'Розкупили', price_changed: 'Ціна змінилась', limit_or_funds: 'Ліміт / кошти', other: 'Інша причина',
-};
-
-function shortDate(iso: string | null): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Kyiv' });
+export const outcomeLabels:Record<string,string>={bought:'✅ Купив',missed:'⏱ Не встиг',funds:'💰 Кошти / ліміт',bug:'🐞 Баг',hidden:'🙈 Приховано',paused:'⏸ Пауза',banned:'🚫 Бан'};
+function shortDate(iso:string|null):string {return iso?new Date(iso).toLocaleDateString('uk-UA',{timeZone:'Europe/Kyiv'}):''}
+export function outcomeLabel(view:DeliveryView):string {
+  if(!view.outcome)return view.legacyOutcome==='manual_bought'?'Старе «Купив» · без ERP':view.legacyOutcome==='would_hide'?'Старе «Приховав би»':'';
+  return (outcomeLabels[view.outcome] ?? view.outcome)+(view.outcome==='bought'?` · ERP${view.erpDrafts?' · драфт':''}`:'');
 }
-
-/** What the message currently says about itself, in one label. */
-export function outcomeLabel(view: DeliveryView): string {
-  if (!view.outcome) return view.firstReactionAt ? '🖐 В роботі' : '';
-  let label = outcomeLabels[view.outcome] ?? view.outcome;
-  if (view.outcome === 'paused' && view.live.hiddenUntil) label += ` до ${shortDate(view.live.hiddenUntil)}`;
-  if (view.outcome === 'banned' && view.searchName) label += ` в «${view.searchName.slice(0, 24)}»`;
-  if (view.outcome === 'would_buy_missed' && view.outcomeReason && missedReasonLabels[view.outcomeReason]) {
-    label += `: ${missedReasonLabels[view.outcomeReason]}`;
-  }
-  if (view.resolutionKind === 'event_context') label += ' · з дашборда';
-  else if (view.resolutionKind === 'shared_trigger') label += ' · через пов’язане';
-  else if (view.resolutionKind === 'erp_purchase') label += ' · ERP';
-  return label;
-}
-
-/** URL buttons of the original message, keyed so the layout can place them. */
-export function urlButtons(markup: ReplyMarkup | null | undefined): InlineButton[] {
-  return (markup?.inline_keyboard ?? []).flat().filter(b => typeof b.url === 'string' && b.text);
-}
-
-function withHistoryLabel(button: InlineButton, view: DeliveryView): InlineButton {
-  if (!button.url?.includes('/zhezhemon/history')) return button;
-  const text = view.review?.originDeliveryId===view.deliveryId ? (view.review.submittedAt && !(view.review.revisionOpenedAt &&
-    view.review.revisionOpenedAt > view.review.submittedAt) ? '📝 Переглянути оцінку' : '📝 Оцінити')
-    : '📝 Картка';
-  return { text, url: button.url };
-}
-
-function historyUrl(urls: InlineButton[], action: string): string | null {
-  const history = urls.find(b => b.url?.includes('/zhezhemon/history'))?.url;
-  if (!history) return null;
-  return `${history}${history.includes('?') ? '&' : '?'}action=${encodeURIComponent(action)}`;
-}
-
-export function renderKeyboard(view: DeliveryView, urls: InlineButton[], menu: Menu = 'root'): ReplyMarkup {
-  const token = view.dispatchId.replace(/-/g, '');
-  const cb = (code: CallbackCode, arg?: string | number) => callback(token, code, arg);
-  const back: InlineButton = { text: '⬅️ Назад', callback_data: cb('back') };
-  const navigation: InlineButton[][] = [];
-  const nonHistory = urls.filter(b => !b.url?.includes('/zhezhemon/history'));
-  const history = urls.find(b => b.url?.includes('/zhezhemon/history'));
-  if (history) nonHistory.push(withHistoryLabel(history, view));
-  if (nonHistory.length) navigation.push(nonHistory);
-
-  if (menu === 'pause') {
-    return { inline_keyboard: [
-      PAUSE_DAYS.map(days => ({ text: `⏸ ${days}д`, callback_data: cb('pause', days) })),
-      [back],
-    ] };
-  }
-  if (menu === 'missed') {
-    const other = historyUrl(urls, 'missed');
-    return { inline_keyboard: [
-      [{ text: missedReasonLabels.sold_out, callback_data: cb('missed', 'sold_out') },
-       { text: missedReasonLabels.price_changed, callback_data: cb('missed', 'price_changed') }],
-      [{ text: missedReasonLabels.limit_or_funds, callback_data: cb('missed', 'limit_or_funds') },
-       other ? { text: 'Інша причина…', url: other } : { text: 'Інша причина', callback_data: cb('missed', 'other') }],
-      [back],
-    ] };
-  }
-  if (menu === 'more') {
-    const bug = historyUrl(urls, 'bug');
-    const rows: InlineButton[][] = [
-      [{ text: '🙈 Приховав би', callback_data: cb('whide') },
-       bug ? { text: '🐞 Баг…', url: bug } : { text: '🐞 Баг…', callback_data: cb('noop') }],
-      [{ text: '✏️ Змінити результат', callback_data: cb('chgm') }],
-    ];
-    const live: InlineButton[] = [];
-    if (view.live.hidden) live.push({ text: '👁 Показати знову', callback_data: cb('unhide') });
-    if (view.live.bannedInSearch) live.push({ text: '♻️ Зняти бан', callback_data: cb('unban') });
-    if (live.length) rows.push(live);
-    rows.push([back]);
-    return { inline_keyboard: rows };
-  }
-  if (menu === 'change') {
-    const clear = historyUrl(urls, 'clear');
-    const bug = historyUrl(urls, 'bug');
-    return { inline_keyboard: [
-      [{ text: '✅ Купив', callback_data: cb('chg', 'bought') },
-       { text: '⏱ Не встиг…', callback_data: cb('missedm') }],
-      [{ text: '🙈 Приховав би', callback_data: cb('chg', 'would_hide') },
-       bug ? { text: '🐞 Баг…', url: bug } : { text: '🐞 Баг…', callback_data: cb('noop') }],
-      ...(clear ? [[{ text: '🧹 Скинути помилковий результат…', url: clear }]] : []),
-      [back],
-    ] };
-  }
-
-  // A recorded outcome does not close the call window, so the button stays
-  // reachable for as long as the item is a super one. Pressing it twice is
-  // harmless: a new window clears acked_at when it opens.
-  const callOff: InlineButton[][] = view.live.superFavorite ? [[{ ...callOffButton }]] : [];
-
-  if (view.outcome) {
-    return { inline_keyboard: [
-      [{ text: outcomeLabel(view), callback_data: cb('noop') }],
-      [{ text: '✏️ Змінити результат', callback_data: cb('chgm') }, { text: 'Ще…', callback_data: cb('more') }],
-      ...callOff,
-      ...navigation,
-    ] };
-  }
-  const first: InlineButton = view.firstReactionAt
-    ? { text: '🖐 В роботі', callback_data: cb('noop') }
-    : { text: '🖐 Опрацьовую', callback_data: cb('ack') };
-  return { inline_keyboard: [
-    [first, { text: '✅ Купив', callback_data: cb('bought') }],
-    [{ text: '🙈 Hide', callback_data: cb('hide') }, { text: '⏸ Пауза…', callback_data: cb('pausem') },
-     { text: '🚫 Ban', callback_data: cb('ban') }],
-    [{ text: 'Не встиг', callback_data: cb('missedm') }, { text: 'Ще…', callback_data: cb('more') }],
-    ...callOff,
-    ...navigation,
-  ] };
+export function urlButtons(markup:ReplyMarkup|null|undefined):InlineButton[]{return (markup?.inline_keyboard ?? []).flat().filter(b=>typeof b.url==='string' && b.text)}
+export function renderKeyboard(view:DeliveryView,urls:InlineButton[],menu:Menu='root'):ReplyMarkup {
+  const token=view.dispatchId.replace(/-/g,''),cb=(code:CallbackCode,arg?:string|number)=>callback(token,code,arg);
+  const history=urls.find(b=>b.url?.includes('/zhezhemon/history'));
+  const navigation=urls.map(b=>b===history?{...b,text:'📝 Картка'}:b);
+  const callOff:InlineButton[][]=view.live.superFavorite?[[{...callOffButton}]]:[];
+  if(menu==='pause')return {inline_keyboard:[PAUSE_DAYS.map(days=>({text:`⏸ ${days}д`,callback_data:cb('pause',days)})),[{text:'⬅️ Назад',callback_data:cb('back')}],...callOff]};
+  const bug=history?.url?{text:'🐞 Баг…',url:history.url+(history.url.includes('?')?'&':'?')+'action=bug'}:{text:'🐞 Баг…',callback_data:cb('noop')};
+  const actions:InlineButton[][]=[
+    [{text:'⏱ Не встиг',callback_data:cb('missed')},{text:'💰 Кошти',callback_data:cb('funds')},bug],
+    [{text:'🙈 Приховати',callback_data:cb('hide')},{text:'⏸ Пауза…',callback_data:cb('pausem')},{text:'🚫 Бан',callback_data:cb('ban')}],
+  ];
+  const corrections:InlineButton[]=[];
+  if(view.live.hidden)corrections.push({text:'👁 Показати',callback_data:cb('unhide')});
+  if(view.live.bannedInSearch)corrections.push({text:'♻️ Зняти бан',callback_data:cb('unban')});
+  const result=outcomeLabel(view);
+  return {inline_keyboard:[...(result?[[{text:result,callback_data:cb('noop')}]]:[]),
+    ...(view.stage==='processed' && menu==='root'?[[{text:'✏️ Змінити результат',callback_data:cb('chgm')}]]:actions),
+    ...(corrections.length?[corrections]:[]),...callOff,...(navigation.length?[navigation]:[])]};
 }
 
 /** Short Ukrainian toast for answerCallbackQuery from a command result. */
@@ -197,7 +87,6 @@ export function describeResult(action: string, result: { status: string; reason?
   if (result.status === 'applied' || result.status === 'noop') {
     const already = result.status === 'noop' ? ' (вже було)' : '';
     switch (action) {
-      case 'review_ack': return result.status === 'noop' ? 'Уже в роботі' : 'В роботі';
       case 'hide': return `🙈 Сховано до подешевшання${already}`;
       case 'pause': return `⏸ Пауза${view?.live.hiddenUntil ? ' до ' + shortDate(view.live.hiddenUntil) : ''}${already}`;
       case 'ban': return `🚫 Забанено${view?.searchName ? ' в «' + view.searchName.slice(0, 24) + '»' : ''}${already}`;

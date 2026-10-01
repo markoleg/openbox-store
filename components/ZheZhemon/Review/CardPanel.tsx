@@ -1,147 +1,88 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {useCallback,useEffect,useRef,useState} from 'react'
+import {useSearchParams} from 'next/navigation'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import type { CardDetail } from '@/lib/server/reviewBoards'
-import type { Board } from '@/lib/reviewBoards'
-import { dateLabel, reactionDelay, resolutionNote, searchLabel } from '@/lib/reviewBoards'
-import { outcomeLabels } from '@/lib/reviewKeyboard'
-import { applyCommand, issueContext, explainError, explainResult } from '@/lib/reviewClient'
-import { PAUSE_DAYS, tokenFromDispatchId, type ReviewContext, type ReviewAction, type ReviewPayload, type ReviewCommandResult } from '@/lib/reviewCommands'
+import type {CardDetail,ListingErpPurchase} from '@/lib/server/reviewBoards'
+import {dateLabel,searchLabel,type Board} from '@/lib/reviewBoards'
+import {applyCommand,issueContext,explainError,explainResult} from '@/lib/reviewClient'
+import {tokenFromDispatchId,type ReviewAction,type ReviewPayload,type ReviewContext} from '@/lib/reviewCommands'
+import {outcomeLabels} from '@/lib/reviewKeyboard'
 import OutcomeForm from './OutcomeForm'
-import AssessmentForm from './AssessmentForm'
-import ReactionHistory from './ReactionHistory'
-import CapturedData from './CapturedData'
-import PartNumberForm from './PartNumberForm'
 import ErpPurchases from './ErpPurchases'
+import PartNumberForm from './PartNumberForm'
+import CapturedData from './CapturedData'
 import styles from './Boards.module.css'
-
-function safeListing(url:unknown,fallback:string) {try{const u=new URL(String(url));return u.protocol==='https:' && (u.hostname==='ebay.com'||u.hostname.endsWith('.ebay.com'))?u.href:fallback}catch{return fallback}}
-const json=(v:unknown)=>JSON.stringify(v ?? null,null,2)
-
-export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{board:Board;id:string;externalVersion:number;onClose:()=>void;onChanged:()=>void}) {
-    const [data,setData]=useState<CardDetail|null>(null),[error,setError]=useState(''),[message,setMessage]=useState('')
-    const [refresh,setRefresh]=useState(0),[pending,setPending]=useState(false),[context,setContext]=useState<ReviewContext|null>(null)
-    const [dirty,setDirty]=useState(false)
-    const [stale,setStale]=useState(false),[formEpoch,setFormEpoch]=useState(0)
-    const dirtyRef=useRef(false), dialog=useRef<HTMLDivElement>(null), closeButton=useRef<HTMLButtonElement>(null)
-    const seenExternal=useRef(externalVersion)
-    const onCloseRef=useRef(onClose);onCloseRef.current=onClose;dirtyRef.current=dirty
-    const router=useRouter(),params=useSearchParams()
-    const changed=useCallback(()=>{setStale(false);setRefresh(v=>v+1);onChanged()},[onChanged])
-    const close=()=>{if(!dirtyRef.current || confirm('Є незбережені зміни оцінки. Закрити й відкинути їх?'))onCloseRef.current()}
-    useEffect(()=>{
-        const prior=document.activeElement as HTMLElement|null, overflow=document.body.style.overflow
-        document.body.style.overflow='hidden';closeButton.current?.focus()
-        const before=(e:BeforeUnloadEvent)=>{if(dirtyRef.current){e.preventDefault();e.returnValue=''}}
-        const keyboard=(e:KeyboardEvent)=>{
-            if(e.key==='Escape') {e.preventDefault();close()}
-            if(e.key==='Tab') {
-                const all=Array.from(dialog.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary') ?? []).filter(el=>el.getClientRects().length>0)
-                const first=all[0],last=all.at(-1)
-                if(e.shiftKey && document.activeElement===first){e.preventDefault();last?.focus()}
-                else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first?.focus()}
-            }
-        }
-        window.addEventListener('beforeunload',before);window.addEventListener('keydown',keyboard)
-        return ()=>{document.body.style.overflow=overflow;prior?.focus();window.removeEventListener('beforeunload',before);window.removeEventListener('keydown',keyboard)}
-        // Stable handlers read refs so focus is not reset while typing.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    },[])
-    useEffect(()=>{
-        let active=true;const abort=new AbortController();setContext(null);setError('')
-        ;(async()=>{
-            const response=await fetch(`/api/review/boards?${new URLSearchParams({tab:board,id})}`,{signal:abort.signal,cache:'no-store'})
-            if(response.status===401){location.href=`/login?next=${encodeURIComponent(location.pathname+location.search)}`;return}
-            if(!response.ok)throw new Error(response.status===404?'Картку не знайдено.':'Картка недоступна. Перевір запуск сервера й міграцій.')
-            const detail:CardDetail=await response.json()
-            if(!active)return
-            setData(detail)
-            // Pin once for the displayed state, not freshly on every click.
-            const ctx=await issueContext({kind:'delivery',deliveryId:detail.card.delivery_id})
-            if(!active)return
-            if(ctx.result_version!==detail.view?.stateVersion || ctx.listing_version!==detail.view?.live.listingVersion) {
-                setError('Стан змінився під час відкриття. Онови картку перед дією.');return
-            }
-            setContext(ctx)
-        })().catch(e=>{if(active && !abort.signal.aborted)setError(e instanceof Error?e.message:'Помилка')})
-        return ()=>{active=false;abort.abort()}
-    },[board,id,refresh])
-    useEffect(()=>{
-        if(externalVersion===seenExternal.current)return
-        seenExternal.current=externalVersion
-        if(dirtyRef.current)setStale(true)
-        else setRefresh(v=>v+1)
-    },[externalVersion])
-    const discardAndRefresh=()=>{
-        if(dirtyRef.current && !confirm('Оновити картку й відкинути незбережені зміни оцінки?'))return
-        dirtyRef.current=false;setDirty(false);setStale(false);setFormEpoch(v=>v+1);setRefresh(v=>v+1)
-    }
-    const run=async(action:ReviewAction,payload:ReviewPayload={}):Promise<ReviewCommandResult|null>=>{
-        if(pending || !context)return null
-        setPending(true);setMessage('')
-        try {
-            const result=await applyCommand(context.id,action,payload)
-            setMessage(explainResult(action,result).text)
-            if(result.status==='applied'||result.status==='noop'||result.status==='conflict')changed()
-            return result
-        }catch(e){setMessage(explainError(e));return null}
-        finally{setPending(false)}
-    }
-    function navigate(targetBoard:Board,targetId:string) {
-        if(dirty && !confirm('Відкинути незбережені зміни й перейти до іншої картки?'))return
-        const p=new URLSearchParams(params.toString());p.set('tab',targetBoard);p.delete('review');p.delete('delivery');p.delete('action');p.set(targetBoard==='review'?'review':'delivery',targetId)
-        router.push(`/zhezhemon/processing?${p}`,{scroll:false})
-    }
-    const view=data?.view, normalized=data?.snapshot?.normalized_payload ?? {}
-    return <div className={styles.overlay} onMouseDown={e=>{if(e.target===e.currentTarget)close()}}>
-        <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="card-title" ref={dialog}>
-            <div className={styles.cardHeader}>
-                <div className={styles.cardHeading}><span className={styles.muted}>{board==='review'?'Оцінка оголошення':'Конкретне повідомлення'}</span><p id="card-title">{data?.card.title ?? 'Завантаження картки…'}</p></div>
-                <div className={styles.cardActions}>
-                    <button onClick={()=>dirtyRef.current?setStale(true):setRefresh(v=>v+1)}>Оновити картку</button>
-                    <button ref={closeButton} onClick={close}>Закрити ×</button>
-                </div>
-            </div>
-            <div className={styles.cardBody}>
-            {error && <p role="alert" className={styles.error}>{error}</p>}
-            {stale && <div role="alert" className={styles.error}><p>Дані змінилися. Незбережена форма залишилась без змін.</p><button onClick={discardAndRefresh}>Оновити й відкинути чернетку</button></div>}
-            {!data ? <p role="status">Завантаження картки…</p>:<>
-                <h2>{data.card.title}</h2>
-                <p><a href={safeListing(normalized.itemWebUrl,data.card.link)} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
-                <PartNumberForm key={`${data.card.link}-${data.partNumber?.version ?? 0}`} link={data.card.link} partNumber={data.partNumber ?? null} onSaved={changed}/>
-                <ErpPurchases rows={data.erpPurchases ?? []}/>
-                <section>
-                    <h3>{board==='review'?'Рішення стосується повідомлення, за яким створено оцінку':'Результат цього повідомлення'}</h3>
-                    <p>{dateLabel(data.card.sent_at)} · {data.card.channel==='main'?'основний чат':'sniper'} · {searchLabel(data.card)}</p>
-                    <p>{view?.outcome?outcomeLabels[view.outcome]:'Результату немає'}{resolutionNote(view?.resolutionKind ?? null)?` · ${resolutionNote(view?.resolutionKind ?? null)}`:''}</p>
-                    <p className={styles.muted}>Перша пряма реакція: {dateLabel(view?.firstReactionAt ?? null)}. Результат: {dateLabel(view?.outcomeAt ?? null)}.</p>
-                    <p className={styles.muted}>Час до першої реакції: {reactionDelay(data.card.sent_at,view?.firstReactionAt ?? null)}. Це календарний час, без нормативу SLA.</p>
-                    {message && <p role="status" className={styles.error}>{message}</p>}
-                    <div className={styles.actions}>
-                        <button disabled={pending || !context} onClick={()=>run('set_like',{value:!view?.live.liked})}>{view?.live.liked?'Зняти лайк':'Лайк'}</button>
-                        <button disabled={pending || !context} onClick={()=>run('hide')}>Приховати до подешевшання</button>
-                        {PAUSE_DAYS.map(days=><button key={days} disabled={pending || !context} onClick={()=>run('pause',{days})}>Пауза {days}д</button>)}
-                        <button disabled={pending || !context || !view?.searchExists} onClick={()=>run('ban')}>Бан у цьому пошуку</button>
-                    </div>
-                    {view && <Link href={`/sniper?${new URLSearchParams({link:data.card.link,ctx:tokenFromDispatchId(view.dispatchId)})}`} onClick={e=>{if(dirty && !confirm('Відкинути незбережену оцінку й перейти до Sniper?'))e.preventDefault()}}>Налаштувати Sniper для цього повідомлення</Link>}
-                    {view && <OutcomeForm target={{kind:'delivery',deliveryId:data.card.delivery_id}} current={{outcome:view.outcome,firstReactionAt:view.firstReactionAt,hidden:!!view.live.hidden,bannedInSearch:view.live.bannedInSearch}} execute={run} locked={pending || !context} initialAction={params.get('action')}/>}
-                </section>
-                <section><h3>Поточний стан — окремо від історичного рішення</h3>
-                    <p>{view?.live.hidden?`Приховано${view.live.hiddenUntil?' до '+dateLabel(view.live.hiddenUntil):' до подешевшання'}`:'Немає глобального приховування'}{view?.live.bannedInSearch?' · бан у цьому пошуку':''}{view?.live.stockBlocked?' · недоступне':''}{view?.live.favorite?' · Sniper':''}</p>
-                    <p>Ціна повідомлення: {data.card.price ?? 'невідома'} {data.card.currency ?? ''}. Остання відома: {view?.currentPrice ?? 'невідома'}.</p>
-                </section>
-                <CapturedData data={data} assessmentAnchor={board==='review' && data.review ? 'assessment-form' : null}/>
-                {board==='review' && data.review && <AssessmentForm key={`${data.review.id}-${data.review.version}-${formEpoch}`} review={data.review} decisions={data.history.reactions} photos={data.photos} missingSources={data.missingSources} onSaved={changed} onDirty={setDirty}/>}
-                {board==='notifications' && data.review && <button onClick={()=>navigate('review',data.review!.id)}>Відкрити навчальну оцінку цього лінка</button>}
-                {!!data.revisions.length && <section><h3>Попередні версії оцінки</h3>{data.revisions.map(r=><details key={r.version}><summary>v{r.version} · {dateLabel(r.recorded_at)} · {r.reason}</summary><pre>{json(r.payload)}</pre></details>)}</section>}
-                <section><h3>Повідомлення цього оголошення</h3><p className={styles.muted}>Останні 100. Повна вибірка — на дошці з фільтром лінка.</p>
-                    <div className={styles.tableScroll}><table><thead><tr><th>Час</th><th>Чат</th><th>Перейти</th></tr></thead><tbody>{data.history.deliveries.map(d=><tr key={d.id}><td>{dateLabel(d.telegram_sent_at)}</td><td>{d.channel}</td><td><button disabled={d.id===data.card.delivery_id && board==='notifications'} onClick={()=>navigate('notifications',d.id)}>Повідомлення</button></td></tr>)}</tbody></table></div>
-                    <Link href={`/zhezhemon/processing?${new URLSearchParams({tab:'notifications','notifications.link':data.card.link})}`}>Усі повідомлення цього лінка</Link>
-                </section>
-                <ReactionHistory key={`${data.card.link}-${refresh}`} link={data.card.link}/>
-            </>}
-            </div>
-        </div>
+export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{board:Board;id:string;externalVersion:number;onClose:()=>void;onChanged:()=>void}){
+  const [data,setData]=useState<CardDetail|null>(null),[context,setContext]=useState<ReviewContext|null>(null),[error,setError]=useState(''),[message,setMessage]=useState('');
+  const [refresh,setRefresh]=useState(0),[pending,setPending]=useState(false),[stale,setStale]=useState(false);
+  const dirty=useRef(false),dialog=useRef<HTMLDivElement>(null),closeButton=useRef<HTMLButtonElement>(null),closeRef=useRef(onClose),seenExternal=useRef(externalVersion);
+  closeRef.current=onClose;const params=useSearchParams();
+  const close=()=>{if(!dirty.current || confirm('Є незбережений текст. Закрити картку?'))closeRef.current()};
+  const changed=useCallback(()=>{if(dirty.current)setStale(true);else{setRefresh(v=>v+1);setStale(false)}onChanged()},[onChanged]);
+  useEffect(()=>{
+    const prior=document.activeElement as HTMLElement|null,overflow=document.body.style.overflow;document.body.style.overflow='hidden';closeButton.current?.focus();
+    const keyboard=(e:KeyboardEvent)=>{
+      if(e.key==='Escape'){e.preventDefault();close()}
+      if(e.key==='Tab'){const all=Array.from(dialog.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary') ?? []).filter(el=>el.getClientRects().length>0),first=all[0],last=all.at(-1);
+        if(e.shiftKey && document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first?.focus()}}
+    };
+    const before=(e:BeforeUnloadEvent)=>{if(dirty.current){e.preventDefault();e.returnValue=''}};
+    document.addEventListener('keydown',keyboard);window.addEventListener('beforeunload',before);
+    return ()=>{document.removeEventListener('keydown',keyboard);window.removeEventListener('beforeunload',before);document.body.style.overflow=overflow;prior?.focus()};
+  },[]);
+  useEffect(()=>{if(seenExternal.current===externalVersion)return;seenExternal.current=externalVersion;if(dirty.current)setStale(true);else setRefresh(v=>v+1)},[externalVersion]);
+  useEffect(()=>{
+    const abort=new AbortController();setContext(null);setError('');
+    fetch(`/api/review/boards?tab=${board}&id=${id}`,{signal:abort.signal,cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error(response.status===404?'Картки немає в основній черзі.':'Не вдалося завантажити картку.');return response.json() as Promise<CardDetail>})
+      .then(async detail=>{const pinned=await issueContext({kind:'delivery',deliveryId:detail.card.delivery_id});if(abort.signal.aborted)return;
+        setData(detail);if(pinned.result_version!==detail.card.state_version){setStale(true);setMessage('Картка змінилась під час відкриття. Онови її.');return}setContext(pinned)})
+      .catch(e=>{if(!abort.signal.aborted)setError(e.message)});
+    return ()=>abort.abort();
+  },[board,id,refresh]);
+  async function run(action:ReviewAction,payload:ReviewPayload={}){
+    if(!context || pending || stale)return null;setPending(true);setMessage('');
+    try{let result=await applyCommand(context.id,action,payload);
+      if(action==='hide' && result.reason==='price_changed' && result.currentPrice!==undefined && data &&
+        confirm(`Ціна змінилась: $${result.contextPrice} → $${result.currentPrice}. Сховати до подешевшання від поточної ціни?`)){
+        const fresh=await issueContext({kind:'delivery',deliveryId:data.card.delivery_id});
+        result=await applyCommand(fresh.id,'hide',{confirmedPrice:result.currentPrice});
+      }
+      setMessage(explainResult(action,result).text);
+      if(['applied','noop'].includes(result.status)){dirty.current=false;changed()}else if(result.status==='conflict'){setStale(true);setContext(null)}return result;
+    }catch(e){setMessage(explainError(e));return null}finally{setPending(false)}
+  }
+  async function assign(row:ListingErpPurchase,value:boolean){
+    if(!context || pending || stale)return;setPending(true);setMessage('');
+    try{const body={commandId:crypto.randomUUID(),contextId:context.id,key:row.order_key,version:row.version,assign:value};
+      const send=()=>fetch('/api/review/purchases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      let response;try{response=await send()}catch{response=await send()}
+      const result=await response.json();if(['applied','noop'].includes(result.status)){setMessage(value?'Закупку прив’язано.':'Закупку відв’язано.');changed()}
+      else{setMessage(result.status==='conflict'?'Дані вже змінились. Онови картку.':'Не вдалося змінити прив’язку.');setStale(true);setContext(null)}
+    }catch(e){setMessage(explainError(e))}finally{setPending(false)}
+  }
+  function reload(){if(!dirty.current || confirm('Оновити й відкинути незбережений текст?')){dirty.current=false;setStale(false);setRefresh(v=>v+1)}}
+  const view=data?.view,locked=pending || !context || stale;
+  return <div className={styles.overlay} onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div ref={dialog} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="card-title">
+    <div className={styles.cardHeader}><div className={styles.cardHeading}><p id="card-title">{data?.card.title ?? 'Завантаження…'}</p></div><div className={styles.cardActions}><button onClick={reload}>Оновити</button><button ref={closeButton} onClick={close}>Закрити ×</button></div></div>
+    <div className={styles.cardBody}>
+      {error && <p role="alert" className={styles.error}>{error}</p>}{message && <p role="status">{message}</p>}
+      {stale && <p role="alert" className={styles.error}>Дані змінились. Онови картку перед наступною дією.</p>}
+      {data && <>
+        <h2>{data.card.title}</h2><p><a href={data.card.link} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
+        <p>{dateLabel(data.card.sent_at)} · {searchLabel(data.card)}</p>
+        <section><h3>Результат повідомлення</h3>
+          {data.card.legacy_outcome && <p className={styles.muted}>Старе рішення: {data.card.legacy_outcome==='manual_bought'?'«Купив» без підтвердження ERP':'«Приховав би»'}. Його можна виправити.</p>}
+          {data.card.note && <p>{data.card.note}</p>}
+          {data.card.outcome==='bought' && data.card.manual_outcome && <p className={styles.muted}>Ручне рішення збережено на випадок скасування закупки: {outcomeLabels[data.card.manual_outcome]}.</p>}
+          <OutcomeForm key={data.card.event_id+'-'+refresh} current={{outcome:data.card.outcome,hidden:!!view?.live.hidden,bannedInSearch:view?.live.bannedInSearch ?? null}} execute={run} locked={locked} initialAction={params.get('action')} onDirty={value=>{dirty.current=value}}/>
+          <button disabled={locked} onClick={()=>run('set_like',{value:!view?.live.liked})}>{view?.live.liked?'Зняти лайк':'Лайк'}</button>
+          {view && <p><Link href={`/sniper?${new URLSearchParams({link:data.card.link,ctx:tokenFromDispatchId(view.dispatchId)})}`}>Налаштувати Sniper</Link></p>}
+        </section>
+        <ErpPurchases rows={data.erpPurchases} eventId={data.card.event_id} assign={assign} locked={locked}/>
+        <PartNumberForm key={data.partNumber?.version ?? 0} link={data.card.link} partNumber={data.partNumber} onSaved={changed}/>
+        <p className={styles.muted}>Зараз: {view?.live.hidden?`приховано${view.live.hiddenUntil?' до '+dateLabel(view.live.hiddenUntil):' до подешевшання'}`:'видиме'}{view?.live.bannedInSearch?' · бан у цьому пошуку':''}{view?.live.stockBlocked?' · недоступне':''}</p>
+        <CapturedData data={data}/>
+      </>}
     </div>
+  </div></div>
 }

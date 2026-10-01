@@ -13,8 +13,8 @@ test('sniper ACK and arbitrary actor/time/SQL fields are rejected',()=>{
   assert.throws(()=>parseReviewCommand(command('hide',{received_at:'yesterday'})));
 });
 test('manual outcomes cannot masquerade as live hide/ban/pause',()=>{
-  for(const value of ['hidden','paused','banned','unknown']) assert.throws(()=>parseReviewCommand(command('set_outcome',{value})));
-  for(const value of ['bought','would_buy_missed','would_hide','bug']) assert.equal(parseReviewCommand(command('set_outcome',{value})).payload.value,value);
+  for(const value of ['hidden','paused','banned','unknown','bought','would_buy_missed','would_hide']) assert.throws(()=>parseReviewCommand(command('set_outcome',{value})));
+  for(const value of ['missed','funds']) assert.equal(parseReviewCommand(command('set_outcome',{value})).payload.value,value);
 });
 test('pause durations, booleans and required correction reasons are validated',()=>{
   for(const days of [0,2,3.5,'3',null]) assert.throws(()=>parseReviewCommand(command('pause',{days})));
@@ -60,3 +60,5 @@ test('search saves carry deltas, never a whole banned array',()=>{
   assert.throws(()=>parseSearchSave({commandId:uuid,searchId:1,expectedVersion:3,config:{},ban:['ftp://x'],unban:[]}));
   assert.throws(()=>parseSearchSave({commandId:uuid,searchId:1,expectedVersion:3,config:{filters:[]},ban:[],unban:[]}));
 });
+
+test('bug requires a note; missed has no reasons and processing ACK is gone',()=>{assert.throws(()=>parseReviewCommand(command('set_outcome',{value:'bug'})));assert.throws(()=>parseReviewCommand(command('set_outcome',{value:'missed',reason:'sold_out'})));assert.throws(()=>parseReviewCommand(command('review_ack')));assert.equal(parseReviewCommand(command('set_outcome',{value:'bug',note:'Wrong model'})).payload.value,'bug')});

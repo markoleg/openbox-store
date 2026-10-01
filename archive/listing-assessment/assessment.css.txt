@@ -1,0 +1,4 @@
+.assessment fieldset { display:grid; gap:.5rem; border:0; padding:.6rem 0; }
+.assessment legend { font-weight:600; margin-bottom:.3rem; }
+.assessment label { display:grid; gap:.35rem; }
+.assessment textarea { width:100%; }

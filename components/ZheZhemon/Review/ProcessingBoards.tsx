@@ -1,157 +1,77 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { stages, tabFilters, dateLabel, searchLabel, resolutionNote, erpPurchaseFilterLabels, type Board, type BoardPage, type BoardCard, type Stage } from '@/lib/reviewBoards'
-import { outcomeLabels } from '@/lib/reviewKeyboard'
-import { stockLabel } from '@/lib/reviewStock'
+import {useCallback,useEffect,useRef,useState} from 'react'
+import {useRouter,useSearchParams} from 'next/navigation'
+import {dateLabel,searchLabel,tabFilters,type BoardCard,type BoardPage,type Stage} from '@/lib/reviewBoards'
+import {outcomeLabels} from '@/lib/reviewKeyboard'
+import {stockLabel} from '@/lib/reviewStock'
 import CardPanel from './CardPanel'
 import TileActions from './TileActions'
-import { PartNumberTag } from './PartNumberForm'
-import { ErpPurchaseTag } from './ErpPurchases'
-import Reporting from './Reporting'
-import styles from './Boards.module.css'
+import {PartNumberTag} from './PartNumberForm'
+import {ErpPurchaseTag} from './ErpPurchases'
 import {useReviewRealtime} from './useReviewRealtime'
-
-const labels:Record<Board,Record<Stage,string>>={review:{new:'Нові',working:'Оброблено',done:'Оцінено'},notifications:{new:'Нові',working:'В роботі',done:'Оброблено'}}
-export const eventLabels:Record<string,string>={first_seen:'Перша поява',returned:'Повернення',price_drop:'Подешевшання',pause_over:'Після паузи',sniper_target:'Sniper',availability_restored:'Знову доступно'}
-async function load(query:URLSearchParams, signal?:AbortSignal):Promise<BoardPage> {
-    const response=await fetch(`/api/review/boards?${query}`,{signal,cache:'no-store'})
-    if(response.status===401){location.href=`/login?next=${encodeURIComponent(location.pathname+location.search)}`;throw new Error('Потрібен вхід')}
-    if(!response.ok) { const e=await response.json();throw new Error(e.error==='disabled'?'Канбани ще не ввімкнено на сервері. Потрібен узгоджений запуск міграцій і команд.':e.error==='invalid_filters'?'Перевір фільтри й діапазон дат.':'Не вдалося завантажити канбан. Спробуй оновити.') }
-    return response.json()
+import styles from './Boards.module.css'
+export const eventLabels:Record<string,string>={first_seen:'Перша поява',returned:'Повернення',price_drop:'Подешевшання',pause_over:'Після паузи',availability_restored:'Знову доступно'};
+async function load(query:URLSearchParams,signal?:AbortSignal):Promise<BoardPage>{
+  const response=await fetch(`/api/review/boards?${query}`,{signal,cache:'no-store'});
+  if(response.status===401){location.href=`/login?next=${encodeURIComponent(location.pathname+location.search)}`;throw new Error('Потрібен вхід')}
+  if(!response.ok)throw new Error(response.status===503?'Черга недоступна. Перевір узгоджений запуск міграцій і команд.':'Не вдалося завантажити чергу.');return response.json();
 }
-async function reloadPage(query:URLSearchParams, previous:BoardPage|undefined, signal:AbortSignal):Promise<BoardPage> {
-    const page=await load(query,signal)
-    // Keep already loaded pages when a reaction moves a card. Closing the panel
-    // must not throw a buyer who loaded 150 rows back to the first 50.
-    for(;;){
-        const needed=stages.filter(stage=>page.columns[stage].cards.length<Math.min(previous?.columns[stage].cards.length ?? 0,page.columns[stage].count))
-        if(!needed.length)return page
-        const next=new URLSearchParams(query)
-        for(const stage of needed){const last=page.columns[stage].cards.at(-1);if(last){next.set(`${stage}At`,last.card_at);next.set(`${stage}Id`,last.id)}}
-        const extra=await load(next,signal);let added=0
-        for(const stage of needed){const ids=new Set(page.columns[stage].cards.map(c=>c.id));const rows=extra.columns[stage].cards.filter(c=>!ids.has(c.id));added+=rows.length;page.columns[stage].cards.push(...rows);page.columns[stage].count=extra.columns[stage].count}
-        if(!added)return page
-    }
-}
-export default function ProcessingBoards() {
-    const router=useRouter(), search=useSearchParams(), url=search.toString()
-    const board:Board=search.get('tab')==='notifications'?'notifications':'review'
-    const id=search.get(board==='review'?'review':'delivery')
-    const [pages,setPages]=useState<Partial<Record<Board,BoardPage>>>({})
-    const [error,setError]=useState(''),[loading,setLoading]=useState(true),[refresh,setRefresh]=useState(0)
-    const [more,setMore]=useState<Stage|null>(null)
-    const [filtersOpen,setFiltersOpen]=useState(false)
-    const [externalVersion,setExternalVersion]=useState(0)
-    const scroll=useRef<Record<string,number>>({})
-    const filterKey=(['review','notifications'] as const).map(b=>tabFilters(new URLSearchParams(url),b).toString()).join('|')
-    const activeRequest=useRef('');activeRequest.current=board+'|'+filterKey+'|'+refresh
-    const loadedPages=useRef(pages);loadedPages.current=pages
-    const lastFilter=useRef(filterKey)
-    useEffect(()=>{
-        const abort=new AbortController();setLoading(true);setError('')
-        const previous=lastFilter.current===filterKey?loadedPages.current:{};lastFilter.current=filterKey
-        Promise.all((['review','notifications'] as const).map(async b=>[b,await reloadPage(tabFilters(new URLSearchParams(url),b),previous[b],abort.signal)] as const))
-            .then(values=>setPages(Object.fromEntries(values))).catch(e=>{if(!abort.signal.aborted)setError(e.message)})
-            .finally(()=>{if(!abort.signal.aborted)setLoading(false)})
-        return ()=>abort.abort()
-        // Card opening and tab switching must not reset pages/scroll.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    },[filterKey,refresh])
-    const change=(params:URLSearchParams,action?:string)=>{params.delete('action');if(action)params.set('action',action);router.push(`/zhezhemon/processing?${params}`,{scroll:false})}
-    function switchTab(tab:Board) {const p=new URLSearchParams(url);p.set('tab',tab);p.delete('review');p.delete('delivery');change(p)}
-    function open(card:BoardCard,action?:'missed'|'bug') {const p=new URLSearchParams(url);p.set('tab',board);p.delete('review');p.delete('delivery');p.set(board==='review'?'review':'delivery',card.id);change(p,action)}
-    function close() {const p=new URLSearchParams(url);p.delete('review');p.delete('delivery');change(p)}
-    async function next(stage:Stage) {
-        const cards=pages[board]?.columns[stage].cards, last=cards?.at(-1)
-        if(!last || more)return
-        setMore(stage)
-        const requestKey=activeRequest.current
-        const p=tabFilters(new URLSearchParams(url),board);p.set(`${stage}At`,last.card_at);p.set(`${stage}Id`,last.id)
-        try {
-            const page=await load(p)
-            if(activeRequest.current!==requestKey)return
-            setPages(all=>{const current=all[board];if(!current)return all
-                const existing=current.columns[stage].cards, ids=new Set(existing.map(c=>c.id))
-                return {...all,[board]:{...current,columns:{...current.columns,[stage]:{count:page.columns[stage].count,cards:[...existing,...page.columns[stage].cards.filter(c=>!ids.has(c.id))]}}}}
-            })
-        }catch(e){setError(e instanceof Error?e.message:'Помилка')}
-        finally{setMore(null)}
-    }
-    const onChanged=useCallback(()=>setRefresh(v=>v+1),[])
-    const onExternalChange=useCallback(()=>{setExternalVersion(v=>v+1);setRefresh(v=>v+1)},[])
-    const realtimeStatus=useReviewRealtime(onExternalChange,loading)
-    const query=tabFilters(new URLSearchParams(url),board).toString()
-    const activeFilters=Array.from(search.entries()).filter(([k,v])=>k.startsWith(`${board}.`) && v && v!=='false').length
-    return <main className={`${styles.workspace} ${styles.boardWorkspace}`}>
-        <h1 className={styles.srOnly}>Опрацювання</h1>
-        <div className={styles.toolbar}>
-        <div className={styles.tabs} role="tablist" aria-label="Канбани">
-            {(['review','notifications'] as const).map(b=><button key={b} role="tab" id={`tab-${b}`} aria-controls="board-panel" aria-selected={board===b} onClick={()=>switchTab(b)}>{b==='review'?'Оцінка оголошень':'Усі сповіщення'} · {pages[b]?.pending ?? '—'}</button>)}
-        </div>
-        <div className={styles.toolbarActions}>
-            <button aria-expanded={filtersOpen} aria-controls="board-filters" onClick={()=>setFiltersOpen(v=>!v)}>Фільтри{activeFilters?` · ${activeFilters}`:''}</button>
-            <button disabled={loading} onClick={onChanged}>Оновити</button>
-            <span className={styles.liveStatus} data-status={realtimeStatus} role="status">{realtimeStatus==='live'?'Наживо':realtimeStatus==='fallback'?'Резервне оновлення':'Підключення…'}</span>
-            {board==='review' && <Reporting key={board+'|'+query} board={board} query={query} refresh={refresh}/>}
-        </div>
-        </div>
-        <div className={styles.controls}>
-        <div id="board-filters" className={styles.filterPanel} hidden={!filtersOpen}>
-        <form key={board+filterKey} className={styles.filters} onSubmit={e=>{
-            e.preventDefault();const data=new FormData(e.currentTarget),p=new URLSearchParams(url)
-            Array.from(p.keys()).filter(k=>k.startsWith(`${board}.`)).forEach(k=>p.delete(k))
-            for(const [k,v] of data.entries())if(String(v).trim())p.set(`${board}.${k}`,['from','to'].includes(k)?new Date(String(v)).toISOString():String(v).trim())
-            p.delete('review');p.delete('delivery');change(p)
-        }}>
-            <label>Лінк або заголовок<input name="link" maxLength={500} defaultValue={search.get(`${board}.link`) ?? ''}/></label>
-            <label>Пошук<select name="search" defaultValue={search.get(`${board}.search`) ?? ''}>
-                <option value="">Усі пошуки</option><option value="deleted">Видалені пошуки</option>
-                {(pages[board]?.searches ?? []).map(s=><option key={s.id} value={s.id}>{s.name ?? 'Пошук'} · #{s.id}</option>)}
-                {search.get(`${board}.search`) && search.get(`${board}.search`)!=='deleted' && !(pages[board]?.searches ?? []).some(s=>String(s.id)===search.get(`${board}.search`)) && <option value={search.get(`${board}.search`)!}>Пошук #{search.get(`${board}.search`)}</option>}
-            </select></label>
-            <label>Результат<select name="outcome" defaultValue={search.get(`${board}.outcome`) ?? ''}><option value="">Усі</option>{Object.entries(outcomeLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
-            <label>Колонка<select name="stage" defaultValue={search.get(`${board}.stage`) ?? ''}><option value="">Усі</option>{stages.map(s=><option key={s} value={s}>{labels[board][s]}</option>)}</select></label>
-            <label>Партійний<select name="partNumber" defaultValue={search.get(`${board}.partNumber`) ?? ''}><option value="">Усі</option><option value="missing">Без партійного</option><option value="not_in_catalog">Немає в ERP</option></select></label>
-            <label>Куплено<select name="erpPurchase" defaultValue={search.get(`${board}.erpPurchase`) ?? ''}><option value="">Усі</option>{Object.entries(erpPurchaseFilterLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
-            {(['from','to'] as const).map(k=>{const iso=search.get(`${board}.${k}`);const local=iso && Number.isFinite(Date.parse(iso))?new Date(new Date(iso).getTime()-new Date(iso).getTimezoneOffset()*60000).toISOString().slice(0,16):'';return <label key={k}>{k==='from'?'Від':'До (не включно)'}<input type="datetime-local" name={k} defaultValue={local}/></label>})}
-            {board==='notifications' && <>
-                <label>Тип<select name="kind" defaultValue={search.get(`${board}.kind`) ?? ''}><option value="">Усі</option>{Object.entries(eventLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
-                <label>Чат<select name="channel" defaultValue={search.get(`${board}.channel`) ?? ''}><option value="">Усі</option><option value="main">Основний</option><option value="sniper">Sniper</option></select></label>
-                <label>Condition ID<input name="condition" type="number" min={1} defaultValue={search.get(`${board}.condition`) ?? ''}/></label>
-                <label className={styles.check}><input type="checkbox" name="withoutReview" value="true" defaultChecked={search.get(`${board}.withoutReview`)==='true'}/>Без навчальних карток</label>
-            </>}
-            <label className={styles.check}><input type="checkbox" name="needsReaction" value="true" defaultChecked={search.get(`${board}.needsReaction`)==='true'}/>{board==='review'?'Не оцінені':'Без результату'}</label>
-            <button type="submit">Застосувати</button>
-            <button type="button" onClick={()=>{const p=new URLSearchParams(url);Array.from(p.keys()).filter(k=>k.startsWith(`${board}.`)).forEach(k=>p.delete(k));change(p)}}>Скинути</button>
-        </form>
-        </div>
-        {board==='notifications' && <Reporting key={board+'|'+query} board={board} query={query} refresh={refresh}/>}
-        {error && <p role="alert" className={styles.error}>{error}</p>}
-        {loading && <p role="status" className={styles.muted}>Оновлюю дошки…</p>}
-        </div>
-        <div id="board-panel" role="tabpanel" aria-labelledby={`tab-${board}`} className={styles.columns}>
-            {stages.map(stage=>{const column=pages[board]?.columns[stage];return <section key={`${board}-${stage}`} className={styles.column} data-stage={stage}>
-                <h2>{labels[board][stage]} <span>{column?.count ?? '—'}</span></h2>
-                <div className={styles.stack} ref={node=>{if(node){const key=`${board}-${stage}-${filterKey}`;let value=scroll.current[key];if(value===undefined){try{value=Number(sessionStorage.getItem('review-scroll:'+key)) || 0}catch{value=0}}node.scrollTop=value}}} onScroll={e=>{const key=`${board}-${stage}-${filterKey}`,value=e.currentTarget.scrollTop;scroll.current[key]=value;try{sessionStorage.setItem('review-scroll:'+key,String(value))}catch{/* storage may be disabled */}}}>
-                    {column?.cards.map(card=><article key={card.id} className={styles.tile}>
-                        <button className={styles.tileOpen} onClick={()=>open(card)}>
-                        <strong>{card.title}</strong><span className={styles.price}>{card.price===null?'Ціна невідома':`${card.price} ${card.currency ?? ''}`}</span>
-                        <span className={styles.muted}>📦 {stockLabel(card.stock_quantity)} · за знімком</span>
-                        <span className={styles.tags}><span>{card.channel==='main'?'Основний чат':'Sniper'}</span><span>{eventLabels[card.kind] ?? card.kind}</span><PartNumberTag card={card}/><ErpPurchaseTag card={card}/></span>
-                        <span className={styles.muted}>{dateLabel(card.sent_at)} · {searchLabel(card)}</span>
-                        <span>{card.outcome?outcomeLabels[card.outcome]:'Рішення ще немає'}</span>
-                        {board==='review'?<span className={styles.muted}>Не заповнено критеріїв: {card.missing}/6</span>:<span className={styles.muted}>{card.first_reaction_at?`Перша реакція: ${dateLabel(card.first_reaction_at)}`:'Прямої реакції немає'}{resolutionNote(card.resolution_kind)?` · ${resolutionNote(card.resolution_kind)}`:''}</span>}
-                        <span className={styles.muted}>Зараз: {card.stock_blocked?'недоступне':card.hidden?`приховано${card.hidden_until?' / пауза':''}`:'без глобального приховування'}{card.favorite?' · Sniper':''}</span>
-                        </button>
-                        {/* Quick reactions only while the message has no result; done cards are edited in the panel. */}
-                        {!card.outcome && <TileActions card={card} onChanged={onChanged} onOpen={action=>open(card,action)}/>}
-                    </article>)}
-                    {column?.count===0 && !loading && <p className={styles.empty}>Карток немає</p>}
-                    {!!column && column.cards.length<column.count && <button disabled={!!more || loading} onClick={()=>next(stage)}>{more===stage?'Завантажую…':'Ще 50'}</button>}
-                </div>
-            </section>})}
-        </div>
-        {id && <CardPanel key={`${board}-${id}`} board={board} id={id} externalVersion={externalVersion} onClose={close} onChanged={onChanged}/>}
-    </main>
+export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
+  const router=useRouter(),search=useSearchParams(),url=search.toString(),path=stage==='new'?'/zhezhemon/processing':'/zhezhemon/processed';
+  const query=tabFilters(new URLSearchParams(url),'notifications');query.set('stage',stage);const filterKey=query.toString(),id=search.get('card') ?? search.get('delivery');
+  const [page,setPage]=useState<BoardPage|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[more,setMore]=useState(false),[refresh,setRefresh]=useState(0),[filtersOpen,setFiltersOpen]=useState(false),[externalVersion,setExternalVersion]=useState(0);
+  const requestKey=filterKey+'|'+refresh;
+  const loaded=useRef(page);loaded.current=page;const active=useRef(requestKey),lastFilter=useRef(filterKey);active.current=requestKey;
+  const scroll=useRef<HTMLDivElement>(null),position=useRef<Record<string,number>>({});
+  useEffect(()=>{
+    const abort=new AbortController(),previous=lastFilter.current===filterKey?loaded.current:null;lastFilter.current=filterKey;setLoading(true);setError('');
+    (async()=>{const result=await load(new URLSearchParams(filterKey),abort.signal);
+      while(result.columns[stage].cards.length<Math.min(previous?.columns[stage].cards.length ?? 0,result.columns[stage].count)){
+        const last=result.columns[stage].cards.at(-1);if(!last)break;const next=new URLSearchParams(filterKey);next.set(stage+'At',last.card_at);next.set(stage+'Id',last.id);
+        const extra=await load(next,abort.signal),ids=new Set(result.columns[stage].cards.map(c=>c.id)),rows=extra.columns[stage].cards.filter(c=>!ids.has(c.id));if(!rows.length)break;result.columns[stage].cards.push(...rows);
+      }
+      if(!abort.signal.aborted)setPage(result);
+    })().catch(e=>{if(!abort.signal.aborted)setError(e.message)}).finally(()=>{if(!abort.signal.aborted)setLoading(false)});
+    return ()=>abort.abort();
+  },[filterKey,stage,refresh]);
+  useEffect(()=>{if(scroll.current)scroll.current.scrollTop=position.current[filterKey] ?? 0},[filterKey,loading]);
+  const change=(params:URLSearchParams)=>router.push(`${path}?${params}`,{scroll:false});
+  function open(card:BoardCard,action?:'bug'){const p=new URLSearchParams(url);p.delete('delivery');p.delete('action');p.set('card',card.id);if(action)p.set('action',action);change(p)}
+  function close(){const p=new URLSearchParams(url);p.delete('card');p.delete('delivery');p.delete('action');change(p)}
+  const onChanged=useCallback(()=>setRefresh(v=>v+1),[]),external=useCallback(()=>{setExternalVersion(v=>v+1);setRefresh(v=>v+1)},[]),live=useReviewRealtime(external,loading);
+  async function next(){const last=page?.columns[stage].cards.at(-1);if(!last || more)return;setMore(true);const generation=requestKey;
+    try{const q=new URLSearchParams(filterKey);q.set(stage+'At',last.card_at);q.set(stage+'Id',last.id);const extra=await load(q);if(active.current!==generation)return;
+      setPage(current=>{if(!current)return current;const ids=new Set(current.columns[stage].cards.map(c=>c.id));return {...current,columns:{...current.columns,[stage]:{count:extra.columns[stage].count,cards:[...current.columns[stage].cards,...extra.columns[stage].cards.filter(c=>!ids.has(c.id))]}}}});
+    }catch(e){setError(e instanceof Error?e.message:'Помилка')}finally{setMore(false)}
+  }
+  const column=page?.columns[stage];
+  return <main className={`${styles.workspace} ${styles.boardWorkspace}`}>
+    <div className={styles.toolbar}><h1>{stage==='new'?'Нові сповіщення':'Журнал оброблених'} · {column?.count ?? '—'}</h1><div className={styles.toolbarActions}><button onClick={()=>setFiltersOpen(v=>!v)} aria-expanded={filtersOpen}>Фільтри</button><button disabled={loading} onClick={onChanged}>Оновити</button><span className={styles.liveStatus} data-status={live}>{live==='live'?'Наживо':live==='fallback'?'Резервне оновлення':'Підключення…'}</span></div></div>
+    <div className={styles.controls}><div hidden={!filtersOpen} className={styles.filterPanel}>
+      <form key={filterKey} className={styles.filters} onSubmit={e=>{e.preventDefault();const p=new URLSearchParams();for(const [key,value] of new FormData(e.currentTarget))if(String(value).trim())p.set('notifications.'+key,['from','to'].includes(key)?new Date(String(value)).toISOString():String(value).trim());change(p)}}>
+        <label>Лінк або заголовок<input name="link" defaultValue={search.get('notifications.link') ?? ''}/></label>
+        <label>Пошук<select name="search" defaultValue={search.get('notifications.search') ?? ''}><option value="">Усі</option><option value="deleted">Видалені</option>{page?.searches?.map(s=><option key={s.id} value={s.id}>{s.name ?? 'Пошук'} · #{s.id}</option>)}</select></label>
+        {stage==='processed' && <label>Результат<select name="outcome" defaultValue={search.get('notifications.outcome') ?? ''}><option value="">Усі</option>{Object.entries(outcomeLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>}
+        <label>Партійний<select name="partNumber" defaultValue={search.get('notifications.partNumber') ?? ''}><option value="">Усі</option><option value="missing">Без номера</option><option value="not_in_catalog">Немає в ERP</option></select></label>
+        <label>Тип<select name="kind" defaultValue={search.get('notifications.kind') ?? ''}><option value="">Усі</option>{Object.entries(eventLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+        {(['from','to'] as const).map(k=>{const iso=search.get('notifications.'+k),local=iso && Number.isFinite(Date.parse(iso))?new Date(Date.parse(iso)-new Date(iso).getTimezoneOffset()*60000).toISOString().slice(0,16):'';return <label key={k}>{k==='from'?'Від':'До (не включно)'}<input name={k} type="datetime-local" defaultValue={local}/></label>})}
+        <button>Застосувати</button><button type="button" onClick={()=>change(new URLSearchParams())}>Скинути</button>
+      </form>
+    </div>{error && <p role="alert" className={styles.error}>{error}</p>}{loading && <p role="status" className={styles.muted}>Оновлюю…</p>}</div>
+    <div ref={scroll} className={styles.queue} onScroll={e=>{position.current[filterKey]=e.currentTarget.scrollTop}}>
+      <div className={stage==='new'?styles.newQueue:styles.journal}>
+        {column?.cards.map(card=><article key={card.id} className={styles.tile}>
+          <button className={styles.tileOpen} onClick={()=>open(card)}><strong>{card.title}</strong><span className={styles.price}>{card.price===null?'Ціна невідома':`${card.price} ${card.currency ?? ''}`}</span>
+            <span className={styles.muted}>📦 {stockLabel(card.stock_quantity)} · знімок</span><span className={styles.tags}><span>{eventLabels[card.kind] ?? card.kind}</span><PartNumberTag card={card}/><ErpPurchaseTag card={card}/></span>
+            <span className={styles.muted}>{dateLabel(card.sent_at)} · {searchLabel(card)}</span>
+            {stage==='processed' && <span>{card.outcome?outcomeLabels[card.outcome]:card.legacy_outcome==='manual_bought'?'Старе «Купив» · без ERP':'Старе «Приховав би»'}</span>}
+          </button>
+          {stage==='new' && <TileActions card={card} onChanged={onChanged} onOpen={action=>open(card,action)}/>}
+        </article>)}
+      </div>
+      {column?.count===0 && !loading && <p className={styles.empty}>Карток немає</p>}
+      {column && column.cards.length<column.count && <button disabled={more || loading} onClick={next}>{more?'Завантажую…':'Ще 50'}</button>}
+    </div>
+    {id && <CardPanel key={id} board="notifications" id={id} externalVersion={externalVersion} onClose={close} onChanged={onChanged}/>}
+  </main>
 }

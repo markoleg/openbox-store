@@ -1,20 +1,18 @@
 /** Shared wire contract. Pure validation, no secrets or database access. */
-export const reviewActions = ['review_ack', 'hide', 'pause', 'extend_pause', 'unhide',
+export const reviewActions = ['hide', 'pause', 'extend_pause', 'unhide',
   'ban', 'unban', 'set_like', 'set_outcome', 'clear_outcome', 'set_watch', 'remove_watch'] as const;
 export type ReviewAction = typeof reviewActions[number];
 export type ReviewContextKind = 'listing' | 'event' | 'delivery' | 'dispatch';
 export type ReviewSource = 'dashboard' | 'dashboard_toast';
-export const manualOutcomes = ['bought', 'would_buy_missed', 'would_hide', 'bug'] as const;
+export const manualOutcomes = ['missed', 'funds', 'bug'] as const;
 export type ManualOutcome = typeof manualOutcomes[number];
-export const missedReasons = ['sold_out', 'price_changed', 'limit_or_funds', 'other'] as const;
-export const bugTypes = ['selection_error', 'technical_duplicate', 'already_unavailable', 'other'] as const;
 export const PAUSE_DAYS = [1, 3, 5, 7] as const;
 
 export type WatchPayload = {
   favorite: true; super_favorite?: boolean; desired_price: number | null; description?: string | null;
 };
 export type ReviewPayload = {
-  days?: number; value?: boolean | string; note?: string; reason?: string;
+  days?: number; value?: boolean | string; note?: string; reason?: string; confirmedPrice?: number;
 } | WatchPayload;
 export type ReviewCommand = {
   commandId: string; contextId: string; action: ReviewAction; payload: ReviewPayload; source?: ReviewSource;
@@ -43,7 +41,7 @@ export type ReviewContext = {
 };
 export type ReviewCommandResult = {
   status: 'applied' | 'noop' | 'conflict' | 'rejected';
-  reactionId?: string | null; reason?: string; listingVersion?: number;
+  reason?: string; listingVersion?: number;
   currentPrice?: number; contextPrice?: number; contextId?: string; live?: LiveState;
 };
 export type SearchSaveRequest = {
@@ -134,7 +132,9 @@ export function parseReviewCommand(value: unknown): ReviewCommand {
     }
     return value as ReviewCommand;
   }
-  if (!exactKeys(p, ['days','value','note','reason']) ||
+  if (!exactKeys(p, ['days','value','note','reason','confirmedPrice']) ||
+      (p.confirmedPrice !== undefined && (action !== 'hide' || typeof p.confirmedPrice !== 'number' ||
+        !Number.isFinite(p.confirmedPrice) || p.confirmedPrice<0 || p.confirmedPrice>=1000000)) ||
       (p.note !== undefined && (typeof p.note !== 'string' || p.note.length > 4000)) ||
       (p.reason !== undefined && (typeof p.reason !== 'string' || p.reason.length > 1000))) {
     throw new Error('invalid_payload');
@@ -146,6 +146,8 @@ export function parseReviewCommand(value: unknown): ReviewCommand {
     if (typeof p.value !== 'boolean') throw new Error('invalid_like');
   } else if (action === 'set_outcome') {
     if (!(manualOutcomes as readonly string[]).includes(String(p.value))) throw new Error('invalid_outcome');
+    if(p.reason!==undefined)throw new Error('unexpected_reason');
+    if(p.value==='bug' && !String(p.note ?? '').trim())throw new Error('bug_note_required');
   } else if (p.value !== undefined) throw new Error('unexpected_value');
   if (['clear_outcome','extend_pause'].includes(String(action)) &&
       (typeof p.reason !== 'string' || !p.reason.trim())) throw new Error('reason_required');

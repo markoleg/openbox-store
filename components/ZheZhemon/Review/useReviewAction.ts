@@ -25,8 +25,7 @@ export function useReviewAction(target: ReviewTarget, source: ReviewSource = 'da
                 // The quoted price is stale. Hiding "below $old" when the lot already
                 // costs less would fire at once, so the threshold is confirmed explicitly.
                 if (confirm(`Ціна змінилась: $${result.contextPrice} → $${result.currentPrice}.\nСховати, поки не стане дешевше за $${result.currentPrice}?`)) {
-                    // Any context knows its listing; the fresh listing context quotes the current price.
-                    ;({ context, result } = await runCommand({ kind: 'listing', link: context.link }, 'hide', {}, source))
+                    ;({ context, result } = await runCommand(options.target ?? target, 'hide', {confirmedPrice:result.currentPrice}, source))
                 } else {
                     return result
                 }

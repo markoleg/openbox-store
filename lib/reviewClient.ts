@@ -96,7 +96,7 @@ export async function savePartNumber(body: { link: string; partNumber: string | 
 
 const actionDone: Record<string, string> = {
   hide: 'Сховано до подешевшання', unhide: 'Показано знову', pause: 'Пауза встановлена', extend_pause: 'Паузу продовжено',
-  ban: 'Забанено в пошуку', unban: 'Бан знято', set_like: 'Лайк збережено', review_ack: 'В роботі',
+  ban: 'Забанено в пошуку', unban: 'Бан знято', set_like: 'Лайк збережено',
   set_outcome: 'Результат записано', clear_outcome: 'Результат скинуто', set_watch: 'Sniper збережено',
   remove_watch: 'Прибрано зі Sniper',
 };
@@ -116,6 +116,8 @@ export function explainResult(action: ReviewAction, result: ReviewCommandResult)
     }
   }
   switch (result.reason) {
+    case 'erp_purchase_active': return {ok:false,text:'Купив підтверджено ERP. Відв’яжи закупку або виправ її в ERP.'};
+    case 'legacy_context': return {ok:false,text:'Онови картку перед зміною.'};
     case 'price_unknown': return { ok: false, text: 'Невідома ціна — сховати неможливо' };
     case 'notification_context_required': return { ok: false, text: 'Потрібне конкретне повідомлення' };
     case 'not_an_extension': return { ok: false, text: 'Це не продовження паузи' };

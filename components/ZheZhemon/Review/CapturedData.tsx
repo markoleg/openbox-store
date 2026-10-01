@@ -94,10 +94,10 @@ export function TechnicalSnapshot({data}:{data:CardDetail}) {
     </details>
 }
 
-export default function CapturedData({data,assessmentAnchor}:{data:CardDetail;assessmentAnchor:string|null}) {
+export default function CapturedData({data}:{data:CardDetail}) {
     const {captured}=data
     return <section id="captured-data" aria-labelledby="captured-heading">
-        <div className={styles.sectionHeader}><h3 id="captured-heading">Дані оголошення на момент повідомлення</h3>{assessmentAnchor && <a href={`#${assessmentAnchor}`} className={styles.anchor}>До оцінки ↓</a>}</div>
+        <div className={styles.sectionHeader}><h3 id="captured-heading">Дані оголошення на момент повідомлення</h3></div>
         <CapturedDataSummary captured={captured}/>
         <div className={styles.subsection} role="group" aria-labelledby="captured-title"><h4 id="captured-title">Заголовок і стан</h4>
             <p>{data.card.title}</p>

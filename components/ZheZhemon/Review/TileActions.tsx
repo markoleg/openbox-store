@@ -1,23 +1,19 @@
 'use client'
-import { useReviewAction } from './useReviewAction'
-import type { BoardCard } from '@/lib/reviewBoards'
+import {useState} from 'react'
+import {useReviewAction} from './useReviewAction'
+import {PAUSE_DAYS,type ReviewAction,type ReviewPayload} from '@/lib/reviewCommands'
+import type {BoardCard} from '@/lib/reviewBoards'
 import styles from './Boards.module.css'
-
-/**
- * One-click reactions on a tile for cards that have no result yet. Outcomes
- * that need a reason (missed, bug) open the card with that option preselected.
- */
-export default function TileActions({card,onChanged,onOpen}:{card:BoardCard;onChanged:()=>void;onOpen:(action:'missed'|'bug')=>void}) {
-    const {run,pending}=useReviewAction({kind:'delivery',deliveryId:card.delivery_id})
-    const apply=async(action:'review_ack'|'set_outcome',payload={})=>{
-        const result=await run(action,payload)
-        if(result && ['applied','noop','conflict'].includes(result.status))onChanged()
-    }
-    return <div className={styles.quickActions} role="group" aria-label={`Реакція: ${card.title}`}>
-        {!card.first_reaction_at && <button type="button" disabled={!!pending} onClick={()=>apply('review_ack')}>🖐 Опрацьовую</button>}
-        <button type="button" disabled={!!pending} onClick={()=>apply('set_outcome',{value:'bought'})}>✅ Купив</button>
-        <button type="button" disabled={!!pending} onClick={()=>onOpen('missed')}>⏱ Не встиг</button>
-        <button type="button" disabled={!!pending} onClick={()=>apply('set_outcome',{value:'would_hide'})}>🙈 Приховав би</button>
-        <button type="button" disabled={!!pending} onClick={()=>onOpen('bug')}>🐞 Баг</button>
-    </div>
+export default function TileActions({card,onChanged,onOpen}:{card:BoardCard;onChanged:()=>void;onOpen:(action:'bug')=>void}){
+  const {run,pending}=useReviewAction({kind:'delivery',deliveryId:card.delivery_id}),[pause,setPause]=useState(false);
+  async function apply(action:ReviewAction,payload:ReviewPayload={}){const result=await run(action,payload);if(result && ['applied','noop','conflict'].includes(result.status))onChanged()}
+  return <div className={styles.quickActions} role="group" aria-label={`Результат: ${card.title}`}>
+    <button disabled={!!pending} onClick={()=>apply('set_outcome',{value:'missed'})}>⏱ Не встиг</button>
+    <button disabled={!!pending} onClick={()=>apply('set_outcome',{value:'funds'})}>💰 Кошти</button>
+    <button disabled={!!pending} onClick={()=>onOpen('bug')}>🐞 Баг</button>
+    <button disabled={!!pending} onClick={()=>apply('hide')}>🙈 Приховати</button>
+    <button disabled={!!pending} aria-expanded={pause} onClick={()=>setPause(v=>!v)}>⏸ Пауза</button>
+    <button disabled={!!pending || card.search_id===null} onClick={()=>apply('ban')}>🚫 Бан</button>
+    {pause && PAUSE_DAYS.map(days=><button key={days} disabled={!!pending} onClick={()=>apply('pause',{days})}>{days}д</button>)}
+  </div>
 }

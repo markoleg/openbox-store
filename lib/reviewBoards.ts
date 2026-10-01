@@ -1,101 +1,40 @@
-/** Shared, pure contracts. No service credentials or database imports here. */
+/** Operational notification queue contracts. */
 import type { StockQuantity } from './reviewStock.ts';
-export const criteria = [
-  ['title', 'Заголовок'], ['shop', 'Магазин'], ['aspects', 'Параметри'],
-  ['description', 'Опис'], ['photos', 'Фото'], ['price_shipping', 'Ціна з доставкою'],
-] as const;
-export type Criterion = typeof criteria[number][0];
-export type Board = 'review' | 'notifications';
-export type Stage = 'new' | 'working' | 'done';
-export const stages: Stage[] = ['new', 'working', 'done'];
-export type BoardFilters = Partial<Record<'search' | 'link' | 'outcome' | 'stage' | 'kind' | 'channel' | 'condition' | 'from' | 'to' | 'partNumber' | 'erpPurchase', string>> &
-  {needsReaction?: boolean; withoutReview?: boolean};
-/** `review_board` filter values: no part number yet, or one the CRM catalog lacks. */
-export const partNumberFilters = ['missing', 'not_in_catalog'] as const;
-export type PartNumberStatus = 'identified' | 'not_in_catalog' | 'ambiguous' | 'unknown' | 'unverified';
-export type PartNumberSource = 'purchase' | 'mpn' | 'title' | 'manual' | 'listing_mpn';
-/** `review_board` filter values: the ERP bought it without the button, the button without an ERP purchase, or both. */
-export const erpPurchaseFilters = ['erp_only', 'manual_only', 'both'] as const;
-export const erpPurchaseFilterLabels: Record<typeof erpPurchaseFilters[number], string> = {
-  erp_only: 'ERP купив, кнопки немає', manual_only: 'Кнопка є, в ERP немає', both: 'Кнопка й ERP',
-};
-/**
- * Card fields `review_board` computes for the card's own notification: live ERP purchases made after it and
- * before the listing's next notification (erp_purchases_after_delivery), and whether a person marked it bought.
- */
-export type CardErpPurchases = {erp_units: number; erp_purchases: number; buyer_bought: boolean};
-/** Card fields `review_board` joins from listing_part_numbers; null when the listing has no row. */
-export type CardPartNumber = {
-  part_number: string | null; part_number_status: PartNumberStatus | null; part_number_source: PartNumberSource | null;
-  manual_part_number: string | null; part_number_version: number | null;
-};
-export type Cursor = {at: string; id: string};
-export type BoardCard = {
-  board: Board; id: string; link: string; card_at: string; stage: Stage; delivery_id: string;
-  review_id: string | null; event_id: string; search_id: number | null; search_name: string | null;
-  kind: string; channel: string; condition_id: string | null; title: string; price: string | null; currency: string | null;
-  outcome: string | null; first_reaction_at: string | null; outcome_at: string | null;
-  resolution_kind: string | null; sent_at: string; missing: number | null;
-  hidden: boolean; hidden_until: string | null; favorite: boolean; stock_blocked: boolean;
-  stock_snapshot_id: string | null; stock_observed_at: string | null; stock_quantity: StockQuantity | null;
-} & CardPartNumber & CardErpPurchases;
-export type BoardPage = {columns: Record<Stage, {count: number; cards: BoardCard[]}>; pending: number; searches?:{id:number;name:string|null}[]};
-export type Assessment = {
-  id: string; link: string; origin_delivery_id: string; version: number; submitted_at: string | null;
-  revision_opened_at: string | null; decision_reaction_id: string | null; decision_note: string | null;
-  evaluation_snapshot_id: string | null; rubric_version: number; photo_notes: Record<string, string>;
-} & Record<`score_${Criterion}`, number | null> & Record<`note_${Criterion}`, string | null>;
-export type AssessmentRequest = {commandId: string; reviewId: string; version: number; action: 'draft' | 'submit' | 'reopen'; payload: Record<string, unknown>};
-const uuid = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
-const object = (o: unknown): o is Record<string, unknown> => !!o && typeof o === 'object' && !Array.isArray(o);
-export function isSubmitted(r: Pick<Assessment, 'submitted_at' | 'revision_opened_at'>): boolean {
-  return !!r.submitted_at && (!r.revision_opened_at || Date.parse(r.revision_opened_at) <= Date.parse(r.submitted_at));
-}
-export function parseAssessment(value: unknown): AssessmentRequest {
-  if (!object(value) || Object.keys(value).some(k => !['commandId','reviewId','version','action','payload'].includes(k)) ||
-    !uuid(value.commandId) || !uuid(value.reviewId) || !Number.isSafeInteger(value.version) || Number(value.version)<0 ||
-    !['draft','submit','reopen'].includes(String(value.action)) || !object(value.payload)) throw new Error('invalid_assessment');
-  for (const [key, val] of Object.entries(value.payload)) {
-    if (value.action === 'reopen') {
-      if (key !== 'reason' || typeof val !== 'string' || !val.trim() || val.length>1000) throw new Error('invalid_reason');
-    } else if (criteria.some(([k]) => key === `score_${k}`)) {
-      if (val !== null && (!Number.isInteger(val) || Number(val)<1 || Number(val)>5)) throw new Error('invalid_score');
-    } else if (criteria.some(([k]) => key === `note_${k}`) || key === 'decision_note') {
-      if (val !== null && (typeof val !== 'string' || val.length>4000)) throw new Error('invalid_note');
-    } else if (key === 'photo_notes') {
-      if (!object(val) || JSON.stringify(val).length>16000 || Object.entries(val).some(([url,note])=>url.length>2000 || typeof note!=='string' || note.length>2000)) throw new Error('invalid_photo_notes');
-    } else if (key === 'decision_reaction_id') {
-      if (val !== null && !uuid(val)) throw new Error('invalid_decision');
-    } else throw new Error('unknown_field');
+export type Board = 'notifications';
+export type Stage = 'new' | 'processed';
+export const stages: Stage[] = ['new','processed'];
+export type BoardFilters = Partial<Record<'search'|'link'|'outcome'|'stage'|'kind'|'condition'|'from'|'to'|'partNumber',string>>;
+export const partNumberFilters = ['missing','not_in_catalog'] as const;
+export type PartNumberStatus = 'identified'|'not_in_catalog'|'ambiguous'|'unknown'|'unverified';
+export type PartNumberSource = 'purchase'|'mpn'|'title'|'manual'|'listing_mpn';
+export type CardPartNumber = {part_number:string|null;part_number_status:PartNumberStatus|null;part_number_source:PartNumberSource|null;manual_part_number:string|null;part_number_version:number|null};
+export type CardErpPurchases = {erp_units:number;erp_purchases:number;erp_unknown_quantities:number;erp_drafts:number;listing_erp_purchases:number;listing_erp_units:number;erp_candidates:number};
+export type BoardCard = {board:Board;id:string;event_id:string;delivery_id:string;link:string;card_at:string;sent_at:string;stage:Stage;
+  search_id:number|null;search_name:string|null;kind:string;channel:'main';condition_id:string|null;title:string;price:string|null;currency:string|null;
+  outcome:string|null;manual_outcome:string|null;legacy_outcome:string|null;note:string|null;outcome_at:string|null;state_version:number;
+  hidden:boolean;hidden_until:string|null;favorite:boolean;stock_blocked:boolean;
+  stock_snapshot_id:string|null;stock_observed_at:string|null;stock_quantity:StockQuantity|null} & CardPartNumber & CardErpPurchases;
+export type Cursor = {at:string;id:string};
+export type BoardPage = {columns:Record<Stage,{count:number;cards:BoardCard[]}>;pending:number;searches?:{id:number;name:string|null}[]};
+const uuid = (s:unknown):s is string=>typeof s==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+const object = (o:unknown):o is Record<string,unknown>=>!!o && typeof o==='object' && !Array.isArray(o);
+export function parseBoardQuery(params:URLSearchParams):{board:Board;filters:BoardFilters;cursors:Partial<Record<Stage,Cursor>>} {
+  if(params.has('tab') && params.get('tab')!=='notifications') throw new Error('invalid_board');
+  const filters:BoardFilters={};
+  for(const key of ['search','link','outcome','stage','kind','condition','from','to','partNumber'] as const){
+    const value=params.get(key);if(!value)continue;
+    if(value.length>500)throw new Error('filter_too_long');
+    if(key==='stage' && !stages.includes(value as Stage))throw new Error('invalid_stage');
+    if(key==='outcome' && !['bought','missed','funds','bug','hidden','paused','banned'].includes(value))throw new Error('invalid_outcome');
+    if(key==='partNumber' && !(partNumberFilters as readonly string[]).includes(value))throw new Error('invalid_part_number_filter');
+    if(['search','condition'].includes(key) && !(key==='search' && value==='deleted') && !/^[1-9][0-9]{0,8}$/.test(value))throw new Error('invalid_number');
+    if(['from','to'].includes(key) && (!/^\d{4}-\d{2}-\d{2}T/.test(value) || !Number.isFinite(Date.parse(value))))throw new Error('invalid_date');
+    filters[key]=value;
   }
-  if (value.action === 'reopen' && !String(value.payload.reason ?? '').trim()) throw new Error('reason_required');
-  return value as AssessmentRequest;
-}
-export function parseBoardQuery(params: URLSearchParams): {board: Board; filters: BoardFilters; cursors: Partial<Record<Stage, Cursor>>} {
-  const board = params.get('tab') ?? 'review';
-  if (board !== 'review' && board !== 'notifications') throw new Error('invalid_board');
-  const filters: BoardFilters = {};
-  for (const key of ['search','link','outcome','stage','kind','channel','condition','from','to','partNumber','erpPurchase'] as const) {
-    const value = params.get(key);
-    if (!value) continue;
-    if (value.length>500) throw new Error('filter_too_long');
-    if (key==='partNumber' && !(partNumberFilters as readonly string[]).includes(value)) throw new Error('invalid_part_number_filter');
-    if (key==='erpPurchase' && !(erpPurchaseFilters as readonly string[]).includes(value)) throw new Error('invalid_erp_purchase_filter');
-    if (['search','condition'].includes(key) && !(key==='search' && value==='deleted') && !/^[1-9][0-9]{0,8}$/.test(value)) throw new Error('invalid_number');
-    if (['from','to'].includes(key) && (!/^\d{4}-\d{2}-\d{2}T/.test(value) || !Number.isFinite(Date.parse(value)))) throw new Error('invalid_date');
-    filters[key] = value;
-  }
-  if (filters.from && filters.to && Date.parse(filters.from)>=Date.parse(filters.to)) throw new Error('invalid_range');
-  for (const key of ['needsReaction','withoutReview'] as const) if (params.get(key)==='true') filters[key]=true;
-  const cursors: Partial<Record<Stage, Cursor>> = {};
-  for (const stage of stages) {
-    const at=params.get(`${stage}At`), id=params.get(`${stage}Id`);
-    if (at || id) {
-      if (!at || !uuid(id) || !Number.isFinite(Date.parse(at))) throw new Error('invalid_cursor');
-      cursors[stage]={at,id};
-    }
-  }
-  return {board,filters,cursors};
+  if(filters.from && filters.to && Date.parse(filters.from)>=Date.parse(filters.to))throw new Error('invalid_range');
+  const cursors:Partial<Record<Stage,Cursor>>={};
+  for(const stage of stages){const at=params.get(stage+'At'),id=params.get(stage+'Id');if(at || id){if(!at || !uuid(id) || !Number.isFinite(Date.parse(at)))throw new Error('invalid_cursor');cursors[stage]={at,id}}}
+  return {board:'notifications',filters,cursors};
 }
 /** Same rule as set_listing_part_number: trimmed, upper-cased, 3–64 of A–Z 0–9 / + -. */
 export const PART_NUMBER_PATTERN = /^[A-Z0-9][A-Z0-9/+-]{2,63}$/;
@@ -132,44 +71,16 @@ export function partNumberBadge(card: CardPartNumber): PartNumberBadge {
   if (status === 'ambiguous') return {label: 'Кілька товарів · вкажи партійний', tone: 'missing'};
   return {label: 'Без партійного', tone: 'missing'};
 }
-/** Tile badge of what the ERP bought after this notification, or null when it bought nothing. */
-export function erpPurchaseBadge(card: CardErpPurchases): string | null {
-  if (!card.erp_purchases) return null;
-  if (card.buyer_bought) return `✅ Купив · ERP ✓ ${card.erp_units} шт`;
-  const purchases = card.erp_purchases > 1 ? ` · закупівель ${card.erp_purchases}` : '';
-  return `🧾 ERP після цього: ${card.erp_units} шт${purchases}`;
-}
-/** How a result reached a message other than by a press on it; empty for a direct press. */
-export function resolutionNote(kind: string | null): string {
-  if (kind === 'shared_trigger') return 'через пов’язане повідомлення';
-  if (kind === 'event_context') return 'через подію';
-  if (kind === 'erp_purchase') return 'за закупівлею в ERP';
-  return '';
-}
-export const dateLabel = (iso: string | null) => iso ? new Date(iso).toLocaleString('uk-UA', {timeZone:'Europe/Kyiv'}) : '—';
-export function searchLabel(search:{search_id:number|null;search_name:string|null}):string {
-  if(search.search_id===null)return search.search_name?`${search.search_name} (пошук видалено)`:'Пошук видалено';
-  return search.search_name || `Пошук #${search.search_id}`;
-}
-export function reactionDelay(sent: string, reacted: string | null): string {
-  if (!reacted) return 'немає прямої реакції';
-  const seconds=Math.floor((Date.parse(reacted)-Date.parse(sent))/1000);
-  if (!Number.isFinite(seconds)) return 'час невідомий';
-  if (seconds<0) return 'реакція до доставки';
-  if (seconds<60) return `${seconds} с`;
-  if (seconds<3600) return `${Math.floor(seconds/60)} хв`;
-  return `${Math.floor(seconds/3600)} год ${Math.floor(seconds%3600/60)} хв`;
-}
-export function historyBoardDestination(delivery: {deliveryId:string;review:{id:string;originDeliveryId:string}|null},action?:string): string {
-  const params=delivery.review?.originDeliveryId===delivery.deliveryId && !action
-    ? new URLSearchParams({tab:'review',review:delivery.review.id})
-    : new URLSearchParams({tab:'notifications',delivery:delivery.deliveryId,...(action?{action}:{})});
-  return `/zhezhemon/processing?${params}`;
-}
 
-/** Shareable URL holds both tabs' independent filters. No storage-only state. */
-export function tabFilters(params: URLSearchParams, board: Board): URLSearchParams {
-  const result = new URLSearchParams({tab:board});
-  params.forEach((v,k) => { if (k.startsWith(`${board}.`)) result.set(k.slice(board.length+1),v); });
-  return result;
+export function erpPurchaseBadge(card:CardErpPurchases):string|null {
+  if(!card.erp_purchases)return null;
+  const quantity=card.erp_unknown_quantities===card.erp_purchases?'кількість невідома':`${card.erp_units} шт${card.erp_unknown_quantities?' + невідома кількість':''}`;
+  return `ERP${card.erp_drafts?' · драфт':''} · ${card.erp_purchases} закуп. · ${quantity}`;
+}
+export const dateLabel = (iso:string|null)=>iso?new Date(iso).toLocaleString('uk-UA',{timeZone:'Europe/Kyiv'}):'—';
+export function searchLabel(search:{search_id:number|null;search_name:string|null}):string {
+  return search.search_id===null?(search.search_name?`${search.search_name} (пошук видалено)`:'Пошук видалено'):search.search_name || `Пошук #${search.search_id}`;
+}
+export function tabFilters(params:URLSearchParams,board:Board):URLSearchParams {
+  const result=new URLSearchParams({tab:board});params.forEach((v,k)=>{if(k.startsWith(board+'.'))result.set(k.slice(board.length+1),v)});return result;
 }

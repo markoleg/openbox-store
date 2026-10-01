@@ -29,7 +29,7 @@ assert.equal(page.status, 200);
 // Start this server with REVIEW_COMMANDS_ENABLED=false. These requests prove
 // auth/origin/feature gates without running a command RPC or contacting eBay.
 for (const endpoint of ['/api/review/contexts','/api/review/commands','/api/review/searches',
-  '/api/review/assessments','/api/review/reporting']) {
+  '/api/review/purchases','/api/review/part-numbers']) {
   const post = headers => fetch(base + endpoint, {method:'POST',headers,
     body:JSON.stringify({})});
   assert.equal((await post({origin:base})).status,401);
@@ -37,9 +37,12 @@ for (const endpoint of ['/api/review/contexts','/api/review/commands','/api/revi
   assert.equal((await post({origin:'https://evil.example',cookie:session})).status,403);
   assert.equal((await post({origin:base,cookie:session})).status,503);
 }
-for (const endpoint of ['/api/review/boards','/api/review/reporting?report=statistics','/api/review/realtime']) {
+for (const endpoint of ['/api/review/boards','/api/review/realtime']) {
   assert.equal((await fetch(base + endpoint)).status, 401);
   assert.equal((await fetch(base + endpoint, {headers:{cookie:session}})).status, 503);
+}
+for (const endpoint of ['/api/review/assessments','/api/review/reporting']) {
+  assert.equal((await fetch(base + endpoint, {headers:{cookie:session}})).status,404);
 }
 // Legacy GET links change nothing: they redirect to the authorized confirm page.
 const hide = await fetch(base + '/api/hideItem?link=https://www.ebay.com/itm/1', { redirect: 'manual' });
