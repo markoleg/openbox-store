@@ -21,7 +21,12 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
   const [gallery,setGallery]=useState<{photos:ListingPhoto[];title:string}|null>(null);
   const requestKey=filterKey+'|'+refresh;
   const loaded=useRef(page);loaded.current=page;const active=useRef(requestKey),lastFilter=useRef(filterKey);active.current=requestKey;
-  const scroll=useRef<HTMLDivElement>(null),position=useRef<Record<string,number>>({});
+  const scroll=useRef<HTMLDivElement>(null),position=useRef<Record<string,{page:number;queue:number}>>({});
+  useEffect(()=>{
+    const remember=()=>{position.current[filterKey]={page:window.scrollY,queue:scroll.current?.scrollTop ?? 0}};
+    window.addEventListener('scroll',remember,{passive:true});
+    return ()=>window.removeEventListener('scroll',remember);
+  },[filterKey]);
   useEffect(()=>{
     const abort=new AbortController(),previous=lastFilter.current===filterKey?loaded.current:null;lastFilter.current=filterKey;setLoading(true);setError('');
     (async()=>{const result=await load(new URLSearchParams(filterKey),abort.signal);
@@ -33,7 +38,12 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
     })().catch(e=>{if(!abort.signal.aborted)setError(e.message)}).finally(()=>{if(!abort.signal.aborted)setLoading(false)});
     return ()=>abort.abort();
   },[filterKey,stage,refresh]);
-  useEffect(()=>{if(scroll.current)scroll.current.scrollTop=position.current[filterKey] ?? 0},[filterKey,loading]);
+  useEffect(()=>{
+    if(loading)return;
+    const saved=position.current[filterKey];
+    if(window.matchMedia('(min-width:1024px)').matches){if(scroll.current)scroll.current.scrollTop=saved?.queue ?? 0}
+    else window.scrollTo({top:saved?.page ?? 0,behavior:'instant'});
+  },[filterKey,loading]);
   const change=(params:URLSearchParams)=>router.push(`${path}?${params}`,{scroll:false});
   function open(card:BoardCard,action?:'bug'){const p=new URLSearchParams(url);p.delete('delivery');p.delete('action');p.set('card',card.id);if(action)p.set('action',action);change(p)}
   function close(){const p=new URLSearchParams(url);p.delete('card');p.delete('delivery');p.delete('action');change(p)}
@@ -57,7 +67,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
         <button>Застосувати</button><button type="button" onClick={()=>change(new URLSearchParams())}>Скинути</button>
       </form>
     </div>{error && <p role="alert" className={styles.error}>{error}</p>}</div>
-    <div ref={scroll} className={styles.queue} role="region" aria-label={stage==='new'?'Нові картки':'Оброблені картки'} onScroll={e=>{position.current[filterKey]=e.currentTarget.scrollTop}}>
+    <div ref={scroll} className={styles.queue} role="region" aria-label={stage==='new'?'Нові картки':'Оброблені картки'} onScroll={e=>{position.current[filterKey]={page:window.scrollY,queue:e.currentTarget.scrollTop}}}>
       <div className={stage==='new'?styles.newQueue:styles.journal}>
         {column?.cards.map(card=><NotificationTile key={card.id} card={card} onChanged={onChanged} onOpen={action=>open(card,action)} onPhotos={photos=>setGallery({photos,title:card.title})}/>)}
       </div>

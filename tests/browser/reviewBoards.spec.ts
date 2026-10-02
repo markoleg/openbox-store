@@ -139,6 +139,23 @@ test('newly identified automatic part number does not collapse or erase an unsav
 
 test.describe('mobile queue scrolling',()=>{
   test.use({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  for(const stage of ['new','processed'])test(`${stage} keeps the complete card list after keyboard viewport shrink and restore`,async({page})=>{
+    await fixtures(page);await page.goto(`/zhezhemon/${stage==='new'?'processing':'processed'}`);
+    const queue=page.getByRole('region',{name:stage==='new'?'Нові картки':'Оброблені картки'}),input=page.locator('article').nth(1).getByRole('textbox',{name:'Партійний номер'});
+    await input.fill('KEYBOARD-DRAFT');const listHeight=await queue.evaluate(el=>el.clientHeight);
+    await page.setViewportSize({width:390,height:480});
+    await expect(input).toHaveValue('KEYBOARD-DRAFT');expect(await queue.evaluate(el=>el.clientHeight)).toBe(listHeight);
+    await input.evaluate(el=>el.blur());await page.setViewportSize({width:390,height:844});
+    expect(await queue.evaluate(el=>el.clientHeight)).toBe(listHeight);await expect(input).toHaveValue('KEYBOARD-DRAFT');
+    // A card near the bottom remains reachable; no clipped half-height list.
+    await page.locator('article').last().scrollIntoViewIfNeeded();await expect(page.locator('article').last()).toBeInViewport();
+    const styles=await queue.evaluate(el=>({queue:getComputedStyle(el).overflowY,board:getComputedStyle(el.closest('main')!).overflowY}));
+    expect(styles).toEqual({queue:'visible',board:'visible'});
+    await page.getByRole('button',{name:'Фільтри',exact:true}).click();const filter=page.getByLabel('Лінк або заголовок');
+    await filter.fill('Watch');await page.setViewportSize({width:390,height:480});await filter.evaluate(el=>el.blur());await page.setViewportSize({width:390,height:844});
+    await expect(filter).toHaveValue('Watch');expect(await queue.evaluate(el=>el.clientHeight)).toBe(listHeight);
+    await page.screenshot({path:`node_modules/.cache/keyboard-restored-${stage}-mobile.png`});
+  });
   for(const stage of ['new','processed'])test(`${stage} queue responds to touch scrolling and retains its position after refresh`,async({page})=>{
     await fixtures(page);
     await page.route('**/api/review/boards?**',async route=>{
@@ -147,16 +164,19 @@ test.describe('mobile queue scrolling',()=>{
     });
     await page.goto(`/zhezhemon/${stage==='new'?'processing':'processed'}`);await expect(page.locator('article')).toHaveCount(20);
     const queue=page.getByRole('region',{name:stage==='new'?'Нові картки':'Оброблені картки'});
-    const dimensions=await queue.evaluate(el=>({height:el.clientHeight,content:el.scrollHeight}));expect(dimensions.content).toBeGreaterThan(dimensions.height);
-    const box=(await queue.boundingBox())!;expect(box.y+box.height).toBeLessThanOrEqual(844);
+    expect(await page.evaluate(()=>document.documentElement.scrollHeight)).toBeGreaterThan(844);
+    expect(await queue.evaluate(el=>getComputedStyle(el).overflowY)).toBe('visible');
+    const box=(await queue.boundingBox())!;
     const cdp=await page.context().newCDPSession(page);
-    const x=Math.round(box.x+box.width/2),y=Math.round(box.y+box.height-80);
+    const x=Math.round(box.x+box.width/2),y=744;
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
     for(let distance=35;distance<=350;distance+=35)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-distance}]});
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    await expect.poll(()=>queue.evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
-    const before=await queue.evaluate(el=>el.scrollTop);await page.getByRole('button',{name:'Оновити',exact:true}).click();await expect(page.getByRole('button',{name:'Оновити',exact:true})).toBeEnabled();
-    await expect.poll(()=>queue.evaluate(el=>el.scrollTop)).toBe(before);await cdp.detach();
+    await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBeGreaterThan(100);
+    // Refresh while scrolled down without Playwright scrolling the toolbar into view.
+    await page.getByRole('button',{name:'Оновити',exact:true}).evaluate((button:HTMLButtonElement)=>button.click());
+    const before=await page.evaluate(()=>window.scrollY);await expect(page.getByRole('button',{name:'Оновити',exact:true})).toBeEnabled();
+    await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBe(before);await cdp.detach();
     await page.screenshot({path:`node_modules/.cache/compact-${stage}-mobile-scroll.png`});
   });
 });

@@ -9,7 +9,9 @@
 .catalog > :global(main) { min-width:0; }
 .fullWidth { min-width:0; width:100%; }
 .workspace { padding:1rem; min-width:0; }
-.boardWorkspace { height:calc(100dvh - 65px - 44px); min-height:0; display:flex; flex-direction:column; gap:.35rem; overflow:hidden; }
+/* Mobile follows document flow, like the catalog. A height-bound nested scroller
+   can leave a stale clipped viewport after iOS dismisses the software keyboard. */
+.boardWorkspace { min-height:0; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
 .toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; padding-bottom:.5rem; flex-shrink:0; }
 .toolbarActions { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; margin-left:auto; }
@@ -17,7 +19,7 @@
 .liveStatus { font-size:.72rem; color:#aab4be; white-space:nowrap; }
 .liveStatus[data-status=live] { color:#75cfaa; }
 .liveStatus[data-status=fallback] { color:#d9ae64; }
-.controls { min-width:0; flex:0 1 auto; max-height:35%; overflow:auto; overscroll-behavior:contain; }
+.controls { min-width:0; }
 .filterPanel[hidden] { display:none; }
 .heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:.5rem; }
 .heading h1 { font-size:1.5rem; }
@@ -106,7 +108,8 @@
     .mobileNavigation { display:none; }
     .catalog { display:grid; grid-template-columns:minmax(220px,1fr) minmax(0,3fr); height:calc(100dvh - 65px); min-height:0; }
     .catalog > :global(main) { overflow:auto; min-height:0; overscroll-behavior:contain; }
-    .boardWorkspace { height:calc(100dvh - 65px); }
+    .boardWorkspace { height:calc(100dvh - 65px); display:flex; flex-direction:column; gap:.35rem; overflow:hidden; }
+    .controls { flex:0 1 auto; max-height:35%; overflow:auto; overscroll-behavior:contain; }
 }
 @media(max-width:640px) {
     .workspace {padding:.5rem}
@@ -179,7 +182,8 @@
     .workspace .quickActions button,.workspace .drawerButton,.workspace .tilePartNumber button { transition:none; }
 }
 
-.queue {flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:.5rem 0;}
+.queue {min-height:0;padding:.5rem 0;}
+@media(min-width:1024px){.queue {flex:1;overflow-y:auto;overscroll-behavior:contain;}}
 .mobileNavigation {gap:.15rem;}
 .mobileNavigation a {min-width:0;white-space:normal;padding:.35rem .1rem;line-height:1.1;}
 .newQueue,.journal {display:grid;gap:.75rem;align-content:start;grid-template-columns:minmax(0,1fr);}
