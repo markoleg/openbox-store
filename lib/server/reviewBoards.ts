@@ -20,7 +20,14 @@ export type ListingErpPurchase = {
 };
 export type PartNumberResult={status:'applied'|'noop'|'conflict'|'rejected';reason?:string;partNumber?:ListingPartNumber;current?:ListingPartNumber};
 async function checked<T>(query:PromiseLike<{data:T;error:unknown}>):Promise<T>{const {data,error}=await query;if(error)throw new Error('review_storage_failed');return data}
+/** The board change signal: every delivery, outcome, live listing, part number and ERP change bumps it. */
+export async function readBoardVersion():Promise<number>{
+  const row=await checked(reviewDatabase().from('review_realtime_signal').select('version').eq('id',1).single()) as {version:number};
+  return Number(row.version);
+}
 export async function readBoard(board:Board,filters:BoardFilters,cursors:Partial<Record<Stage,Cursor>>):Promise<BoardPage>{
+  // Read before the page, so a change landing in between shows up as a newer version.
+  const version=await readBoardVersion();
   const page=await checked(reviewDatabase().rpc('review_board',{p_board:board,p_filters:filters,p_cursors:cursors})) as Omit<BoardPage,'columns'> & {columns:Record<Stage,{count:number;cards:StoredCard[]}>};
   const snapshots=[...new Set(stages.flatMap(stage=>page.columns[stage].cards.map(card=>card.stock_snapshot_id)).filter((id):id is string=>!!id))];
   const bySnapshot=new Map<string,ListingPhoto[]>();
@@ -34,7 +41,7 @@ export async function readBoard(board:Board,filters:BoardFilters,cursors:Partial
     }
     if(!photos || photos.length<1000)break;
   }
-  return {...page,columns:Object.fromEntries(stages.map(stage=>[stage,{...page.columns[stage],cards:page.columns[stage].cards.map(card=>({
+  return {...page,version,columns:Object.fromEntries(stages.map(stage=>[stage,{...page.columns[stage],cards:page.columns[stage].cards.map(card=>({
     ...projectStock(card),photos:availablePhotos(bySnapshot.get(card.stock_snapshot_id ?? '') ?? []),
   }))}])) as BoardPage['columns']};
 }

@@ -6,9 +6,14 @@ const DEBOUNCE_MS=250,POLL_MS=30000,FALLBACK_MIN_MS=60000,FALLBACK_MAX_MS=300000
 
 /** Owner-authenticated, payload-free invalidation. Board data still comes only
  * through the protected API. The new queue uses fixed polling; the journal
- * retains the stream and its fallback polling. */
-export function useReviewRealtime(onInvalidate:()=>void,busy:boolean,mode:'realtime'|'polling'='realtime') {
+ * retains the stream and its fallback polling.
+ *
+ * In polling mode `changed` is asked first, and only a yes (or a failed
+ * check) reloads: each board reload is ~100 KB of Supabase egress, the check
+ * a few bytes, and most polls find nothing new. */
+export function useReviewRealtime(onInvalidate:()=>void,busy:boolean,mode:'realtime'|'polling'='realtime',changed?:()=>Promise<boolean>) {
     const callback=useRef(onInvalidate);callback.current=onInvalidate
+    const changedRef=useRef(changed);changedRef.current=changed
     const busyRef=useRef(busy);busyRef.current=busy
     const pending=useRef(false),debounce=useRef<ReturnType<typeof setTimeout>|null>(null)
     const [status,setStatus]=useState<ReviewRealtimeStatus>(mode==='polling'?'polling':'connecting')
@@ -38,10 +43,16 @@ export function useReviewRealtime(onInvalidate:()=>void,busy:boolean,mode:'realt
             setStatus('fallback')
             if(!fallback)fallback=setTimeout(fallbackTick,fallbackDelay)
         }
-        const visible=()=>{if(document.visibilityState==='visible')queue()}
+        const check=async()=>{
+            if(document.visibilityState!=='visible')return
+            let stale=true
+            try{if(changedRef.current)stale=await changedRef.current()}catch{/* unknown: reload */}
+            if(stale && !disposed)queue()
+        }
+        const visible=()=>{if(document.visibilityState!=='visible')return;if(mode==='polling')void check();else queue()}
         if(mode==='polling') {
             setStatus('polling')
-            poll=setInterval(queue,POLL_MS)
+            poll=setInterval(()=>void check(),POLL_MS)
         } else {
             setStatus('connecting')
             source=new EventSource('/api/review/realtime')

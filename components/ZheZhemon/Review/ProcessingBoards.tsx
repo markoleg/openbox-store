@@ -9,6 +9,13 @@ import NotificationTile from './NotificationTile'
 import PhotoLightbox from './PhotoLightbox'
 import {useReviewRealtime} from './useReviewRealtime'
 import styles from './Boards.module.css'
+/** True unless the server's change signal still matches the page on screen. */
+async function boardChanged(version:number|undefined):Promise<boolean>{
+  const response=await fetch('/api/review/boards/version',{cache:'no-store'});
+  if(!response.ok)return true;
+  const current=(await response.json()).version;
+  return typeof current!=='number' || current!==version;
+}
 async function load(query:URLSearchParams,signal?:AbortSignal):Promise<BoardPage>{
   const response=await fetch(`/api/review/boards?${query}`,{signal,cache:'no-store'});
   if(response.status===401){location.href=`/login?next=${encodeURIComponent(location.pathname+location.search)}`;throw new Error('Потрібен вхід')}
@@ -47,7 +54,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
   const change=(params:URLSearchParams)=>router.push(`${path}?${params}`,{scroll:false});
   function open(card:BoardCard,action?:'bug'){const p=new URLSearchParams(url);p.delete('delivery');p.delete('action');p.set('card',card.id);if(action)p.set('action',action);change(p)}
   function close(){const p=new URLSearchParams(url);p.delete('card');p.delete('delivery');p.delete('action');change(p)}
-  const onChanged=useCallback(()=>setRefresh(v=>v+1),[]),external=useCallback(()=>{setExternalVersion(v=>v+1);setRefresh(v=>v+1)},[]),live=useReviewRealtime(external,loading || more,stage==='new'?'polling':'realtime');
+  const onChanged=useCallback(()=>setRefresh(v=>v+1),[]),external=useCallback(()=>{setExternalVersion(v=>v+1);setRefresh(v=>v+1)},[]),changed=useCallback(()=>boardChanged(loaded.current?.version),[]),live=useReviewRealtime(external,loading || more,stage==='new'?'polling':'realtime',changed);
   async function next(){const last=page?.columns[stage].cards.at(-1);if(!last || more)return;setMore(true);const generation=requestKey;
     try{const q=new URLSearchParams(filterKey);q.set(stage+'At',last.card_at);q.set(stage+'Id',last.id);const extra=await load(q);if(active.current!==generation)return;
       setPage(current=>{if(!current)return current;const ids=new Set(current.columns[stage].cards.map(c=>c.id));return {...current,columns:{...current.columns,[stage]:{count:extra.columns[stage].count,cards:[...current.columns[stage].cards,...extra.columns[stage].cards.filter(c=>!ids.has(c.id))]}}}});

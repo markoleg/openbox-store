@@ -17,7 +17,8 @@ export type BoardCard = {board:Board;id:string;event_id:string;delivery_id:strin
   hidden:boolean;hidden_until:string|null;favorite:boolean;stock_blocked:boolean;
   stock_snapshot_id:string|null;stock_observed_at:string|null;stock_quantity:StockQuantity|null} & CardPartNumber & CardErpPurchases;
 export type Cursor = {at:string;id:string};
-export type BoardPage = {columns:Record<Stage,{count:number;cards:BoardCard[]}>;pending:number;searches?:{id:number;name:string|null}[]};
+/** version: the change signal read before the page; a later, higher one means the page may be stale. */
+export type BoardPage = {columns:Record<Stage,{count:number;cards:BoardCard[]}>;pending:number;searches?:{id:number;name:string|null}[];version?:number};
 const uuid = (s:unknown):s is string=>typeof s==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 const object = (o:unknown):o is Record<string,unknown>=>!!o && typeof o==='object' && !Array.isArray(o);
 export function parseBoardQuery(params:URLSearchParams):{board:Board;filters:BoardFilters;cursors:Partial<Record<Stage,Cursor>>} {

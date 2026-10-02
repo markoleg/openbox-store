@@ -38,6 +38,8 @@ async function fixtures(page:any,photos:any[]=[],cardFields:Record<string,unknow
     ;(window as any).EventSource=TestEventSource;(window as any).__reviewRealtime=TestEventSource.instances
   });
   await page.route('http://127.0.0.1:9/**',(route:any)=>route.fulfill({json:[]}));
+  // Every poll sees a new change signal unless a test pins it.
+  let signal=0;await page.route('**/api/review/boards/version',(route:any)=>route.fulfill({json:{version:++signal}}));
   await page.route('**/api/review/boards?**',async(route:any)=>{
     const url=new URL(route.request().url());
     if(url.searchParams.get('id')){await route.fulfill({json:{...detail,...captured(photos),photos}});return;}
@@ -107,6 +109,16 @@ test('inline part number normalizes, saves and clears using the current version 
   await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();await expect(input).toHaveValue('MXP93LL/A');
   await tile.getByRole('button',{name:'Очистити',exact:true}).click();await expect.poll(()=>writes.length).toBe(2);
   expect(writes[1]).toMatchObject({link,partNumber:null,version:1});await expect(input).toHaveValue('');
+});
+
+test('polling reloads the board only when the change signal moves',async({page})=>{
+  await page.clock.install();await fixtures(page);let version=7,loads=0,checks=0;
+  await page.route('**/api/review/boards/version',route=>{checks++;return route.fulfill({json:{version}})});
+  await page.route('**/api/review/boards?**',route=>{loads++;return route.fulfill({json:{version,pending:1,columns:{new:{count:1,cards:[{...card,title:`Signal ${version}`}]},processed:{count:0,cards:[]}}}})});
+  await page.goto('/zhezhemon/processing');await expect(page.getByText('Signal 7')).toBeVisible();
+  const initial=loads;await page.clock.runFor(30300);await expect.poll(()=>checks).toBeGreaterThan(0);
+  await page.clock.runFor(30300);expect(loads).toBe(initial);
+  version=8;await page.clock.runFor(30300);await expect(page.getByText('Signal 8')).toBeVisible();expect(loads).toBe(initial+1);
 });
 
 test('polling preserves an inline draft and requires reconciliation after a concurrent part-number change',async({page})=>{
