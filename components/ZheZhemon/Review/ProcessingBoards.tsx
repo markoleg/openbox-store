@@ -52,8 +52,10 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
     else window.scrollTo({top:saved?.page ?? 0,behavior:'instant'});
   },[filterKey,loading]);
   const change=(params:URLSearchParams)=>router.push(`${path}?${params}`,{scroll:false});
-  function open(card:BoardCard,action?:'bug'){const p=new URLSearchParams(url);p.delete('delivery');p.delete('action');p.set('card',card.id);if(action)p.set('action',action);change(p)}
-  function close(){const p=new URLSearchParams(url);p.delete('card');p.delete('delivery');p.delete('action');change(p)}
+  // Drawer state is local to this page; Next observes native history without a server navigation.
+  const changeCard=(params:URLSearchParams)=>window.history.pushState(null,'',`${path}?${params}`);
+  function open(card:BoardCard,action?:'bug'){const p=new URLSearchParams(url);p.delete('delivery');p.delete('action');p.set('card',card.id);if(action)p.set('action',action);changeCard(p)}
+  function close(){const p=new URLSearchParams(url);p.delete('card');p.delete('delivery');p.delete('action');changeCard(p)}
   const onChanged=useCallback(()=>setRefresh(v=>v+1),[]),external=useCallback(()=>{setExternalVersion(v=>v+1);setRefresh(v=>v+1)},[]),changed=useCallback(()=>boardChanged(loaded.current?.version),[]),live=useReviewRealtime(external,loading || more,stage==='new'?'polling':'realtime',changed);
   async function next(){const last=page?.columns[stage].cards.at(-1);if(!last || more)return;setMore(true);const generation=requestKey;
     try{const q=new URLSearchParams(filterKey);q.set(stage+'At',last.card_at);q.set(stage+'Id',last.id);const extra=await load(q);if(active.current!==generation)return;
@@ -81,7 +83,7 @@ export default function ProcessingBoards({stage='new'}:{stage?:Stage}){
       {column?.count===0 && !loading && <p className={styles.empty}>Карток немає</p>}
       {column && column.cards.length<column.count && <button disabled={more || loading} onClick={next}>{more?'Завантажую…':'Ще 50'}</button>}
     </div>
-    {id && <CardPanel key={id} board="notifications" id={id} externalVersion={externalVersion} onClose={close} onChanged={onChanged}/>}
+    {id && <CardPanel key={id} board="notifications" id={id} initialCard={column?.cards.find(card=>card.id===id || card.delivery_id===id)} externalVersion={externalVersion} onClose={close} onChanged={onChanged}/>}
     {gallery && <PhotoLightbox photos={gallery.photos} title={gallery.title} onClose={()=>setGallery(null)}/>}
   </main>
 }
