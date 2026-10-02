@@ -52,7 +52,7 @@ async function fixtures(page:any,photos:any[]=[],cardFields:Record<string,unknow
 }
 
 
-test('one new queue has two desktop columns and no scoring or manual bought',async({page})=>{
+test('one new queue has two desktop columns and no scoring or bought shortcut on the tile',async({page})=>{
   await fixtures(page);await page.goto('/zhezhemon/processing');
   await expect(page.getByRole('heading',{name:/Нові сповіщення/})).toBeVisible();
   await expect(page.getByRole('tab')).toHaveCount(0);
@@ -105,6 +105,48 @@ test('mixed cards keep their editors collapsed; missing part number opens and cl
   await badge.click();await expect(input).toBeHidden();await badge.click();await expect(input).toHaveValue('DRAFT123');
   await tile.getByRole('button',{name:'Закрити редагування партійного',exact:true}).click();await expect(input).toBeHidden();
   await badge.click();await expect(input).toHaveValue('');
+});
+
+test('drawer records a manual total, edits it and cancels with a reason',async({page})=>{
+  await fixtures(page);let manual:number|null=null;const writes:any[]=[];
+  await page.route('**/api/review/boards?**',async route=>{
+    if(!new URL(route.request().url()).searchParams.has('id'))return route.fallback();
+    await route.fulfill({json:{...detail,card:{...card,stage:manual?'processed':'new',outcome:manual?'bought':null,
+      manual_purchase_quantity:manual,manual_purchase_pending_units:manual ?? 0,manual_purchase_at:manual?at:null},
+      view:{...view,outcome:manual?'bought':null,outcomeSource:manual?'manual':null}}});
+  });
+  await page.route('**/api/review/commands',async route=>{const body=route.request().postDataJSON();writes.push(body);
+    manual=body.action==='set_manual_purchase'?body.payload.quantity:null;await route.fulfill({json:{status:'applied'}});
+  });
+  await page.goto('/zhezhemon/processing');await page.locator('article').first().getByRole('button',{name:/Відкрити картку:/}).click();
+  const panel=page.getByRole('dialog');await panel.getByRole('button',{name:'✅ Купив вручну',exact:true}).click();
+  const quantity=panel.getByLabel('Куплено через цю картку, шт.');await quantity.fill('0');
+  await expect(panel.getByRole('button',{name:'Зберегти «Купив»'})).toBeDisabled();await quantity.fill('2');
+  await panel.getByRole('button',{name:'Зберегти «Купив»'}).click();await expect(panel.getByText('Купив · вручну · 2 шт.',{exact:true})).toBeVisible();
+  await expect(panel.getByText('Є підтвердження ERP. Прив’язку закупки можна виправити нижче.')).toHaveCount(0);
+  expect(writes[0]).toMatchObject({action:'set_manual_purchase',payload:{quantity:2}});
+  await panel.getByRole('button',{name:'Змінити кількість «Купив»'}).click();await quantity.fill('3');
+  await panel.getByRole('button',{name:'Зберегти «Купив»'}).click();await expect(panel.getByText('Купив · вручну · 3 шт.',{exact:true})).toBeVisible();
+  await page.screenshot({path:'node_modules/.cache/manual-purchase-drawer.png'});
+  await panel.getByRole('button',{name:'Скасувати ручну позначку'}).click();
+  await expect(panel.getByRole('button',{name:'Скасувати «Купив»',exact:true})).toBeDisabled();
+  await panel.getByLabel('Причина скасування «Купив»').fill('Помилкова картка');
+  await panel.getByRole('button',{name:'Скасувати «Купив»',exact:true}).click();await expect(panel.getByText('Результату немає',{exact:true})).toBeVisible();
+  expect(writes[2]).toMatchObject({action:'clear_manual_purchase',payload:{reason:'Помилкова картка'}});
+});
+
+test('mobile manual quantity draft survives polling; saving it preserves an unsaved bug note',async({page})=>{
+  await page.clock.install();await fixtures(page);await page.setViewportSize({width:390,height:844});
+  await page.goto('/zhezhemon/processing');await page.locator('article').first().getByRole('button',{name:/Відкрити картку:/}).click();
+  const panel=page.getByRole('dialog');await panel.getByRole('button',{name:'✅ Купив вручну',exact:true}).click();
+  await panel.getByLabel('Куплено через цю картку, шт.').fill('2');await page.clock.runFor(30300);
+  await expect(panel.getByLabel('Куплено через цю картку, шт.')).toHaveValue('2');
+  await expect(panel.getByText('Дані змінились. Онови картку перед наступною дією.',{exact:true})).toBeVisible();
+  page.once('dialog',dialog=>dialog.accept());await panel.getByRole('button',{name:'Оновити',exact:true}).click();
+  await panel.getByRole('button',{name:'🐞 Баг',exact:true}).click();await panel.getByLabel('Що пішло не так').fill('Зберегти цей текст');
+  await panel.getByRole('button',{name:'✅ Купив вручну',exact:true}).click();await panel.getByLabel('Куплено через цю картку, шт.').fill('3');
+  await panel.getByRole('button',{name:'Зберегти «Купив»'}).click();await expect(panel.getByLabel('Що пішло не так')).toHaveValue('Зберегти цей текст');
+  await expect(panel.getByText('Дані змінились. Онови картку перед наступною дією.',{exact:true})).toBeVisible();
 });
 
 test('inline part number normalizes, saves and clears using the current version without opening a drawer',async({page})=>{

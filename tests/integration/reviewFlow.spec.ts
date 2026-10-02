@@ -24,6 +24,15 @@ test('owner API and real PostgreSQL: queue, journal, corrections and ERP fact as
   await tile.getByRole('button',{name:'Очистити',exact:true}).click();await expect(tile.getByRole('textbox',{name:'Партійний номер'})).toBeHidden();
   await page.getByRole('button',{name:/Відкрити картку: An item/}).click();const panel=page.getByRole('dialog');
   await expect(panel.getByText('📦 В наявності · ≈2 шт.',{exact:true})).toBeVisible();
+  await panel.getByRole('button',{name:'✅ Купив вручну',exact:true}).click();
+  await panel.getByLabel('Куплено через цю картку, шт.').fill('2');await panel.getByRole('button',{name:'Зберегти «Купив»'}).click();
+  await expect(panel.getByText('Купив · вручну · 2 шт.',{exact:true})).toBeVisible();
+  const manuallyBought=(await (await request.get('/api/review/boards?stage=processed')).json()).columns.processed.cards[0];
+  expect(manuallyBought).toMatchObject({outcome:'bought',manual_purchase_quantity:2,manual_purchase_pending_units:2,erp_purchases:0});
+  expect((await (await request.get('/api/review/boards?stage=new')).json()).columns.new.count).toBe(0);
+  await panel.getByRole('button',{name:'Скасувати ручну позначку'}).click();
+  await panel.getByLabel('Причина скасування «Купив»').fill('Integration correction');await panel.getByRole('button',{name:'Скасувати «Купив»',exact:true}).click();
+  await expect(panel.getByText('Результату немає',{exact:true})).toBeVisible();
   await panel.getByRole('button',{name:'🙈 Приховати до подешевшання',exact:true}).click();await expect(panel.getByRole('button',{name:'Показати знову'})).toBeVisible();
   await panel.getByRole('button',{name:'Закрити ×'}).click();await expect(page.locator('article')).toHaveCount(0);
   await page.getByRole('navigation',{name:'Розділи ZheZhemon'}).getByRole('link',{name:'Оброблені'}).click();await page.getByRole('button',{name:/Відкрити картку: An item/}).click();
@@ -35,6 +44,12 @@ test('owner API and real PostgreSQL: queue, journal, corrections and ERP fact as
   const synced=await request.post('http://127.0.0.1:54835/rest/v1/rpc/sync_notification_order_facts',{headers:service,data:{p_from:from,p_orders:[fact]}});expect(synced.status(),await synced.text()).toBe(200);
   await page.reload();await expect(panel).toBeVisible();
   await expect(panel.getByText('Кількість закупленого не визначає залишок оголошення.',{exact:false})).toBeVisible();
+  await panel.getByRole('button',{name:'✅ Купив вручну',exact:true}).click();
+  await panel.getByLabel('Куплено через цю картку, шт.').fill('2');await panel.getByRole('button',{name:'Зберегти «Купив»'}).click();
+  await expect(panel.getByText('Купив · вручну 2 шт. · звірити кількість ERP',{exact:true})).toBeVisible();
+  await panel.getByRole('button',{name:'Скасувати ручну позначку'}).click();
+  await panel.getByLabel('Причина скасування «Купив»').fill('ERP exists');await panel.getByRole('button',{name:'Скасувати «Купив»',exact:true}).click();
+  await expect(panel.getByText('Є підтвердження ERP. Прив’язку закупки можна виправити нижче.',{exact:true})).toBeVisible();
   await panel.getByRole('button',{name:'Відв’язати',exact:true}).click();await expect(panel.getByRole('button',{name:'Прив’язати до цієї картки'})).toBeEnabled();
   await panel.getByRole('button',{name:'Прив’язати до цієї картки'}).click();await expect(panel.getByText('Ця картка · вручну',{exact:true})).toBeVisible();
   const issue=()=>request.post('/api/review/contexts',{headers:{Origin:origin},data:{kind:'delivery',target:card.delivery_id}});

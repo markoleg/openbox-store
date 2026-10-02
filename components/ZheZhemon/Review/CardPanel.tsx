@@ -9,6 +9,7 @@ import {tokenFromDispatchId,type ReviewAction,type ReviewPayload,type ReviewCont
 import {outcomeLabels} from '@/lib/reviewKeyboard'
 import OutcomeForm from './OutcomeForm'
 import ErpPurchases from './ErpPurchases'
+import ManualPurchaseForm from './ManualPurchaseForm'
 import PartNumberForm from './PartNumberForm'
 import CapturedData from './CapturedData'
 import styles from './Boards.module.css'
@@ -16,6 +17,9 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
   const [data,setData]=useState<CardDetail|null>(null),[context,setContext]=useState<ReviewContext|null>(null),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [refresh,setRefresh]=useState(0),[pending,setPending]=useState(false),[stale,setStale]=useState(false);
   const dirty=useRef(false),dialog=useRef<HTMLDivElement>(null),closeButton=useRef<HTMLButtonElement>(null),closeRef=useRef(onClose),seenExternal=useRef(externalVersion);
+  const dirtyForms=useRef({purchase:false,outcome:false});
+  const markDirty=(form:'purchase'|'outcome',value:boolean)=>{dirtyForms.current[form]=value;dirty.current=dirtyForms.current.purchase || dirtyForms.current.outcome};
+  const resetDirty=()=>{dirtyForms.current={purchase:false,outcome:false};dirty.current=false};
   closeRef.current=onClose;const params=useSearchParams();
   const close=()=>{if(!dirty.current || confirm('Є незбережений текст. Закрити картку?'))closeRef.current()};
   const changed=useCallback(()=>{if(dirty.current)setStale(true);else{setRefresh(v=>v+1);setStale(false)}onChanged()},[onChanged]);
@@ -48,7 +52,9 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
         result=await applyCommand(fresh.id,'hide',{confirmedPrice:result.currentPrice});
       }
       setMessage(explainResult(action,result).text);
-      if(['applied','noop'].includes(result.status)){dirty.current=false;changed()}else if(result.status==='conflict'){setStale(true);setContext(null)}return result;
+      if(['applied','noop'].includes(result.status)){
+        markDirty(action==='set_manual_purchase' || action==='clear_manual_purchase'?'purchase':'outcome',false);changed();
+      }else if(result.status==='conflict'){setStale(true);setContext(null)}return result;
     }catch(e){setMessage(explainError(e));return null}finally{setPending(false)}
   }
   async function assign(row:ListingErpPurchase,value:boolean){
@@ -60,7 +66,7 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
       else{setMessage(result.status==='conflict'?'Дані вже змінились. Онови картку.':'Не вдалося змінити прив’язку.');setStale(true);setContext(null)}
     }catch(e){setMessage(explainError(e))}finally{setPending(false)}
   }
-  function reload(){if(!dirty.current || confirm('Оновити й відкинути незбережений текст?')){dirty.current=false;setStale(false);setRefresh(v=>v+1)}}
+  function reload(){if(!dirty.current || confirm('Оновити й відкинути незбережений текст?')){resetDirty();setStale(false);setRefresh(v=>v+1)}}
   const view=data?.view,locked=pending || !context || stale;
   return <div className={styles.overlay} onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div ref={dialog} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="card-title">
     <div className={styles.cardHeader}><div className={styles.cardHeading}><p id="card-title">{data?.card.title ?? 'Завантаження…'}</p></div><div className={styles.cardActions}><button onClick={reload}>Оновити</button><button ref={closeButton} onClick={close}>Закрити ×</button></div></div>
@@ -74,7 +80,8 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
           {data.card.legacy_outcome && <p className={styles.muted}>Старе рішення: {data.card.legacy_outcome==='manual_bought'?'«Купив» без підтвердження ERP':'«Приховав би»'}. Його можна виправити.</p>}
           {data.card.note && <p>{data.card.note}</p>}
           {data.card.outcome==='bought' && data.card.manual_outcome && <p className={styles.muted}>Ручне рішення збережено на випадок скасування закупки: {outcomeLabels[data.card.manual_outcome]}.</p>}
-          <OutcomeForm key={data.card.event_id+'-'+refresh} current={{outcome:data.card.outcome,hidden:!!view?.live.hidden,bannedInSearch:view?.live.bannedInSearch ?? null}} execute={run} locked={locked} initialAction={params.get('action')} onDirty={value=>{dirty.current=value}}/>
+          <ManualPurchaseForm key={'purchase-'+data.card.event_id+'-'+refresh} card={data.card} execute={run} locked={locked} onDirty={value=>markDirty('purchase',value)}/>
+          <OutcomeForm key={data.card.event_id+'-'+refresh} current={{outcome:data.card.outcome,hidden:!!view?.live.hidden,bannedInSearch:view?.live.bannedInSearch ?? null,erpConfirmed:data.card.erp_purchases>0}} execute={run} locked={locked} initialAction={params.get('action')} onDirty={value=>markDirty('outcome',value)}/>
           <button disabled={locked} onClick={()=>run('set_like',{value:!view?.live.liked})}>{view?.live.liked?'Зняти лайк':'Лайк'}</button>
           {view && <p><Link href={`/sniper?${new URLSearchParams({link:data.card.link,ctx:tokenFromDispatchId(view.dispatchId)})}`}>Налаштувати Sniper</Link></p>}
         </section>

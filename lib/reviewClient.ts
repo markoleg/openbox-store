@@ -100,6 +100,7 @@ const actionDone: Record<string, string> = {
   ban: 'Забанено в пошуку', unban: 'Бан знято', set_like: 'Лайк збережено',
   set_outcome: 'Результат записано', clear_outcome: 'Результат скинуто', set_watch: 'Sniper збережено',
   remove_watch: 'Прибрано зі Sniper',
+  set_manual_purchase: '«Купив» записано вручну', clear_manual_purchase: 'Ручну позначку «Купив» скасовано',
 };
 
 /** One short Ukrainian line for a toast; errors are never shown as success. */

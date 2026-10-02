@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import {dispatchIdFromToken, normalizeListingLink, parseReviewCommand, parseReviewContext, parseSearchSave, tokenFromDispatchId} from '../lib/reviewCommands.ts';
 const uuid='11111111-1111-4111-8111-111111111111';
 const command=(action,payload={})=>({commandId:uuid,contextId:uuid,action,payload});
+test('manual bought uses a distinct quantity command and a reasoned cancellation',()=>{
+  assert.equal(parseReviewCommand(command('set_manual_purchase',{quantity:2})).payload.quantity,2);
+  assert.equal(parseReviewCommand(command('clear_manual_purchase',{reason:'Wrong card'})).action,'clear_manual_purchase');
+  for(const quantity of [null,0,-1,1.5,'2',true,1000001])assert.throws(()=>parseReviewCommand(command('set_manual_purchase',{quantity})));
+  for(const payload of [{},{reason:' '},{reason:'x'.repeat(1001)},{reason:'Fix',quantity:2}])
+    assert.throws(()=>parseReviewCommand(command('clear_manual_purchase',payload)));
+  assert.throws(()=>parseReviewCommand({...command('set_manual_purchase',{quantity:2}),source:'dashboard_toast'}));
+  assert.throws(()=>parseReviewCommand(command('set_manual_purchase',{quantity:2,orderedAt:'today'})));
+});
 test('commands are explicit and retain a stable request id',()=>{
   assert.equal(parseReviewCommand(command('pause',{days:3})).commandId,uuid);
   assert.equal(parseReviewCommand(command('set_like',{value:false})).payload.value,false);

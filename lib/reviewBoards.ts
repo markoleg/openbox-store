@@ -10,7 +10,8 @@ export const partNumberFilters = ['missing','not_in_catalog'] as const;
 export type PartNumberStatus = 'identified'|'not_in_catalog'|'ambiguous'|'unknown'|'unverified';
 export type PartNumberSource = 'purchase'|'mpn'|'title'|'manual'|'listing_mpn';
 export type CardPartNumber = {part_number:string|null;part_number_status:PartNumberStatus|null;part_number_source:PartNumberSource|null;manual_part_number:string|null;part_number_version:number|null};
-export type CardErpPurchases = {erp_units:number;erp_purchases:number;erp_unknown_quantities:number;erp_drafts:number;listing_erp_purchases:number;listing_erp_units:number;erp_candidates:number};
+export type CardErpPurchases = {erp_units:number;erp_purchases:number;erp_unknown_quantities:number;erp_drafts:number;listing_erp_purchases:number;listing_erp_units:number;erp_candidates:number;
+  manual_purchase_quantity?:number|null;manual_purchase_at?:string|null;manual_purchase_pending_units?:number|null};
 export type BoardCard = {board:Board;id:string;event_id:string;delivery_id:string;link:string;card_at:string;sent_at:string;stage:Stage;photos?:ListingPhoto[];
   search_id:number|null;search_name:string|null;kind:string;channel:'main';condition_id:string|null;title:string;price:string|null;currency:string|null;
   outcome:string|null;manual_outcome:string|null;legacy_outcome:string|null;note:string|null;outcome_at:string|null;state_version:number;
@@ -79,6 +80,14 @@ export function erpPurchaseBadge(card:CardErpPurchases):string|null {
   if(!card.erp_purchases)return null;
   const quantity=card.erp_unknown_quantities===card.erp_purchases?'кількість невідома':`${card.erp_units} шт${card.erp_unknown_quantities?' + невідома кількість':''}`;
   return `ERP${card.erp_drafts?' · драфт':''} · ${card.erp_purchases} закуп. · ${quantity}`;
+}
+export function manualPurchaseBadge(card:CardErpPurchases):string|null {
+  if (!card.manual_purchase_quantity) return null;
+  if (card.manual_purchase_pending_units===0) return null;
+  if (card.manual_purchase_pending_units==null && card.erp_unknown_quantities)
+    return `Купив · вручну ${card.manual_purchase_quantity} шт. · звірити кількість ERP`;
+  const pending=card.manual_purchase_pending_units ?? card.manual_purchase_quantity;
+  return card.erp_purchases?`Купив · вручну · ще ${pending} шт. без ERP`:`Купив · вручну · ${pending} шт.`;
 }
 export const dateLabel = (iso:string|null)=>iso?new Date(iso).toLocaleString('uk-UA',{timeZone:'Europe/Kyiv'}):'—';
 export function searchLabel(search:{search_id:number|null;search_name:string|null}):string {

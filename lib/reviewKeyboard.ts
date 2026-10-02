@@ -14,7 +14,7 @@ export type InlineButton = { text: string; url?: string; callback_data?: string 
 export type ReplyMarkup = { inline_keyboard: InlineButton[][] };
 export type DeliveryView={deliveryId:string;eventId:string;dispatchId:string;link:string;channel:'main'|'sniper';kind:string;botId:number;chatId:number;messageId:number;sentAt:string;stateVersion:number;
   resolutionKind:string|null;searchId:number|null;searchExists:boolean;searchName:string|null;outcome:string|null;outcomeNote:string|null;outcomeAt:string|null;outcomeSource:string|null;legacyOutcome:string|null;stage:'new'|'processed'|null;erpDrafts?:number;
-  contextPrice:string|null;currentPrice:number|null;title:string|null;
+  contextPrice:string|null;currentPrice:number|null;title:string|null;manualPurchaseQuantity?:number|null;manualPurchasePendingUnits?:number|null;
   live:{hidden:boolean|null;hiddenUntil:string|null;hidePrice:number|null;favorite:boolean|null;superFavorite:boolean|null;desiredPrice:number|null;bannedInSearch:boolean|null;stockBlocked:boolean;liked:boolean;listingVersion:number}};
 export type Menu = 'root' | 'pause' | 'missed' | 'more' | 'change';
 
@@ -58,6 +58,7 @@ export const outcomeLabels:Record<string,string>={bought:'✅ Купив',missed
 function shortDate(iso:string|null):string {return iso?new Date(iso).toLocaleDateString('uk-UA',{timeZone:'Europe/Kyiv'}):''}
 export function outcomeLabel(view:DeliveryView):string {
   if(!view.outcome)return view.legacyOutcome==='manual_bought'?'Старе «Купив» · без ERP':view.legacyOutcome==='would_hide'?'Старе «Приховав би»':'';
+  if(view.outcome==='bought' && view.outcomeSource==='manual')return `✅ Купив · вручну · ${view.manualPurchaseQuantity} шт.`;
   return (outcomeLabels[view.outcome] ?? view.outcome)+(view.outcome==='bought'?` · ERP${view.erpDrafts?' · драфт':''}`:'');
 }
 export function urlButtons(markup:ReplyMarkup|null|undefined):InlineButton[]{return (markup?.inline_keyboard ?? []).flat().filter(b=>typeof b.url==='string' && b.text)}

@@ -1,9 +1,12 @@
 'use client'
 import {useState} from 'react'
 import type {ListingErpPurchase} from '@/lib/server/reviewBoards'
-import {dateLabel,erpPurchaseBadge,type CardErpPurchases} from '@/lib/reviewBoards'
+import {dateLabel,erpPurchaseBadge,manualPurchaseBadge,type CardErpPurchases} from '@/lib/reviewBoards'
 import styles from './Boards.module.css'
-export function ErpPurchaseTag({card}:{card:CardErpPurchases}){const label=erpPurchaseBadge(card);return label?<span className={styles.erp_confirmed}>{label}</span>:card.erp_candidates?<span className={styles.part_pending}>ERP · потрібна прив’язка</span>:card.listing_erp_purchases?<span>Закупки лінка: {card.listing_erp_purchases}</span>:null}
+export function ErpPurchaseTag({card}:{card:CardErpPurchases}){const label=erpPurchaseBadge(card),manual=manualPurchaseBadge(card);return <>
+  {manual && <span className={styles.part_pending}>{manual}</span>}
+  {label?<span className={styles.erp_confirmed}>{label}</span>:card.erp_candidates?<span className={styles.part_pending}>ERP · потрібна прив’язка</span>:card.listing_erp_purchases?<span>Закупки лінка: {card.listing_erp_purchases}</span>:null}
+</>}
 export default function ErpPurchases({rows,eventId,assign,locked}:{rows:ListingErpPurchase[];eventId:string;assign:(row:ListingErpPurchase,value:boolean)=>Promise<void>;locked:boolean}){
   const [pending,setPending]=useState(false);
   async function apply(row:ListingErpPurchase,value:boolean){if(pending)return;setPending(true);try{await assign(row,value)}finally{setPending(false)}}

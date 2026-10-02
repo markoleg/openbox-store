@@ -1,9 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseBoardQuery,tabFilters,searchLabel,parsePartNumberRequest,partNumberBadge,erpPurchaseBadge} from '../lib/reviewBoards.ts';
+import {parseBoardQuery,tabFilters,searchLabel,parsePartNumberRequest,partNumberBadge,erpPurchaseBadge,manualPurchaseBadge} from '../lib/reviewBoards.ts';
 import {estimatedQuantity,stockLabel,projectStock} from '../lib/reviewStock.ts';
 import {safePhoto,availablePhotos} from '../lib/listingPhotos.ts';
 const id='11111111-1111-4111-8111-111111111111';
+test('manual total is not added to confirmed ERP units or silently inferred from unknown quantity',()=>{
+  const card={manual_purchase_quantity:2,manual_purchase_pending_units:2,erp_purchases:0,erp_unknown_quantities:0};
+  assert.equal(manualPurchaseBadge(card),'Купив · вручну · 2 шт.');
+  assert.equal(manualPurchaseBadge({...card,erp_purchases:1,manual_purchase_pending_units:1}),'Купив · вручну · ще 1 шт. без ERP');
+  assert.equal(manualPurchaseBadge({...card,erp_purchases:2,manual_purchase_pending_units:0}),null);
+  assert.equal(manualPurchaseBadge({...card,erp_purchases:1,erp_unknown_quantities:1,manual_purchase_pending_units:null}),
+    'Купив · вручну 2 шт. · звірити кількість ERP');
+});
 const stock=(extra={})=>({estimatedAvailabilityStatus:'IN_STOCK',deliveryOptions:['SHIP_TO_HOME'],...extra});
 
 test('gallery accepts saved eBay photos, rejects foreign sources and removes duplicates in order',()=>{

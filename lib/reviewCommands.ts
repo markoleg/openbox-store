@@ -1,6 +1,7 @@
 /** Shared wire contract. Pure validation, no secrets or database access. */
 export const reviewActions = ['hide', 'pause', 'extend_pause', 'unhide',
-  'ban', 'unban', 'set_like', 'set_outcome', 'clear_outcome', 'set_watch', 'remove_watch'] as const;
+  'ban', 'unban', 'set_like', 'set_outcome', 'clear_outcome', 'set_watch', 'remove_watch',
+  'set_manual_purchase', 'clear_manual_purchase'] as const;
 export type ReviewAction = typeof reviewActions[number];
 export type ReviewContextKind = 'listing' | 'event' | 'delivery' | 'dispatch';
 export type ReviewSource = 'dashboard' | 'dashboard_toast';
@@ -12,7 +13,7 @@ export type WatchPayload = {
   favorite: true; super_favorite?: boolean; desired_price: number | null; description?: string | null;
 };
 export type ReviewPayload = {
-  days?: number; value?: boolean | string; note?: string; reason?: string; confirmedPrice?: number;
+  days?: number; value?: boolean | string; note?: string; reason?: string; confirmedPrice?: number; quantity?: number;
 } | WatchPayload;
 export type ReviewCommand = {
   commandId: string; contextId: string; action: ReviewAction; payload: ReviewPayload; source?: ReviewSource;
@@ -121,6 +122,15 @@ export function parseReviewCommand(value: unknown): ReviewCommand {
   }
   const p = value.payload;
   const action = value.action;
+  if (action === 'set_manual_purchase' || action === 'clear_manual_purchase') {
+    if (value.source !== undefined && value.source !== 'dashboard') throw new Error('invalid_manual_purchase_source');
+    if (action === 'set_manual_purchase') {
+      if (!exactKeys(p,['quantity']) || !Number.isSafeInteger(p.quantity) || Number(p.quantity)<1 || Number(p.quantity)>1000000)
+        throw new Error('invalid_purchase_quantity');
+    } else if (!exactKeys(p,['reason']) || typeof p.reason!=='string' || !p.reason.trim() || p.reason.length>1000)
+      throw new Error('reason_required');
+    return value as ReviewCommand;
+  }
   if (action === 'set_watch') {
     if (!exactKeys(p, ['favorite','super_favorite','desired_price','description']) || p.favorite !== true ||
         (p.super_favorite !== undefined && typeof p.super_favorite !== 'boolean') ||

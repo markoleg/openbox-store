@@ -100,6 +100,9 @@
 .gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.6rem; }
 .gallery img { width:100%; height:150px; object-fit:contain; background:#fff; border-radius:5px; }
 .actions { display:flex; flex-wrap:wrap; gap:.5rem; margin:.65rem 0; }
+.manualPurchase { margin:.75rem 0; }
+.manualPurchase label { display:flex; flex-direction:column; gap:.4rem; max-width:100%; }
+.manualPurchase input[type=number] { width:8rem; }
 .tableScroll { overflow-x:auto; }
 .technical { width:100%; border-collapse:collapse; }
 .technical th,.technical td { text-align:left; padding:.8rem; border-bottom:1px solid #343a42; }

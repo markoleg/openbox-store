@@ -3,13 +3,13 @@ import {useState} from 'react'
 import {PAUSE_DAYS,type ReviewAction,type ReviewPayload,type ReviewCommandResult} from '@/lib/reviewCommands'
 import {outcomeLabels} from '@/lib/reviewKeyboard'
 import styles from './Boards.module.css'
-type Props={current:{outcome:string|null;hidden:boolean;bannedInSearch:boolean|null};execute:(action:ReviewAction,payload?:ReviewPayload)=>Promise<ReviewCommandResult|null>;locked?:boolean;initialAction?:string|null;onDirty?:(dirty:boolean)=>void};
+type Props={current:{outcome:string|null;hidden:boolean;bannedInSearch:boolean|null;erpConfirmed?:boolean};execute:(action:ReviewAction,payload?:ReviewPayload)=>Promise<ReviewCommandResult|null>;locked?:boolean;initialAction?:string|null;onDirty?:(dirty:boolean)=>void};
 export default function OutcomeForm({current,execute,locked,initialAction,onDirty}:Props){
   const [bug,setBug]=useState(initialAction==='bug'),[note,setNote]=useState(''),[clear,setClear]=useState(false),[reason,setReason]=useState('');
   async function run(action:ReviewAction,payload:ReviewPayload={}){const result=await execute(action,payload);if(result && ['applied','noop'].includes(result.status)){setNote('');setReason('');onDirty?.(false)}}
   return <div>
     <p>{current.outcome?outcomeLabels[current.outcome]:'Результату немає'}</p>
-    {current.outcome==='bought' && <p className={styles.muted}>Підтверджено ERP. Прив’язку закупки можна виправити нижче.</p>}
+    {current.outcome==='bought' && current.erpConfirmed && <p className={styles.muted}>Є підтвердження ERP. Прив’язку закупки можна виправити нижче.</p>}
     <div className={styles.actions}>
       <button disabled={locked} onClick={()=>run('set_outcome',{value:'missed'})}>⏱ Не встиг</button>
       <button disabled={locked} onClick={()=>run('set_outcome',{value:'funds'})}>💰 Кошти / ліміт</button>

@@ -4,6 +4,9 @@ import {callback, describeResult, outcomeLabel, parseReviewCallback, renderKeybo
 
 const dispatch='0f1e2d3c-4b5a-4978-8877-665544332211';
 const token=dispatch.replace(/-/g,'');
+test('manual purchased label is explicit even with an unknown ERP draft',()=>{
+  assert.equal(outcomeLabel({outcome:'bought',outcomeSource:'manual',manualPurchaseQuantity:2,erpDrafts:1}),'✅ Купив · вручну · 2 шт.');
+});
 const urls=[{text:'🎯 Sniper',url:'https://d.example/sniper?link=x&ctx='+token},{text:'💳 Баланси',url:'https://crm.example/purchase-funding?amountUsd=1'},
   {text:'📝 Картка та історія',url:'https://d.example/zhezhemon/history?dispatch='+token}];
 const view=(extra={})=>({deliveryId:'d1',eventId:'e1',dispatchId:dispatch,link:'https://www.ebay.com/itm/1',channel:'main',kind:'first_seen',

@@ -60,6 +60,11 @@ export async function resolveDispatch(token: string): Promise<{kind: 'delivery' 
 
 export async function applyReviewCommand(command: ReviewCommand,
   source: 'dashboard' | 'dashboard_toast' | 'telegram' | 'legacy_telegram' = command.source ?? 'dashboard'): Promise<ReviewCommandResult> {
+  if (command.action === 'set_manual_purchase' || command.action === 'clear_manual_purchase') {
+    const payload=command.payload as {quantity?:number;reason?:string};
+    return rpc('set_notification_manual_purchase',{p_command:command.commandId,p_context:command.contextId,
+      p_quantity:command.action==='set_manual_purchase'?payload.quantity:null,p_reason:payload.reason ?? null,p_source:source});
+  }
   return rpc('apply_review_command', {p_command: command.commandId, p_context: command.contextId,
     p_action: command.action, p_payload: command.payload, p_source: source});
 }
