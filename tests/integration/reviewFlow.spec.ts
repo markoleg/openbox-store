@@ -14,13 +14,14 @@ test('owner API and real PostgreSQL: queue, journal, corrections and ERP fact as
   const boardResponse=await request.get('/api/review/boards?stage=new');expect(boardResponse.status(),await boardResponse.text()).toBe(200);
   const card=(await boardResponse.json()).columns.new.cards[0];expect(card.search_name).toBe('item model');
   expect(card.photos).toContainEqual({source_url:'https://i.ebayimg.com/images/example.jpg',status:'url_only'});
-  const tile=page.locator('article').first();await tile.getByRole('textbox',{name:'Партійний номер'}).fill(' manual123 ');
+  const tile=page.locator('article').first();await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
+  await tile.getByRole('textbox',{name:'Партійний номер'}).fill(' manual123 ');
   await tile.getByRole('button',{name:'Зберегти',exact:true}).click();
   await expect(tile.getByText('✍️ MANUAL123 · чекає ERP',{exact:true})).toBeVisible();
   const saved=(await (await request.get('/api/review/boards?stage=new')).json()).columns.new.cards[0];
   expect(saved.manual_part_number).toBe('MANUAL123');expect(saved.part_number_version).toBeGreaterThan(0);
   await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
-  await tile.getByRole('button',{name:'Очистити',exact:true}).click();await expect(tile.getByRole('textbox',{name:'Партійний номер'})).toHaveValue('');
+  await tile.getByRole('button',{name:'Очистити',exact:true}).click();await expect(tile.getByRole('textbox',{name:'Партійний номер'})).toBeHidden();
   await page.getByRole('button',{name:/Відкрити картку: An item/}).click();const panel=page.getByRole('dialog');
   await expect(panel.getByText('📦 В наявності · ≈2 шт.',{exact:true})).toBeVisible();
   await panel.getByRole('button',{name:'🙈 Приховати до подешевшання',exact:true}).click();await expect(panel.getByRole('button',{name:'Показати знову'})).toBeVisible();

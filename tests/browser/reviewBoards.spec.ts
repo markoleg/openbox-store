@@ -91,6 +91,22 @@ test('tile separates product, photos and drawer; gallery survives polling and su
   await tile.getByRole('button',{name:/Відкрити картку:/}).click();await expect(page.getByRole('dialog')).toBeVisible();
 });
 
+test('mixed cards keep their editors collapsed; missing part number opens and closes via the badge',async({page})=>{
+  await fixtures(page);
+  const rows=[{...card,part_number:'MWWT3',part_number_status:'identified',part_number_source:'mpn'}, {...card,id:'33333333-3333-4333-8333-333333333333'}];
+  await page.route('**/api/review/boards?**',route=>route.fulfill({json:{pending:2,columns:{new:{count:2,cards:rows},processed:{count:0,cards:[]}}}}));
+  await page.goto('/zhezhemon/processing');await expect(page.locator('article')).toHaveCount(2);
+  await expect(page.getByRole('textbox',{name:'Партійний номер'})).toHaveCount(0);
+  const known=(await page.locator('article').first().boundingBox())!,missing=(await page.locator('article').nth(1).boundingBox())!;
+  expect(missing.y).toBe(known.y);expect(missing.height).toBe(known.height);
+  const tile=page.locator('article').nth(1),badge=tile.getByRole('button',{name:'Змінити партійний номер: Без партійного',exact:true}),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await expect(badge).toHaveAttribute('aria-expanded','false');await badge.click();await expect(input).toBeVisible();
+  await expect(badge).toHaveAttribute('aria-expanded','true');await input.fill('DRAFT123');
+  await badge.click();await expect(input).toBeHidden();await badge.click();await expect(input).toHaveValue('DRAFT123');
+  await tile.getByRole('button',{name:'Закрити редагування партійного',exact:true}).click();await expect(input).toBeHidden();
+  await badge.click();await expect(input).toHaveValue('');
+});
+
 test('inline part number normalizes, saves and clears using the current version without opening a drawer',async({page})=>{
   await fixtures(page);let manual:string|null=null,version:number|null=null;const writes:any[]=[];
   await page.route('**/api/review/boards?**',async route=>{
@@ -102,13 +118,15 @@ test('inline part number normalizes, saves and clears using the current version 
     await route.fulfill({json:{status:'applied',partNumber:{manual_part_number:manual,version}}});
   });
   await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await expect(input).toBeHidden();await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
   await input.fill(' mxp93ll/a ');await tile.getByRole('button',{name:'Зберегти',exact:true}).click();
   await expect.poll(()=>writes.length).toBe(1);expect(writes[0]).toMatchObject({link,partNumber:'MXP93LL/A',version:null});
   await expect(input).toBeHidden();await expect(tile.getByText('✍️ MXP93LL/A · чекає ERP',{exact:true})).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();await expect(input).toHaveValue('MXP93LL/A');
   await tile.getByRole('button',{name:'Очистити',exact:true}).click();await expect.poll(()=>writes.length).toBe(2);
-  expect(writes[1]).toMatchObject({link,partNumber:null,version:1});await expect(input).toHaveValue('');
+  expect(writes[1]).toMatchObject({link,partNumber:null,version:1});await expect(input).toBeHidden();
+  await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();await expect(input).toHaveValue('');
 });
 
 test('polling reloads the board only when the change signal moves',async({page})=>{
@@ -145,6 +163,7 @@ test('newly identified automatic part number does not collapse or erase an unsav
   await page.clock.install();await fixtures(page);let identified=false;
   await page.route('**/api/review/boards?**',async route=>route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,part_number:identified?'AUTO123':null,part_number_status:identified?'identified':'unknown',part_number_source:identified?'mpn':null,part_number_version:identified?2:1}]},processed:{count:0,cards:[]}}}}));
   await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
   await input.fill('MY-DRAFT');identified=true;await page.clock.runFor(30300);
   await expect(input).toBeVisible();await expect(input).toHaveValue('MY-DRAFT');await expect(tile.getByRole('button',{name:'Зберегти',exact:true})).toBeDisabled();
 });
@@ -154,6 +173,7 @@ test.describe('mobile queue scrolling',()=>{
   for(const stage of ['new','processed'])test(`${stage} keeps the complete card list after keyboard viewport shrink and restore`,async({page})=>{
     await fixtures(page);await page.goto(`/zhezhemon/${stage==='new'?'processing':'processed'}`);
     const queue=page.getByRole('region',{name:stage==='new'?'Нові картки':'Оброблені картки'}),input=page.locator('article').nth(1).getByRole('textbox',{name:'Партійний номер'});
+    await page.locator('article').nth(1).getByRole('button',{name:/Змінити партійний номер:/}).click();
     await input.fill('KEYBOARD-DRAFT');const listHeight=await queue.evaluate(el=>el.clientHeight);
     await page.setViewportSize({width:390,height:480});
     await expect(input).toHaveValue('KEYBOARD-DRAFT');expect(await queue.evaluate(el=>el.clientHeight)).toBe(listHeight);

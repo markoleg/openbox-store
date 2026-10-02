@@ -10,7 +10,6 @@ export default function TilePartNumberForm({link,card,expanded,onClose,onSaved}:
     const saving=useRef(false),normalized=normalizePartNumber(value),dirty=normalized!==base.manual;
     const invalid=normalized!==null && !PART_NUMBER_PATTERN.test(normalized);
     const changed=(version ?? -1)>(base.version ?? -1);
-    const visible=expanded || !(base.manual || card.part_number) || dirty || pending;
     useEffect(()=>{
         if(!dirty && !pending && (version ?? -1)>=(base.version ?? -1)) {
             setBase({manual,version});setValue(manual ?? '');
@@ -32,13 +31,13 @@ export default function TilePartNumberForm({link,card,expanded,onClose,onSaved}:
         } catch(error) {setMessage(explainError(error))}
         finally {saving.current=false;setPending(false)}
     }
-    return <div className={styles.tilePartNumber} hidden={!visible}>
+    return <div className={styles.tilePartNumber} hidden={!expanded}>
         <form className={styles.tilePartNumberForm} onSubmit={event=>{event.preventDefault();if(!invalid && dirty && normalized!==null)void save(normalized)}}>
             <label><span className={styles.srOnly}>Партійний номер</span><input value={value} disabled={pending} onChange={event=>setValue(event.target.value)}
                 maxLength={64} placeholder={card.part_number ?? 'Вказати вручну'} aria-invalid={invalid} autoComplete="off" spellCheck={false}/></label>
             <button type="submit" disabled={pending || changed || invalid || !dirty || normalized===null}>Зберегти</button>
             {base.manual && <button type="button" disabled={pending || changed} onClick={()=>void save(null)}>Очистити</button>}
-            {(base.manual || card.part_number) && <button type="button" disabled={pending} aria-label="Закрити редагування партійного" onClick={()=>{setValue(base.manual ?? '');setMessage('');onClose()}}>×</button>}
+            <button type="button" disabled={pending} aria-label="Закрити редагування партійного" onClick={()=>{setValue(base.manual ?? '');setMessage('');onClose()}}>×</button>
         </form>
         {invalid && <p className={styles.muted}>3–64 символи: латинські літери, цифри, /, +, -.</p>}
         {changed && dirty && <p className={styles.muted}>Номер змінився в іншому місці. <button type="button" disabled={pending} onClick={()=>{setBase({manual,version});setValue(manual ?? '');setMessage('')}}>Оновити значення</button></p>}
