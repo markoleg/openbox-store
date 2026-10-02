@@ -54,7 +54,7 @@ export function callback(token: string, code: CallbackCode, arg?: string | numbe
   return data;
 }
 
-export const outcomeLabels:Record<string,string>={bought:'✅ Купив',missed:'⏱ Не встиг',funds:'💰 Кошти / ліміт',bug:'🐞 Баг',hidden:'🙈 Приховано',paused:'⏸ Пауза',banned:'🚫 Бан'};
+export const outcomeLabels:Record<string,string>={bought:'✅ Купив',purchase_cancelled:'Купив → скасовано',missed:'⏱ Не встиг',funds:'💰 Кошти / ліміт',bug:'🐞 Баг',hidden:'🙈 Приховано',paused:'⏸ Пауза',banned:'🚫 Бан'};
 function shortDate(iso:string|null):string {return iso?new Date(iso).toLocaleDateString('uk-UA',{timeZone:'Europe/Kyiv'}):''}
 export function outcomeLabel(view:DeliveryView):string {
   if(!view.outcome)return view.legacyOutcome==='manual_bought'?'Старе «Купив» · без ERP':view.legacyOutcome==='would_hide'?'Старе «Приховав би»':'';

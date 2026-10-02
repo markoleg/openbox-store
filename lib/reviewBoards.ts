@@ -11,7 +11,7 @@ export type PartNumberStatus = 'identified'|'not_in_catalog'|'ambiguous'|'unknow
 export type PartNumberSource = 'purchase'|'mpn'|'title'|'manual'|'listing_mpn';
 export type CardPartNumber = {part_number:string|null;part_number_status:PartNumberStatus|null;part_number_source:PartNumberSource|null;manual_part_number:string|null;part_number_version:number|null};
 export type CardErpPurchases = {erp_units:number;erp_purchases:number;erp_unknown_quantities:number;erp_drafts:number;listing_erp_purchases:number;listing_erp_units:number;erp_candidates:number;
-  manual_purchase_quantity?:number|null;manual_purchase_at?:string|null;manual_purchase_pending_units?:number|null};
+  manual_purchase_quantity?:number|null;manual_purchase_at?:string|null;manual_purchase_pending_units?:number|null;erp_cancelled_purchases?:number};
 export type BoardCard = {board:Board;id:string;event_id:string;delivery_id:string;link:string;card_at:string;sent_at:string;stage:Stage;photos?:ListingPhoto[];
   search_id:number|null;search_name:string|null;kind:string;channel:'main';condition_id:string|null;title:string;price:string|null;currency:string|null;
   outcome:string|null;manual_outcome:string|null;legacy_outcome:string|null;note:string|null;outcome_at:string|null;state_version:number;
@@ -29,7 +29,7 @@ export function parseBoardQuery(params:URLSearchParams):{board:Board;filters:Boa
     const value=params.get(key);if(!value)continue;
     if(value.length>500)throw new Error('filter_too_long');
     if(key==='stage' && !stages.includes(value as Stage))throw new Error('invalid_stage');
-    if(key==='outcome' && !['bought','missed','funds','bug','hidden','paused','banned'].includes(value))throw new Error('invalid_outcome');
+    if(key==='outcome' && !['bought','purchase_cancelled','missed','funds','bug','hidden','paused','banned'].includes(value))throw new Error('invalid_outcome');
     if(key==='partNumber' && !(partNumberFilters as readonly string[]).includes(value))throw new Error('invalid_part_number_filter');
     if(['search','condition'].includes(key) && !(key==='search' && value==='deleted') && !/^[1-9][0-9]{0,8}$/.test(value))throw new Error('invalid_number');
     if(['from','to'].includes(key) && (!/^\d{4}-\d{2}-\d{2}T/.test(value) || !Number.isFinite(Date.parse(value))))throw new Error('invalid_date');

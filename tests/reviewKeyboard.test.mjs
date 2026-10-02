@@ -7,6 +7,11 @@ const token=dispatch.replace(/-/g,'');
 test('manual purchased label is explicit even with an unknown ERP draft',()=>{
   assert.equal(outcomeLabel({outcome:'bought',outcomeSource:'manual',manualPurchaseQuantity:2,erpDrafts:1}),'✅ Купив · вручну · 2 шт.');
 });
+test('cancelled purchase remains history in the processed keyboard',()=>{
+  const result=view({stage:'processed',outcome:'purchase_cancelled',resolutionKind:'erp_purchase_cancelled'});
+  assert.equal(outcomeLabel(result),'Купив → скасовано');
+  assert.equal(renderKeyboard(result,urls).inline_keyboard[0][0].text,'Купив → скасовано');
+});
 const urls=[{text:'🎯 Sniper',url:'https://d.example/sniper?link=x&ctx='+token},{text:'💳 Баланси',url:'https://crm.example/purchase-funding?amountUsd=1'},
   {text:'📝 Картка та історія',url:'https://d.example/zhezhemon/history?dispatch='+token}];
 const view=(extra={})=>({deliveryId:'d1',eventId:'e1',dispatchId:dispatch,link:'https://www.ebay.com/itm/1',channel:'main',kind:'first_seen',

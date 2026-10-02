@@ -79,7 +79,7 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
         <section><h3>Результат повідомлення</h3>
           {data.card.legacy_outcome && <p className={styles.muted}>Старе рішення: {data.card.legacy_outcome==='manual_bought'?'«Купив» без підтвердження ERP':'«Приховав би»'}. Його можна виправити.</p>}
           {data.card.note && <p>{data.card.note}</p>}
-          {data.card.outcome==='bought' && data.card.manual_outcome && <p className={styles.muted}>Ручне рішення збережено на випадок скасування закупки: {outcomeLabels[data.card.manual_outcome]}.</p>}
+          {(data.card.outcome==='bought' || data.card.outcome==='purchase_cancelled') && data.card.manual_outcome && <p className={styles.muted}>Ручне рішення збережено: {outcomeLabels[data.card.manual_outcome]}.</p>}
           <ManualPurchaseForm key={'purchase-'+data.card.event_id+'-'+refresh} card={data.card} execute={run} locked={locked} onDirty={value=>markDirty('purchase',value)}/>
           <OutcomeForm key={data.card.event_id+'-'+refresh} current={{outcome:data.card.outcome,hidden:!!view?.live.hidden,bannedInSearch:view?.live.bannedInSearch ?? null,erpConfirmed:data.card.erp_purchases>0}} execute={run} locked={locked} initialAction={params.get('action')} onDirty={value=>markDirty('outcome',value)}/>
           <button disabled={locked} onClick={()=>run('set_like',{value:!view?.live.liked})}>{view?.live.liked?'Зняти лайк':'Лайк'}</button>

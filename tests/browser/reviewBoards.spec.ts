@@ -360,6 +360,41 @@ test('real APIs keep authentication, origin and feature gates; retired APIs are 
   expect((await request.get('/api/review/assessments')).status()).toBe(404);
   expect((await request.get('/api/review/reporting')).status()).toBe(404);
 });
+test('cancelled purchase can be linked as history and unlinked; withdrawn records stay unavailable',async({page})=>{
+  await fixtures(page);let assigned=false;const writes:any[]=[];
+  const cancelled={order_key:'cancelled-order',lifecycle:'purchase',draft_id:1,purchase_id:10,quantity:0,
+    cancelled_units:2,quantity_basis:'items',time_basis:'email',email_at:at,scope_date:'2026-09-11',
+    active:false,assigned_event_id:null,assignment_source:'manual',version:1};
+  await page.route('**/api/review/boards?**',async route=>{
+    if(!new URL(route.request().url()).searchParams.has('id'))return route.fallback();
+    await route.fulfill({json:{...detail,card:{...card,stage:assigned?'processed':'new',
+      outcome:assigned?'purchase_cancelled':null,erp_cancelled_purchases:assigned?1:0},
+      view:{...view,outcome:assigned?'purchase_cancelled':null},erpPurchases:[
+        {...cancelled,assigned_event_id:assigned?id:null,version:assigned?2:3},
+        {...cancelled,order_key:'withdrawn-order',purchase_id:11,lifecycle:'withdrawn'},
+      ]}});
+  });
+  await page.route('**/api/review/purchases',async route=>{
+    const body=route.request().postDataJSON();writes.push(body);assigned=body.assign;
+    await route.fulfill({json:{status:'applied'}});
+  });
+  await page.goto('/zhezhemon/processing');await page.locator('article').first().getByRole('button',{name:/Відкрити картку:/}).click();
+  const panel=page.getByRole('dialog'),cancelledRow=panel.getByRole('row').filter({hasText:'Закупка #10'}),
+    withdrawnRow=panel.getByRole('row').filter({hasText:'Прибрано з ERP'});
+  await expect(cancelledRow.getByRole('button',{name:'Прив’язати до цієї картки'})).toBeEnabled();
+  await expect(withdrawnRow.getByRole('button')).toHaveCount(0);
+  await cancelledRow.getByRole('button',{name:'Прив’язати до цієї картки'}).click();
+  await expect(cancelledRow.getByRole('button',{name:'Відв’язати'})).toBeEnabled();
+  await expect(panel.getByText('Збережено історію скасованої закупки.',{exact:false})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Повернути в «Нові»'})).toHaveCount(0);
+  await expect(panel.getByText('Є підтвердження ERP.',{exact:false})).toHaveCount(0);
+  expect(writes[0]).toMatchObject({key:'cancelled-order',assign:true,version:3});
+  await page.screenshot({path:'node_modules/.cache/cancelled-purchase-history.png'});
+  await cancelledRow.getByRole('button',{name:'Відв’язати'}).click();
+  await expect(panel.getByText('Результату немає',{exact:true})).toBeVisible();
+  expect(writes[1]).toMatchObject({key:'cancelled-order',assign:false,version:2});
+});
+
 for(const width of [320,850,1024])test(`queue navigation fits ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:700});await fixtures(page);await page.goto('/zhezhemon/processing');await expect(page.locator('article')).toHaveCount(4);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

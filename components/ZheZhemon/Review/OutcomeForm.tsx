@@ -10,6 +10,7 @@ export default function OutcomeForm({current,execute,locked,initialAction,onDirt
   return <div>
     <p>{current.outcome?outcomeLabels[current.outcome]:'Результату немає'}</p>
     {current.outcome==='bought' && current.erpConfirmed && <p className={styles.muted}>Є підтвердження ERP. Прив’язку закупки можна виправити нижче.</p>}
+    {current.outcome==='purchase_cancelled' && <p className={styles.muted}>Збережено історію скасованої закупки. Щоб прибрати цей результат, відв’яжи закупку нижче.</p>}
     <div className={styles.actions}>
       <button disabled={locked} onClick={()=>run('set_outcome',{value:'missed'})}>⏱ Не встиг</button>
       <button disabled={locked} onClick={()=>run('set_outcome',{value:'funds'})}>💰 Кошти / ліміт</button>
@@ -22,7 +23,7 @@ export default function OutcomeForm({current,execute,locked,initialAction,onDirt
     <div className={styles.actions}>
       {current.hidden && <button disabled={locked} onClick={()=>run('unhide')}>Показати знову</button>}
       {current.bannedInSearch && <button disabled={locked} onClick={()=>run('unban')}>Зняти бан</button>}
-      {current.outcome!=='bought' && <button disabled={locked} onClick={()=>setClear(v=>!v)}>Повернути в «Нові»</button>}
+      {current.outcome!=='bought' && current.outcome!=='purchase_cancelled' && <button disabled={locked} onClick={()=>setClear(v=>!v)}>Повернути в «Нові»</button>}
     </div>
     {clear && <form onSubmit={e=>{e.preventDefault();void run('clear_outcome',{reason:reason.trim()})}}><label>Причина виправлення<input value={reason} maxLength={1000} onChange={e=>{setReason(e.target.value);onDirty?.(!!e.target.value || !!note)}}/></label><button disabled={locked || !reason.trim()}>Повернути</button><p className={styles.muted}>Приховування та бан скасовуються окремими кнопками.</p></form>}
   </div>

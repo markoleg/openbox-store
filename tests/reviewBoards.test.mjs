@@ -86,6 +86,7 @@ test('one queue has only new and processed cursors',()=>{
   assert.equal(parseBoardQuery(new URLSearchParams()).board,'notifications');
   const parsed=parseBoardQuery(new URLSearchParams({stage:'processed',processedAt:'2026-10-01T10:00:00Z',processedId:id}));
   assert.equal(parsed.filters.stage,'processed');assert.equal(parsed.cursors.processed.id,id);
+  assert.equal(parseBoardQuery(new URLSearchParams({outcome:'purchase_cancelled'})).filters.outcome,'purchase_cancelled');
   for(const text of ['tab=review','stage=working','stage=done','outcome=would_hide','partNumber=invalid','newId='+id,'from=yesterday','search=1,or(id.gt.0)'])assert.throws(()=>parseBoardQuery(new URLSearchParams(text)));
   assert.equal(tabFilters(new URLSearchParams({'notifications.link':'abc',card:id}),'notifications').toString(),'tab=notifications&link=abc');
 });
