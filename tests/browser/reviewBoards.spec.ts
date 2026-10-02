@@ -43,7 +43,7 @@ async function fixtures(page:any,photos:any[]=[],cardFields:Record<string,unknow
   await page.route('**/api/review/boards?**',async(route:any)=>{
     const url=new URL(route.request().url());
     if(url.searchParams.get('id')){await route.fulfill({json:{...detail,...captured(photos),photos}});return;}
-    const stage=url.searchParams.get('stage') ?? 'new',rows=url.searchParams.get('link')==='none'?[]:Array.from({length:4},(_,i)=>({...card,...cardFields,photos,id:i===0?id:`33333333-3333-4333-8333-${String(i).padStart(12,'0')}`,title:`${card.title} ${i+1}`,stage,...(stage==='processed'?{outcome:'funds'}:{})}));
+    const stage=url.searchParams.get('stage') ?? 'new',rows=url.searchParams.get('link')==='none'?[]:Array.from({length:4},(_,i)=>({...card,...cardFields,photos,id:i===0?id:`33333333-3333-4333-8333-${String(i).padStart(12,'0')}`,title:`${cardFields.title ?? card.title} ${i+1}`,stage,...(stage==='processed'?{outcome:'funds'}:{})}));
     await route.fulfill({json:{pending:stage==='new'?rows.length:0,columns:{new:{count:stage==='new'?rows.length:0,cards:stage==='new'?rows:[]},processed:{count:stage==='processed'?rows.length:0,cards:stage==='processed'?rows:[]}}}});
   });
   await page.route('**/api/review/contexts',async(route:any)=>route.fulfill({json:{id,kind:'delivery',link,delivery_id:delivery,event_id:id,listing_version:0,result_version:0,snapshot_id:id,live:{listing_version:0}}}));
@@ -90,6 +90,43 @@ test('tile separates product, photos and drawer; gallery survives polling and su
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await tile.getByRole('button',{name:/Відкрити картку:/}).click();await expect(page.getByRole('dialog')).toBeVisible();
 });
+
+for(const viewport of [{width:320,height:640},{width:390,height:844},{width:844,height:390},{width:1024,height:720},{width:1440,height:1000}]) {
+  test(`gallery contains portrait, landscape and small images at ${viewport.width}x${viewport.height}`,async({page})=>{
+    await page.setViewportSize(viewport);
+    const dimensions=[[2000,4000],[4000,1000],[64,64]],photos=Array.from({length:9},(_,i)=>({source_url:`https://i.ebayimg.com/orientation-${i}.svg`,status:'url_only'}));
+    await fixtures(page,photos,{title:'Apple Watch Series 10 46mm Jet Black Aluminum GPS Watch Only - Open Box '.repeat(3)});
+    await page.route('https://i.ebayimg.com/**',route=>{
+      const i=Number(new URL(route.request().url()).pathname.match(/orientation-(\d+)/)?.[1] ?? 0),[w,h]=dimensions[i%3];
+      return route.fulfill({contentType:'image/svg+xml',body:`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect x="0" y="0" width="${w}" height="${h}" fill="#cbd8dd"/><rect x="${w*.05}" y="${h*.05}" width="${w*.9}" height="${h*.9}" fill="#7bdbcc"/><circle cx="${w*.5}" cy="${h*.5}" r="${Math.min(w,h)*.2}" fill="#26363e"/></svg>`});
+    });
+    await page.goto('/zhezhemon/processing');await page.locator('article').first().getByRole('button',{name:/Переглянути фото:/}).click();
+    const gallery=page.getByRole('dialog',{name:/Фото товару:/});await expect(gallery).toBeVisible();
+    let frame:{width:number;height:number}|null=null;
+    for(let index=0;index<3;index++) {
+      if(index>0)await gallery.getByRole('button',{name:`Показати фото ${index+1}`,exact:true}).click();
+      const image=gallery.getByRole('img',{name:`Фото ${index+1} з 9`,exact:true});
+      await expect.poll(()=>image.evaluate((img:HTMLImageElement)=>img.complete && img.naturalWidth>0)).toBe(true);
+      const bounds=(await gallery.boundingBox())!,imageBounds=(await image.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.y).toBeGreaterThanOrEqual(0);
+      expect(bounds.x+bounds.width).toBeLessThanOrEqual(viewport.width);expect(bounds.y+bounds.height).toBeLessThanOrEqual(viewport.height);
+      expect(imageBounds.x).toBeGreaterThanOrEqual(bounds.x);expect(imageBounds.x+imageBounds.width).toBeLessThanOrEqual(bounds.x+bounds.width);
+      expect(imageBounds.y+imageBounds.height).toBeLessThanOrEqual(bounds.y+bounds.height);
+      expect(await image.evaluate(img=>getComputedStyle(img).objectFit)).toBe('contain');
+      expect(imageBounds.height).toBeGreaterThan(30);
+      if(frame){expect(imageBounds.width).toBeCloseTo(frame.width,1);expect(imageBounds.height).toBeCloseTo(frame.height,1)}
+      frame=imageBounds;
+      for(const name of ['Закрити фото','Попереднє фото','Наступне фото'])await expect(gallery.getByRole('button',{name,exact:true})).toBeInViewport({ratio:1});
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      if(index<2 && [390,1440].includes(viewport.width))await page.screenshot({path:`node_modules/.cache/gallery-${viewport.width}-${index===0?'portrait':'landscape'}.png`});
+    }
+    if(viewport.width<640){
+      const strip=gallery.getByRole('button',{name:'Показати фото 9',exact:true}).locator('..');
+      expect(await strip.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true);
+      await gallery.getByRole('button',{name:'Показати фото 9',exact:true}).click();await expect(gallery.getByRole('img',{name:'Фото 9 з 9',exact:true})).toBeVisible();
+    }
+  });
+}
 
 test('mixed cards keep their editors collapsed; missing part number opens and closes via the badge',async({page})=>{
   await fixtures(page);

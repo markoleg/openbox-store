@@ -154,14 +154,16 @@
 .copy { display:inline-flex; gap:.5rem; align-items:center; margin:.4rem 0; }
 .gallery figure { min-width:0; }
 .gallery figcaption { font-size:.75rem; margin-top:.25rem; }
-.lightboxOverlay { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:1rem; background:#000c; }
-.lightbox { display:flex; flex-direction:column; width:min(1100px,100%); max-height:calc(100dvh - 2rem); min-height:0; padding:.8rem; gap:.6rem; border:1px solid #53616e; border-radius:10px; background:#14191f; }
+.lightboxOverlay { position:fixed; inset:0; z-index:1000; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); place-items:center; padding:1rem; background:#000c; }
+.lightbox { display:grid; grid-template-rows:auto minmax(0,1fr) auto auto; width:min(1100px,100%); height:min(900px,calc(100dvh - 2rem)); min-width:0; min-height:0; overflow:hidden; padding:.8rem; gap:.6rem; border:1px solid #53616e; border-radius:10px; background:#14191f; }
 .lightboxHeader { display:flex; align-items:center; gap:.75rem; }
-.lightboxHeader strong { flex:1; min-width:0; font-size:.9rem; overflow-wrap:anywhere; }
-.lightboxImage { min-height:0; height:min(65dvh,700px); display:grid; place-items:center; background:#fff; border-radius:6px; overflow:hidden; color:#394751; }
-.lightboxImage img { width:100%; height:100%; object-fit:contain; }
+.lightboxHeader strong { flex:1; min-width:0; font-size:.9rem; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.lightboxHeader button { flex-shrink:0; }
+.lightboxImage { position:relative; min-width:0; min-height:0; display:grid; place-items:center; background:#fff; border-radius:6px; overflow:hidden; color:#394751; }
+/* Natural image dimensions must not size the grid or shrink away the controls. */
+.lightboxImage img { position:absolute; inset:0; display:block; width:100%; height:100%; min-width:0; min-height:0; object-fit:contain; object-position:center; }
 .lightboxNavigation { display:flex; justify-content:center; align-items:center; gap:1rem; }
-.lightboxThumbnails { display:flex; gap:.4rem; overflow-x:auto; flex-shrink:0; }
+.lightboxThumbnails { display:flex; min-width:0; gap:.4rem; overflow-x:auto; }
 .workspace .lightboxThumbnails button { width:64px; height:64px; padding:.15rem; background:#fff; flex-shrink:0; }
 .lightboxThumbnails img { width:100%; height:100%; object-fit:contain; }
 .workspace .lightboxThumbnails button[aria-pressed=true] { border:2px solid #7bdbcc; }
@@ -179,7 +181,7 @@
     .workspace .toolbarActions button { font-size:.75rem; padding:.4rem .55rem; }
     .refreshButton { width:6rem; }
     .lightboxOverlay { padding:.4rem; }
-    .lightbox { max-height:calc(100dvh - .8rem); padding:.5rem; }
+    .lightbox { height:min(900px,calc(100dvh - .8rem)); padding:.5rem; }
 }
 @media(prefers-reduced-motion:reduce) {
     .workspace .quickActions button,.workspace .drawerButton,.workspace .tilePartNumber button { transition:none; }

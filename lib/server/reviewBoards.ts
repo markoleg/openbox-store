@@ -1,5 +1,5 @@
 import 'server-only';
-import {reviewDatabase,deliveryView} from './reviewCommands';
+import {reviewDatabase} from './reviewCommands';
 import {stages,type Board,type BoardCard,type BoardPage,type BoardFilters,type Cursor,type Stage,type PartNumberRequest,type PartNumberStatus,type PartNumberSource} from '@/lib/reviewBoards';
 import type {DeliveryView} from '@/lib/reviewKeyboard';
 import {projectStock} from '@/lib/reviewStock';
@@ -58,19 +58,12 @@ export type CardDetail={card:BoardCard;view:DeliveryView|null;partNumber:Listing
   snapshot:{id:string;observed_at:string;source:string;normalized_payload:Record<string,unknown>;raw_payload:Record<string,unknown>|null}|null;
   photos:{source_url:string;status:string;content_hash:string|null}[];search:Record<string,unknown>;captured:CapturedListingView;description:SafeDescription};
 export async function readCard(board:Board,id:string):Promise<CardDetail|null>{
-  const db=reviewDatabase();
-  let stored=await checked(db.from('review_board_rows').select('*').eq('board',board).eq('id',id).maybeSingle()) as StoredCard|null;
-  if(!stored){const delivery=await checked(db.from('notification_deliveries').select('event_id').eq('id',id).maybeSingle());
-    if(delivery)stored=await checked(db.from('review_board_rows').select('*').eq('event_id',delivery.event_id).maybeSingle()) as StoredCard|null;}
+  // A single DB statement keeps every section at the same revision and avoids
+  // two network round trips plus rebuilding the board projection for the view.
+  const stored=await checked(reviewDatabase().rpc('review_card_detail',{p_board:board,p_id:id})) as
+    (Omit<CardDetail,'card'|'captured'|'description'> & {card:StoredCard})|null;
   if(!stored)return null;
-  const card=projectStock(stored),snapshotId=card.stock_snapshot_id;
-  const [view,partNumber,event,snapshot,photos,erpPurchases]=await Promise.all([
-    deliveryView(card.delivery_id),checked(db.from('listing_part_numbers').select('part_number,status,source,manual_part_number,manual_by,manual_at,version,crm_checked_at').eq('link',card.link).maybeSingle()),
-    checked(db.from('notification_events').select('search_snapshot').eq('id',card.event_id).single()),
-    snapshotId?checked(db.from('listing_snapshots').select('id,observed_at,source,normalized_payload,raw_payload').eq('id',snapshotId).single()):null,
-    snapshotId?checked(db.from('snapshot_photos').select('source_url,status,content_hash').eq('snapshot_id',snapshotId).order('position')):[],
-    checked(db.from('erp_order_facts').select('order_key,lifecycle,draft_id,purchase_id,quantity,cancelled_units,quantity_basis,email_at,ordered_at,scope_date,draft_created_at,purchase_created_at,time_basis,active,assigned_event_id,assignment_source,version,first_synced_at').eq('link',card.link).order('scope_date',{ascending:false})),
-  ]);
-  const search=event?.search_snapshot?.params ?? {}, captured=capturedListingView({snapshot,search,photoCount:(photos ?? []).length,conditionId:card.condition_id});
-  return {card,view,partNumber,erpPurchases:erpPurchases ?? [],snapshot,photos:photos ?? [],search,captured:{...captured,descriptionSource:null},description:sanitizeDescription(captured.descriptionSource)} as CardDetail;
+  const card=projectStock(stored.card),search=stored.search ?? {};
+  const captured=capturedListingView({snapshot:stored.snapshot,search,photoCount:stored.photos.length,conditionId:card.condition_id});
+  return {...stored,card,search,captured:{...captured,descriptionSource:null},description:sanitizeDescription(captured.descriptionSource)};
 }
