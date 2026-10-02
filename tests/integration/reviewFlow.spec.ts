@@ -42,7 +42,7 @@ test('owner API and real PostgreSQL: queue, journal, corrections and ERP fact as
   const fact={key:'draft:3:116897101689',ebayItemId:'116897101689',scopeDate:from,lifecycle:'draft',draftId:3,purchaseId:null,orderedAt:null,emailAt,draftCreatedAt:emailAt,purchaseCreatedAt:null,timeBasis:'email',quantity:null,cancelledUnits:0,quantityBasis:'unknown',active:true};
   const service={Authorization:`Bearer ${process.env.REVIEW_TEST_SERVICE_JWT}`};
   const synced=await request.post('http://127.0.0.1:54835/rest/v1/rpc/sync_notification_order_facts',{headers:service,data:{p_from:from,p_orders:[fact]}});expect(synced.status(),await synced.text()).toBe(200);
-  await page.reload();await expect(panel).toBeVisible();
+  await page.reload();await page.getByRole('button',{name:/Відкрити картку: An item/}).click();await expect(panel).toBeVisible();
   await expect(panel.getByText('Кількість закупленого не визначає залишок оголошення.',{exact:false})).toBeVisible();
   await panel.getByRole('button',{name:'✅ Купив вручну',exact:true}).click();
   await panel.getByLabel('Куплено через цю картку, шт.').fill('2');await panel.getByRole('button',{name:'Зберегти «Купив»'}).click();

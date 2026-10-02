@@ -107,6 +107,73 @@ test('mixed cards keep their editors collapsed; missing part number opens and cl
   await badge.click();await expect(input).toHaveValue('');
 });
 
+test('drawer starts details and context together, shows queued title immediately and details before actions are ready',async({page})=>{
+  await fixtures(page);let detailStarted=false,contextStarted=false,releaseDetail:()=>void=()=>{},releaseContext:()=>void=()=>{};
+  const heldDetail=new Promise<void>(resolve=>{releaseDetail=resolve}),heldContext=new Promise<void>(resolve=>{releaseContext=resolve});
+  await page.route('**/api/review/boards?**',async route=>{
+    if(!new URL(route.request().url()).searchParams.has('id'))return route.fallback();
+    detailStarted=true;await heldDetail;await route.fulfill({json:detail});
+  });
+  await page.route('**/api/review/contexts',async route=>{contextStarted=true;await heldContext;return route.fallback()});
+  await page.goto('/zhezhemon/processing');await page.locator('article').first().getByRole('button',{name:/Відкрити картку:/}).click();
+  const panel=page.getByRole('dialog');await expect(panel.locator('#card-title')).toHaveText(`${card.title} 1`);
+  await expect(panel.getByRole('link',{name:'Відкрити на eBay ↗',exact:true})).toBeVisible();
+  await expect.poll(()=>detailStarted && contextStarted).toBe(true);
+  releaseDetail();await expect(panel.getByRole('heading',{name:'Дані оголошення на момент повідомлення',exact:true})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'⏱ Не встиг',exact:true})).toBeDisabled();
+  releaseContext();await expect(panel.getByRole('button',{name:'⏱ Не встиг',exact:true})).toBeEnabled();
+});
+
+test('direct drawer links show details while their delivery context is loading',async({page})=>{
+  await fixtures(page);let release:()=>void=()=>{};const held=new Promise<void>(resolve=>{release=resolve});
+  await page.route('**/api/review/contexts',async route=>{await held;return route.fallback()});
+  await page.goto(`/zhezhemon/processing?card=${id}`);const panel=page.getByRole('dialog');
+  await expect(panel.getByRole('heading',{name:'Дані оголошення на момент повідомлення',exact:true})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'✅ Купив вручну',exact:true})).toBeDisabled();
+  release();await expect(panel.getByRole('button',{name:'✅ Купив вручну',exact:true})).toBeEnabled();
+});
+
+test('drawer URL updates and browser back work without server navigation or losing filters',async({page})=>{
+  await fixtures(page);await page.goto('/zhezhemon/processing?notifications.kind=first_seen');
+  await expect(page.locator('article')).toHaveCount(4);let serverNavigations=0;
+  page.on('request',request=>{const url=new URL(request.url());if(request.headers()['rsc']==='1' && url.pathname==='/zhezhemon/processing')serverNavigations++});
+  await page.locator('article').first().getByRole('button',{name:/Відкрити картку:/}).click();
+  await expect(page.getByRole('dialog')).toBeVisible();await expect(page).toHaveURL(new RegExp(`card=${id}`));
+  await page.getByRole('dialog').getByRole('button',{name:'Закрити ×'}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.get('notifications.kind')).toBe('first_seen');
+  await page.goBack();await expect(page.getByRole('dialog')).toBeVisible();await expect(page).toHaveURL(new RegExp(`card=${id}`));
+  await page.goBack();await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(serverNavigations).toBe(0);
+});
+
+test('failed or mismatched parallel context leaves visible details and disabled actions',async({page})=>{
+  await fixtures(page);let fail=true;
+  await page.route('**/api/review/contexts',route=>route.fulfill(fail?{status:503,json:{error:'context_unavailable'}}:
+    {json:{id,kind:'delivery',delivery_id:delivery,result_version:1}}));
+  await page.goto('/zhezhemon/processing');await page.locator('article').first().getByRole('button',{name:/Відкрити картку:/}).click();
+  const panel=page.getByRole('dialog');await expect(panel.getByRole('heading',{name:'Дані оголошення на момент повідомлення',exact:true})).toBeVisible();
+  await expect(panel.getByRole('alert')).toHaveText('Дані картки завантажено, але дії недоступні. Онови картку.');
+  await expect(panel.getByRole('button',{name:'⏱ Не встиг',exact:true})).toBeDisabled();
+  fail=false;await panel.getByRole('button',{name:'Оновити',exact:true}).click();
+  await expect(panel.getByText('Картка змінилась під час відкриття. Онови її.',{exact:true})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'⏱ Не встиг',exact:true})).toBeDisabled();
+});
+
+test('reloading a changed canonical delivery prepares the new context instead of reusing the queue hint',async({page})=>{
+  await fixtures(page);const replacement='55555555-5555-4555-8555-555555555555',targets:string[]=[];
+  await page.route('**/api/review/boards?**',route=>new URL(route.request().url()).searchParams.has('id')?
+    route.fulfill({json:{...detail,card:{...card,delivery_id:replacement}}}):route.fallback());
+  await page.route('**/api/review/contexts',route=>{const target=route.request().postDataJSON().target;targets.push(target);
+    return route.fulfill({json:{id,kind:'delivery',delivery_id:target,result_version:0}})});
+  await page.goto('/zhezhemon/processing');await page.locator('article').first().getByRole('button',{name:/Відкрити картку:/}).click();
+  const panel=page.getByRole('dialog');await expect(panel.getByText('Картка змінилась під час відкриття. Онови її.',{exact:true})).toBeVisible();
+  await panel.getByRole('button',{name:'Оновити',exact:true}).click();await expect(panel.getByRole('button',{name:'⏱ Не встиг',exact:true})).toBeEnabled();
+  // Development Strict Mode may start the first effect twice; refresh must only use the new delivery.
+  const fresh=targets.indexOf(replacement);expect(fresh).toBeGreaterThan(0);
+  expect(targets.slice(0,fresh).every(target=>target===delivery)).toBe(true);
+  expect(targets.slice(fresh).every(target=>target===replacement)).toBe(true);
+});
+
 test('drawer records a manual total, edits it and cancels with a reason',async({page})=>{
   await fixtures(page);let manual:number|null=null;const writes:any[]=[];
   await page.route('**/api/review/boards?**',async route=>{

@@ -3,7 +3,7 @@ import {useCallback,useEffect,useRef,useState} from 'react'
 import {useSearchParams} from 'next/navigation'
 import Link from 'next/link'
 import type {CardDetail,ListingErpPurchase} from '@/lib/server/reviewBoards'
-import {dateLabel,searchLabel,type Board} from '@/lib/reviewBoards'
+import {dateLabel,searchLabel,type Board,type BoardCard} from '@/lib/reviewBoards'
 import {applyCommand,issueContext,explainError,explainResult} from '@/lib/reviewClient'
 import {tokenFromDispatchId,type ReviewAction,type ReviewPayload,type ReviewContext} from '@/lib/reviewCommands'
 import {outcomeLabels} from '@/lib/reviewKeyboard'
@@ -13,11 +13,13 @@ import ManualPurchaseForm from './ManualPurchaseForm'
 import PartNumberForm from './PartNumberForm'
 import CapturedData from './CapturedData'
 import styles from './Boards.module.css'
-export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{board:Board;id:string;externalVersion:number;onClose:()=>void;onChanged:()=>void}){
+export default function CardPanel({board,id,initialCard,externalVersion,onClose,onChanged}:{board:Board;id:string;initialCard?:BoardCard;externalVersion:number;onClose:()=>void;onChanged:()=>void}){
   const [data,setData]=useState<CardDetail|null>(null),[context,setContext]=useState<ReviewContext|null>(null),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [refresh,setRefresh]=useState(0),[pending,setPending]=useState(false),[stale,setStale]=useState(false);
   const dirty=useRef(false),dialog=useRef<HTMLDivElement>(null),closeButton=useRef<HTMLButtonElement>(null),closeRef=useRef(onClose),seenExternal=useRef(externalVersion);
   const dirtyForms=useRef({purchase:false,outcome:false});
+  const initial=useRef(initialCard).current;
+  const deliveryHint=useRef(initial?.delivery_id);
   const markDirty=(form:'purchase'|'outcome',value:boolean)=>{dirtyForms.current[form]=value;dirty.current=dirtyForms.current.purchase || dirtyForms.current.outcome};
   const resetDirty=()=>{dirtyForms.current={purchase:false,outcome:false};dirty.current=false};
   closeRef.current=onClose;const params=useSearchParams();
@@ -37,9 +39,19 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
   useEffect(()=>{if(seenExternal.current===externalVersion)return;seenExternal.current=externalVersion;if(dirty.current)setStale(true);else setRefresh(v=>v+1)},[externalVersion]);
   useEffect(()=>{
     const abort=new AbortController();setContext(null);setError('');
+    // The queue already knows the delivery. Start its context without waiting for details.
+    // Handle rejection immediately so a failed parallel request is never unhandled.
+    const prepare=(deliveryId:string)=>issueContext({kind:'delivery',deliveryId}).then(value=>({value}),error=>({error}));
+    const contextRequest=deliveryHint.current?prepare(deliveryHint.current):null;
     fetch(`/api/review/boards?tab=${board}&id=${id}`,{signal:abort.signal,cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error(response.status===404?'Картки немає в основній черзі.':'Не вдалося завантажити картку.');return response.json() as Promise<CardDetail>})
-      .then(async detail=>{const pinned=await issueContext({kind:'delivery',deliveryId:detail.card.delivery_id});if(abort.signal.aborted)return;
-        setData(detail);if(pinned.result_version!==detail.card.state_version){setStale(true);setMessage('Картка змінилась під час відкриття. Онови її.');return}setContext(pinned)})
+      .then(async detail=>{
+        if(abort.signal.aborted)return;setData(detail);deliveryHint.current=detail.card.delivery_id;
+        const result=await(contextRequest ?? prepare(detail.card.delivery_id));
+        if(abort.signal.aborted)return;
+        if('error' in result){setError('Дані картки завантажено, але дії недоступні. Онови картку.');return}
+        const pinned=result.value;
+        if(pinned.delivery_id!==detail.card.delivery_id || pinned.result_version!==detail.card.state_version){setStale(true);setMessage('Картка змінилась під час відкриття. Онови її.');return}setContext(pinned)
+      })
       .catch(e=>{if(!abort.signal.aborted)setError(e.message)});
     return ()=>abort.abort();
   },[board,id,refresh]);
@@ -69,10 +81,15 @@ export default function CardPanel({board,id,externalVersion,onClose,onChanged}:{
   function reload(){if(!dirty.current || confirm('Оновити й відкинути незбережений текст?')){resetDirty();setStale(false);setRefresh(v=>v+1)}}
   const view=data?.view,locked=pending || !context || stale;
   return <div className={styles.overlay} onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div ref={dialog} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="card-title">
-    <div className={styles.cardHeader}><div className={styles.cardHeading}><p id="card-title">{data?.card.title ?? 'Завантаження…'}</p></div><div className={styles.cardActions}><button onClick={reload}>Оновити</button><button ref={closeButton} onClick={close}>Закрити ×</button></div></div>
+    <div className={styles.cardHeader}><div className={styles.cardHeading}><p id="card-title">{data?.card.title ?? initial?.title ?? 'Завантаження…'}</p></div><div className={styles.cardActions}><button onClick={reload}>Оновити</button><button ref={closeButton} onClick={close}>Закрити ×</button></div></div>
     <div className={styles.cardBody}>
       {error && <p role="alert" className={styles.error}>{error}</p>}{message && <p role="status">{message}</p>}
       {stale && <p role="alert" className={styles.error}>Дані змінились. Онови картку перед наступною дією.</p>}
+      {!data && !error && initial && <div aria-busy="true">
+        <h2>{initial.title}</h2><p><a href={initial.link} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
+        <p>{dateLabel(initial.sent_at)} · {searchLabel(initial)}</p>
+        <p className={styles.muted}>Завантажую деталі…</p>
+      </div>}
       {data && <>
         <h2>{data.card.title}</h2><p><a href={data.card.link} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
         <p>{dateLabel(data.card.sent_at)} · {searchLabel(data.card)}</p>
