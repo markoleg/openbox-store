@@ -18,7 +18,7 @@ export default function AsideMenu() {
             const items = allItems.filter((item: any) => item.search_parameter_id === search.id && !item.hidden);
             const { id, keywords, seller, condition, rate } = search;
             const searchCondition = condition === 1000 ? "New" : condition === 1500 ? "OpenBox" : "Used";
-            const searchName = `${seller ?? ""} ${keywords} ${searchCondition}`;
+            const searchName = `${seller ?? ""} ${keywords} ${searchCondition}`.trim();
             return {
                 name: searchName,
                 path: `/zhezhemon/${id}`,
@@ -26,7 +26,7 @@ export default function AsideMenu() {
                 qty: items.length,
                 rate: rate,
             };
-        })
+        }).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
     }, [searches, allItems])
 
     return (
@@ -52,10 +52,10 @@ export default function AsideMenu() {
                     </Link>
                     {loading
                         ? <Loader color='var(--primary)' className="loader" />
-                        : list.map((item, index) => (
+                        : list.map((item) => (
                             <Link
                                 href={item.path}
-                                key={index}
+                                key={item.id}
                                 className={pathname === item.path ? styles.active : ""}
                             >
                                 <GitCommitHorizontal />
