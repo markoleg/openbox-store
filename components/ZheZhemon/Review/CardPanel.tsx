@@ -3,8 +3,9 @@ import {useCallback,useEffect,useRef,useState} from 'react'
 import {useSearchParams} from 'next/navigation'
 import Link from 'next/link'
 import CardFacts from './CardFacts'
+import SearchLink from './SearchLink'
 import type {CardDetail,ListingErpPurchase} from '@/lib/server/reviewBoards'
-import {dateLabel,searchLabel,type Board,type BoardCard} from '@/lib/reviewBoards'
+import {dateLabel,type Board,type BoardCard} from '@/lib/reviewBoards'
 import {applyCommand,issueContext,explainError,explainResult} from '@/lib/reviewClient'
 import {tokenFromDispatchId,type ReviewAction,type ReviewPayload,type ReviewContext} from '@/lib/reviewCommands'
 import {outcomeLabels} from '@/lib/reviewKeyboard'
@@ -88,12 +89,12 @@ export default function CardPanel({board,id,initialCard,externalVersion,onClose,
       {stale && <p role="alert" className={styles.error}>Дані змінились. Онови картку перед наступною дією.</p>}
       {!data && !error && initial && <div aria-busy="true">
         <h2>{initial.title}</h2><p><a href={initial.link} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
-        <p>{dateLabel(initial.sent_at)} · {searchLabel(initial)}</p>
+        <p>{dateLabel(initial.sent_at)} · <SearchLink card={initial}/></p>
         <p className={styles.muted}>Завантажую деталі…</p>
       </div>}
       {data && <>
         <h2>{data.card.title}</h2><CardFacts card={data.card}/><p><a href={data.card.link} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
-        <p>{dateLabel(data.card.sent_at)} · {searchLabel(data.card)}</p>
+        <p>{dateLabel(data.card.sent_at)} · <SearchLink card={data.card}/></p>
         <section><h3>Результат повідомлення</h3>
           {data.card.legacy_outcome && <p className={styles.muted}>Старе рішення: {data.card.legacy_outcome==='manual_bought'?'«Купив» без підтвердження ERP':'«Приховав би»'}. Його можна виправити.</p>}
           {data.card.note && <p>{data.card.note}</p>}

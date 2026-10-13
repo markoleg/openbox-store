@@ -118,6 +118,8 @@ interface Props {
     value?: SearchFilters | null
     /** The search's own Max Price, to flag caps that can never fire. */
     maxPrice?: number | string
+    /** Global rules apply to every search: matching scope stays a per-search choice. */
+    scope?: 'search' | 'global'
 }
 
 /**
@@ -128,7 +130,7 @@ interface Props {
  * with four parts, and flattening that into parallel indexed fields would put
  * the burden of reassembling it on both server actions.
  */
-export default function FiltersFieldset({ value, maxPrice }: Props) {
+export default function FiltersFieldset({ value, maxPrice, scope = 'search' }: Props) {
     const [stopWords, setStopWords] = useState<string[]>(value?.stop_words ?? [])
     const [mustWords, setMustWords] = useState<string[]>(value?.must_words ?? [])
     const [rules, setRules] = useState<RuleDraft[]>(toRuleDrafts(value?.variant_rules))
@@ -397,7 +399,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                 </button>
             </fieldset>
 
-            <fieldset className={styles.filterGroup}>
+            {scope === 'search' && <fieldset className={styles.filterGroup}>
                 <legend>Matching</legend>
                 <label className={styles.filterCheck}>
                     <input
@@ -412,7 +414,7 @@ export default function FiltersFieldset({ value, maxPrice }: Props) {
                     «Midnight Sport Band» на корпусі Starlight збігся б із правилом
                     Midnight. Партійні номери завжди читаються лише з назви.
                 </p>
-            </fieldset>
+            </fieldset>}
         </>
     )
 }

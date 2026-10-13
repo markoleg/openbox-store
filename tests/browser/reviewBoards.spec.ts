@@ -536,3 +536,23 @@ test('part number field offers CRM catalog matches and saves the picked model nu
   await tile.getByRole('button',{name:'Зберегти',exact:true}).click();
   await expect.poll(()=>saved.length).toBe(1);expect((saved[0] as {partNumber:string}).partNumber).toBe('MXP93');
 });
+
+test('tile links the search that found the listing; a deleted search stays text',async({page})=>{
+  await fixtures(page);await page.goto('/zhezhemon/processing');
+  const link=page.locator('article').first().getByRole('link',{name:'Lenovo',exact:true});
+  await expect(link).toHaveAttribute('href','/zhezhemon/1');await expect(link).toHaveAttribute('target','_blank');
+  await page.route('**/api/review/boards?**',route=>route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,search_id:null,search_name:'Lenovo'}]},processed:{count:0,cards:[]}}}}));
+  await page.reload();
+  await expect(page.locator('article').first().getByText('Lenovo (пошук видалено)')).toBeVisible();
+  await expect(page.locator('article').first().getByRole('link',{name:/Lenovo/})).toHaveCount(0);
+});
+
+test('search page has a collapsible global rules section above the new-search form',async({page})=>{
+  await fixtures(page);await page.goto('/zhezhemon');
+  const title=page.getByRole('heading',{name:/Глобальні правила/});await expect(title).toBeVisible();
+  const add=page.getByRole('heading',{name:'Add New Search'});
+  expect((await title.boundingBox())!.y).toBeLessThan((await add.boundingBox())!.y);
+  await title.click();
+  // The test server has no database: the section says so instead of showing an empty editor.
+  await expect(page.getByText('Глобальні правила недоступні: потрібна міграція 034 у базі.')).toBeVisible();
+});

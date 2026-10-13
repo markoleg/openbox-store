@@ -1,7 +1,7 @@
 'use client'
 import {useState} from 'react'
 import {PanelRight} from 'lucide-react'
-import {dateLabel,shortDateLabel,searchLabel,eventLabels,eventEmoji,partNumberBadge,type BoardCard} from '@/lib/reviewBoards'
+import {dateLabel,shortDateLabel,eventLabels,eventEmoji,partNumberBadge,type BoardCard} from '@/lib/reviewBoards'
 import {availablePhotos,type ListingPhoto} from '@/lib/listingPhotos'
 import {stockLabel} from '@/lib/reviewStock'
 import {outcomeLabels} from '@/lib/reviewKeyboard'
@@ -10,6 +10,7 @@ import TilePartNumberForm from './TilePartNumberForm'
 import {PartNumberTag} from './PartNumberForm'
 import {ErpPurchaseTag} from './ErpPurchases'
 import CardFacts from './CardFacts'
+import SearchLink from './SearchLink'
 import styles from './Boards.module.css'
 
 export default function NotificationTile({card,onChanged,onOpen,onPhotos}:{card:BoardCard;onChanged:()=>void;onOpen:(action?:'bug')=>void;onPhotos:(photos:ListingPhoto[])=>void}) {
@@ -35,7 +36,7 @@ export default function NotificationTile({card,onChanged,onOpen,onPhotos}:{card:
                     <button className={styles.partNumberToggle} aria-label={`Змінити партійний номер: ${partNumberBadge(card).label}`} aria-expanded={partNumberOpen}
                         title="Задати партійний вручну" onClick={()=>setPartNumberOpen(value=>!value)}><PartNumberTag card={card}/></button>
                 </div>
-                <p className={`${styles.muted} ${styles.tileMeta}`}><time className={styles.tileTime} dateTime={card.sent_at} title={dateLabel(card.sent_at)}>{shortDateLabel(card.sent_at)}</time> · {searchLabel(card)}</p>
+                <p className={`${styles.muted} ${styles.tileMeta}`}><time className={styles.tileTime} dateTime={card.sent_at} title={dateLabel(card.sent_at)}>{shortDateLabel(card.sent_at)}</time> · <SearchLink card={card}/></p>
                 {card.stage==='processed' && <span>{card.outcome?outcomeLabels[card.outcome]:card.legacy_outcome==='manual_bought'?'Старе «Купив» · без ERP':'Старе «Приховав би»'}</span>}
             </div>
         </div>
