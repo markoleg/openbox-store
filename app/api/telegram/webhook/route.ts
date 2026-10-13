@@ -6,7 +6,7 @@ import {
 	applyReviewCommand, deliveryForMessage, deliveryView, issueReviewContext, reconcileUnknownDelivery,
 	reviewCommandsEnabled,
 } from "@/lib/server/reviewCommands";
-import { botId, callTelegram, commandIdForCallback, syncDeliveryKeyboard, syncEventKeyboards } from "@/lib/server/telegram";
+import { botId, callTelegram, commandIdForCallback, syncClosedEvents, syncDeliveryKeyboard, syncEventKeyboards } from "@/lib/server/telegram";
 
 // Telegram webhook. The tracker on Fly only sends messages — acknowledging a
 // super sniper alert lands here, and the tracker reads the flag when its timer
@@ -175,6 +175,7 @@ async function handleLegacyZheAction(data: string, commandId: string): Promise<s
 		const action: ReviewAction = isBan ? "ban" : pauseDays ? "pause" : "hide";
 		const payload: ReviewPayload = pauseDays ? { days: pauseDays } : {};
 		const result = await applyReviewCommand({ commandId, contextId: context.id, action, payload }, "legacy_telegram");
+		await syncClosedEvents(result.closedEvents);
 		if (result.status === "applied" || result.status === "noop") {
 			return isBan ? "🚫 Забанено" : pauseDays ? `⏸️ Пауза ${pauseDays}д` : "🙈 Сховано";
 		}
@@ -259,6 +260,7 @@ async function handleReviewCallback(query: CallbackQuery, cb: ReviewCallback): P
 		// Commit is the source of truth; the message and its main-chat siblings
 		// follow it. A failed edit becomes a durable review_jobs retry.
 		await syncEventKeyboards(delivery.event_id);
+		await syncClosedEvents(result.closedEvents);
 	} catch (error) {
 		console.error("Review callback failed:", error instanceof Error ? error.message : error);
 		await answer("Не вдалося виконати — спробуй ще раз або з дашборда", true);

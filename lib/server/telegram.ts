@@ -64,6 +64,12 @@ export async function syncDeliveryKeyboard(deliveryId: string, menu: Menu = 'roo
   return current;
 }
 
+/** Redraw the messages of cards a ban closed alongside the pressed one. */
+export async function syncClosedEvents(eventIds: string[] | undefined): Promise<void> {
+  await Promise.all((eventIds ?? []).map(id => syncEventKeyboards(id)
+    .catch(e => console.error('keyboard sync', e instanceof Error ? e.name : e))));
+}
+
 /** After a dashboard command: the origin message and its compatible main-chat siblings. */
 export async function syncEventKeyboards(eventId: string): Promise<void> {
   const deliveries = await mainDeliveriesForEvent(eventId);

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseBoardQuery,tabFilters,searchLabel,parsePartNumberRequest,partNumberBadge,erpPurchaseBadge,manualPurchaseBadge} from '../lib/reviewBoards.ts';
+import {parseBoardQuery,tabFilters,searchLabel,parsePartNumberRequest,partNumberBadge,erpPurchaseBadge,manualPurchaseBadge,listingFactsLabel,marginNote,shortDateLabel} from '../lib/reviewBoards.ts';
 import {estimatedQuantity,stockLabel,projectStock} from '../lib/reviewStock.ts';
 import {safePhoto,availablePhotos} from '../lib/listingPhotos.ts';
 const id='11111111-1111-4111-8111-111111111111';
@@ -93,4 +93,19 @@ test('one queue has only new and processed cursors',()=>{
 test('ERP badge distinguishes unknown quantity from zero',()=>{
   assert.equal(erpPurchaseBadge({erp_purchases:0}),null);
   assert.equal(erpPurchaseBadge({erp_purchases:2,erp_units:3,erp_unknown_quantities:1}),'ERP · 2 закуп. · 3 шт + невідома кількість');
+});
+test('tile facts read like the Telegram message and tolerate missing fields',()=>{
+  assert.equal(listingFactsLabel({condition:'New',seller_name:'seller',feedback_score:'500',feedback_percentage:'99.9'}),'New · seller (500) 99.9%');
+  assert.equal(listingFactsLabel({condition:'Open box'}),'Open box');
+  assert.equal(listingFactsLabel({}),'');
+  assert.equal(shortDateLabel('2026-10-13T11:05:00Z'),'13.10, 14:05');
+});
+test('only a known product without a base price links to the CRM price page',()=>{
+  const card={erp_product_id:7,erp_margin_percent:null,erp_margin_missing:'NO_PRICE',condition_class:'OPENBOX'};
+  assert.deepEqual(marginNote(card,'https://crm.example/'),
+    {text:'маржа: немає ціни',href:'https://crm.example/catalog-prices?productId=7&conditionClass=OPENBOX'});
+  assert.deepEqual(marginNote(card,undefined),{text:'маржа: немає ціни',href:null});
+  assert.deepEqual(marginNote({...card,condition_class:null},'https://crm.example'),{text:'маржа: немає ціни',href:null});
+  assert.deepEqual(marginNote({...card,erp_margin_percent:19.1,erp_margin_missing:null},'https://crm.example'),{text:'~маржа 19%',href:null});
+  assert.equal(marginNote({},'https://crm.example'),null);
 });

@@ -1,7 +1,7 @@
 'use client'
 import {useState} from 'react'
 import {PanelRight} from 'lucide-react'
-import {dateLabel,searchLabel,eventLabels,partNumberBadge,type BoardCard} from '@/lib/reviewBoards'
+import {dateLabel,shortDateLabel,searchLabel,eventLabels,eventEmoji,partNumberBadge,type BoardCard} from '@/lib/reviewBoards'
 import {availablePhotos,type ListingPhoto} from '@/lib/listingPhotos'
 import {stockLabel} from '@/lib/reviewStock'
 import {outcomeLabels} from '@/lib/reviewKeyboard'
@@ -9,6 +9,7 @@ import TileActions from './TileActions'
 import TilePartNumberForm from './TilePartNumberForm'
 import {PartNumberTag} from './PartNumberForm'
 import {ErpPurchaseTag} from './ErpPurchases'
+import CardFacts from './CardFacts'
 import styles from './Boards.module.css'
 
 export default function NotificationTile({card,onChanged,onOpen,onPhotos}:{card:BoardCard;onChanged:()=>void;onOpen:(action?:'bug')=>void;onPhotos:(photos:ListingPhoto[])=>void}) {
@@ -19,6 +20,7 @@ export default function NotificationTile({card,onChanged,onOpen,onPhotos}:{card:
             <a className={styles.tileTitle} href={card.link} target="_blank" rel="noopener noreferrer">{card.title}</a>
             <button className={styles.drawerButton} aria-label={`Відкрити картку: ${card.title}`} title="Відкрити картку" onClick={()=>onOpen()}><PanelRight size={17}/></button>
         </div>
+        <CardFacts card={card}/>
         <div className={styles.tileOverview} data-photo={!!cover}>
             {cover && <button className={styles.tilePhoto} aria-label={`Переглянути фото: ${card.title}`} onClick={()=>onPhotos(photos)}>
                 {failed===cover.source_url?<span>Фото недоступне</span>:
@@ -29,11 +31,11 @@ export default function NotificationTile({card,onChanged,onOpen,onPhotos}:{card:
             <div className={styles.tileFacts}>
                 <div className={styles.priceRow}><span className={styles.price}>{card.price===null?'Ціна невідома':`${card.price} ${card.currency ?? ''}`}</span>
                     <span className={styles.muted} title="Кількість на момент сповіщення">📦 {stockLabel(card.stock_quantity)}</span></div>
-                <div className={styles.tags}><span>{eventLabels[card.kind] ?? card.kind}</span><ErpPurchaseTag card={card}/>
+                <div className={styles.tags}><span className={styles.kindEmoji} title={eventLabels[card.kind] ?? card.kind} aria-label={eventLabels[card.kind] ?? card.kind}>{eventEmoji[card.kind] ?? eventLabels[card.kind] ?? card.kind}</span><ErpPurchaseTag card={card}/>
                     <button className={styles.partNumberToggle} aria-label={`Змінити партійний номер: ${partNumberBadge(card).label}`} aria-expanded={partNumberOpen}
                         title="Задати партійний вручну" onClick={()=>setPartNumberOpen(value=>!value)}><PartNumberTag card={card}/></button>
                 </div>
-                <p className={`${styles.muted} ${styles.tileMeta}`}>{dateLabel(card.sent_at)} · {searchLabel(card)}</p>
+                <p className={`${styles.muted} ${styles.tileMeta}`}><time className={styles.tileTime} dateTime={card.sent_at} title={dateLabel(card.sent_at)}>{shortDateLabel(card.sent_at)}</time> · {searchLabel(card)}</p>
                 {card.stage==='processed' && <span>{card.outcome?outcomeLabels[card.outcome]:card.legacy_outcome==='manual_bought'?'Старе «Купив» · без ERP':'Старе «Приховав би»'}</span>}
             </div>
         </div>

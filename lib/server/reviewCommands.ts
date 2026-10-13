@@ -65,8 +65,18 @@ export async function applyReviewCommand(command: ReviewCommand,
     return rpc('set_notification_manual_purchase',{p_command:command.commandId,p_context:command.contextId,
       p_quantity:command.action==='set_manual_purchase'?payload.quantity:null,p_reason:payload.reason ?? null,p_source:source});
   }
-  return rpc('apply_review_command', {p_command: command.commandId, p_context: command.contextId,
+  const result: ReviewCommandResult = await rpc('apply_review_command', {p_command: command.commandId, p_context: command.contextId,
     p_action: command.action, p_payload: command.payload, p_source: source});
+  if (command.action === 'ban' && (result.status === 'applied' || result.status === 'noop')) {
+    // A link often arrives several times; one ban settles all its open cards.
+    // The ban itself is committed, so a failure here only leaves them open.
+    try {
+      result.closedEvents = await rpc('close_banned_duplicates', {p_context: command.contextId, p_source: source}) ?? [];
+    } catch (error) {
+      console.error('close_banned_duplicates failed:', error instanceof Error ? error.message : error);
+    }
+  }
+  return result;
 }
 
 export async function saveSearchConfiguration(request: SearchSaveRequest) {

@@ -5,6 +5,8 @@ export type Board = 'notifications';
 export type Stage = 'new' | 'processed';
 export const stages: Stage[] = ['new','processed'];
 export const eventLabels:Record<string,string>={first_seen:'Перша поява',returned:'Повернення',price_drop:'Подешевшання',pause_over:'Після паузи',availability_restored:'Знову доступно'};
+/** Compact tile marker; the full label stays in the title attribute and the filters. */
+export const eventEmoji:Record<string,string>={first_seen:'🆕',returned:'🔄',price_drop:'⬇️',pause_over:'⏸️',availability_restored:'♻️'};
 export type BoardFilters = Partial<Record<'search'|'link'|'outcome'|'stage'|'kind'|'condition'|'from'|'to'|'partNumber',string>>;
 export const partNumberFilters = ['missing','not_in_catalog'] as const;
 export type PartNumberStatus = 'identified'|'not_in_catalog'|'ambiguous'|'unknown'|'unverified';
@@ -16,7 +18,10 @@ export type BoardCard = {board:Board;id:string;event_id:string;delivery_id:strin
   search_id:number|null;search_name:string|null;kind:string;channel:'main';condition_id:string|null;title:string;price:string|null;currency:string|null;
   outcome:string|null;manual_outcome:string|null;legacy_outcome:string|null;note:string|null;outcome_at:string|null;state_version:number;
   hidden:boolean;hidden_until:string|null;favorite:boolean;stock_blocked:boolean;
-  stock_snapshot_id:string|null;stock_observed_at:string|null;stock_quantity:StockQuantity|null} & CardPartNumber & CardErpPurchases;
+  stock_snapshot_id:string|null;stock_observed_at:string|null;stock_quantity:StockQuantity|null} & CardPartNumber & CardErpPurchases & CardListingFacts;
+/** What the Telegram message shows under the title (migration 033); absent before it is applied. */
+export type CardListingFacts = {condition?:string|null;seller_name?:string|null;feedback_score?:string|null;feedback_percentage?:string|null;
+  erp_product_id?:number|null;erp_margin_percent?:number|null;erp_margin_missing?:string|null;condition_class?:'NEW'|'OPENBOX'|null};
 export type Cursor = {at:string;id:string};
 /** version: the change signal read before the page; a later, higher one means the page may be stale. */
 export type BoardPage = {columns:Record<Stage,{count:number;cards:BoardCard[]}>;pending:number;searches?:{id:number;name:string|null}[];version?:number};
@@ -89,6 +94,24 @@ export function manualPurchaseBadge(card:CardErpPurchases):string|null {
   const pending=card.manual_purchase_pending_units ?? card.manual_purchase_quantity;
   return card.erp_purchases?`Купив · вручну · ще ${pending} шт. без ERP`:`Купив · вручну · ${pending} шт.`;
 }
+/** Condition and seller, as in the Telegram message: «New · seller (500) 99.9%». */
+export function listingFactsLabel(card:CardListingFacts):string {
+  const seller=card.seller_name?`${card.seller_name}${card.feedback_score!=null?` (${card.feedback_score})`:''}${card.feedback_percentage!=null?` ${card.feedback_percentage}%`:''}`:'';
+  return [card.condition,seller].filter(Boolean).join(' · ');
+}
+/**
+ * The CRM margin as the message showed it. A known product without a base sale
+ * price links to the CRM page that sets it, so the next notification has a margin.
+ */
+export function marginNote(card:CardListingFacts,crmUrl:string|undefined):{text:string;href:string|null}|null {
+  if(card.erp_margin_percent!=null)return {text:`~маржа ${Math.round(Number(card.erp_margin_percent))}%`,href:null};
+  if(!card.erp_margin_missing)return null;
+  const href=crmUrl && card.erp_margin_missing==='NO_PRICE' && card.erp_product_id && card.condition_class
+    ?`${crmUrl.replace(/\/+$/,'')}/catalog-prices?${new URLSearchParams({productId:String(card.erp_product_id),conditionClass:card.condition_class})}`:null;
+  return {text:'маржа: немає ціни',href};
+}
+/** Tile time: «13.10 14:05» in Kyiv, small enough to share a line. */
+export const shortDateLabel = (iso:string|null)=>iso?new Date(iso).toLocaleString('uk-UA',{timeZone:'Europe/Kyiv',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 export const dateLabel = (iso:string|null)=>iso?new Date(iso).toLocaleString('uk-UA',{timeZone:'Europe/Kyiv'}):'—';
 export function searchLabel(search:{search_id:number|null;search_name:string|null}):string {
   return search.search_id===null?(search.search_name?`${search.search_name} (пошук видалено)`:'Пошук видалено'):search.search_name || `Пошук #${search.search_id}`;

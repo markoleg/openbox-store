@@ -44,6 +44,8 @@ export type ReviewCommandResult = {
   status: 'applied' | 'noop' | 'conflict' | 'rejected';
   reason?: string; listingVersion?: number;
   currentPrice?: number; contextPrice?: number; contextId?: string; live?: LiveState;
+  /** Other still-new cards of a banned link, closed as banned with it (see close_banned_duplicates). */
+  closedEvents?: string[];
 };
 export type SearchSaveRequest = {
   commandId: string; searchId: number; expectedVersion: number | null;

@@ -504,3 +504,17 @@ for(const width of [320,850,1024])test(`queue navigation fits ${width}px`,async(
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await expect(page.getByRole('navigation',{name:'Розділи ZheZhemon'}).getByRole('link',{name:'Нові',exact:true})).toHaveAttribute('aria-current','page');
 });
+
+test('tile shows condition, seller and margin under the title, a compact time and the kind as an emoji',async({page})=>{
+  await fixtures(page,[],{condition:'Open box',seller_name:'best-seller',feedback_score:'1520',feedback_percentage:'99.4',
+    erp_product_id:7,erp_margin_percent:null,erp_margin_missing:'NO_PRICE',condition_class:'OPENBOX',kind:'returned'});
+  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first();
+  await expect(tile.getByText('Open box · best-seller (1520) 99.4% ·')).toBeVisible();
+  await expect(tile.getByRole('link',{name:/маржа: немає ціни/})).toHaveAttribute('href','https://crm.example/catalog-prices?productId=7&conditionClass=OPENBOX');
+  await expect(tile.getByLabel('Повернення')).toHaveText('🔄');
+  await expect(tile.locator('time')).toHaveText(/^\d{2}\.\d{2}, \d{2}:\d{2}$/);
+  await page.screenshot({path:'node_modules/.cache/board-tile-facts-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'node_modules/.cache/board-tile-facts-mobile.png'});
+});

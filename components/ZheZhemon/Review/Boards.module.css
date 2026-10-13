@@ -45,6 +45,12 @@
 .priceRow { display:flex; align-items:baseline; flex-wrap:wrap; gap:.3rem .7rem; }
 .priceRow .price { white-space:nowrap; }
 .tileMeta { font-size:.75rem; line-height:1.45; overflow-wrap:anywhere; }
+/* The time is secondary to the search name: small, on the same line. */
+.tileTime { font-size:.68rem; white-space:nowrap; }
+/* Condition · seller · margin, directly under the title. */
+.listingFacts { margin:.25rem 0 .45rem; font-size:.8rem; line-height:1.4; color:#cfd6dc; overflow-wrap:anywhere; }
+.listingFacts a { color:#f4d08f; }
+.tags .kindEmoji { padding:.1rem .3rem; font-size:.9rem; line-height:1.2; }
 .workspace .tilePhoto { float:left; margin:0 .65rem .25rem 0; position:relative; width:80px; height:80px; padding:0; overflow:hidden; background:#fff; border-color:#53616e; }
 .tilePhoto img { width:100%; height:100%; object-fit:contain; }
 .tilePhoto > span { font-size:.7rem; color:#394751; }

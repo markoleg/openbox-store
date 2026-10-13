@@ -3,7 +3,7 @@ import { requireOwnerSession } from '@/lib/server/owner';
 import { hasSameOrigin } from '@/lib/requestOrigin';
 import { parseReviewCommand } from '@/lib/reviewCommands';
 import { applyReviewCommand, reviewCommandsEnabled, reviewDatabase } from '@/lib/server/reviewCommands';
-import { syncEventKeyboards } from '@/lib/server/telegram';
+import { syncClosedEvents, syncEventKeyboards } from '@/lib/server/telegram';
 
 export async function POST(req: NextRequest) {
   try { await requireOwnerSession(); }
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
         .eq('id', command.contextId).maybeSingle();
       if (data?.event_id) await syncEventKeyboards(data.event_id).catch(e => console.error('keyboard sync', e instanceof Error ? e.name : e));
     }
+    await syncClosedEvents(result.closedEvents);
     return NextResponse.json(result, {status: result.status === 'conflict' ? 409 : result.status === 'rejected' ? 422 : 200,
       headers:{'Cache-Control':'no-store'}});
   } catch (error) {

@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
 import {useSearchParams} from 'next/navigation'
 import Link from 'next/link'
+import CardFacts from './CardFacts'
 import type {CardDetail,ListingErpPurchase} from '@/lib/server/reviewBoards'
 import {dateLabel,searchLabel,type Board,type BoardCard} from '@/lib/reviewBoards'
 import {applyCommand,issueContext,explainError,explainResult} from '@/lib/reviewClient'
@@ -91,7 +92,7 @@ export default function CardPanel({board,id,initialCard,externalVersion,onClose,
         <p className={styles.muted}>Завантажую деталі…</p>
       </div>}
       {data && <>
-        <h2>{data.card.title}</h2><p><a href={data.card.link} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
+        <h2>{data.card.title}</h2><CardFacts card={data.card}/><p><a href={data.card.link} target="_blank" rel="noopener noreferrer">Відкрити на eBay ↗</a></p>
         <p>{dateLabel(data.card.sent_at)} · {searchLabel(data.card)}</p>
         <section><h3>Результат повідомлення</h3>
           {data.card.legacy_outcome && <p className={styles.muted}>Старе рішення: {data.card.legacy_outcome==='manual_bought'?'«Купив» без підтвердження ERP':'«Приховав би»'}. Його можна виправити.</p>}
