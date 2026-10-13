@@ -45,6 +45,8 @@ export function parseBoardQuery(params:URLSearchParams):{board:Board;filters:Boa
   for(const stage of stages){const at=params.get(stage+'At'),id=params.get(stage+'Id');if(at || id){if(!at || !uuid(id) || !Number.isFinite(Date.parse(at)))throw new Error('invalid_cursor');cursors[stage]={at,id}}}
   return {board:'notifications',filters,cursors};
 }
+/** One CRM catalog product offered by the part-number picker; modelNumber is what gets saved. */
+export type CatalogMatch = {id:number;modelNumber:string;name:string|null;fullName:string|null};
 /** Same rule as set_listing_part_number: trimmed, upper-cased, 3–64 of A–Z 0–9 / + -. */
 export const PART_NUMBER_PATTERN = /^[A-Z0-9][A-Z0-9/+-]{2,63}$/;
 export const normalizePartNumber = (value: string): string | null => value.trim().toUpperCase() || null;

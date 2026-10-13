@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react'
 import {PART_NUMBER_PATTERN,normalizePartNumber,type CardPartNumber} from '@/lib/reviewBoards'
 import {savePartNumber,explainError} from '@/lib/reviewClient'
+import PartNumberInput from './PartNumberInput'
 import styles from './Boards.module.css'
 
 export default function TilePartNumberForm({link,card,expanded,onClose,onSaved}:{link:string;card:CardPartNumber;expanded:boolean;onClose:()=>void;onSaved:()=>void}) {
@@ -33,8 +34,8 @@ export default function TilePartNumberForm({link,card,expanded,onClose,onSaved}:
     }
     return <div className={styles.tilePartNumber} hidden={!expanded}>
         <form className={styles.tilePartNumberForm} onSubmit={event=>{event.preventDefault();if(!invalid && dirty && normalized!==null)void save(normalized)}}>
-            <label><span className={styles.srOnly}>Партійний номер</span><input value={value} disabled={pending} onChange={event=>setValue(event.target.value)}
-                maxLength={64} placeholder={card.part_number ?? 'Вказати вручну'} aria-invalid={invalid} autoComplete="off" spellCheck={false}/></label>
+            <label><span className={styles.srOnly}>Партійний номер</span><PartNumberInput value={value} disabled={pending} onChange={setValue}
+                placeholder={card.part_number ?? 'Номер або назва'} invalid={invalid}/></label>
             <button type="submit" disabled={pending || changed || invalid || !dirty || normalized===null}>Зберегти</button>
             {base.manual && <button type="button" disabled={pending || changed} onClick={()=>void save(null)}>Очистити</button>}
             <button type="button" disabled={pending} aria-label="Закрити редагування партійного" onClick={()=>{setValue(base.manual ?? '');setMessage('');onClose()}}>×</button>

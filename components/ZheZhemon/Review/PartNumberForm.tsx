@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { ListingPartNumber } from '@/lib/server/reviewBoards'
 import { PART_NUMBER_PATTERN, dateLabel, normalizePartNumber, partNumberBadge, partNumberSourceLabels, type CardPartNumber } from '@/lib/reviewBoards'
 import { savePartNumber, explainError } from '@/lib/reviewClient'
+import PartNumberInput from './PartNumberInput'
 import styles from './Boards.module.css'
 
 const statusLabels: Record<ListingPartNumber['status'], string> = {
@@ -50,7 +51,7 @@ export default function PartNumberForm({link,partNumber,onSaved}:{link:string;pa
         </p> : <p className={styles.muted}>ERP ще не відповідала для цього лінка.</p>}
         <form className={styles.partNumberForm} onSubmit={e=>{e.preventDefault();if(!invalid && normalized!==manual)void save(normalized)}}>
             <label>Вказати вручну
-                <input value={value} onChange={e=>setValue(e.target.value)} maxLength={64} placeholder="MXP93 або MXP93LL/A" aria-invalid={invalid} autoComplete="off" spellCheck={false}/>
+                <PartNumberInput value={value} onChange={setValue} placeholder="MXP93, MXP93LL/A або назва" invalid={invalid}/>
             </label>
             <button type="submit" disabled={pending || invalid || normalized===manual || normalized===null}>Зберегти</button>
             {manual && <button type="button" disabled={pending} onClick={()=>{setValue('');void save(null)}}>Очистити ручне</button>}

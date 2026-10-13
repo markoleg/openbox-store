@@ -133,10 +133,10 @@ test('mixed cards keep their editors collapsed; missing part number opens and cl
   const rows=[{...card,part_number:'MWWT3',part_number_status:'identified',part_number_source:'mpn'}, {...card,id:'33333333-3333-4333-8333-333333333333'}];
   await page.route('**/api/review/boards?**',route=>route.fulfill({json:{pending:2,columns:{new:{count:2,cards:rows},processed:{count:0,cards:[]}}}}));
   await page.goto('/zhezhemon/processing');await expect(page.locator('article')).toHaveCount(2);
-  await expect(page.getByRole('textbox',{name:'Партійний номер'})).toHaveCount(0);
+  await expect(page.getByRole('combobox',{name:'Партійний номер'})).toHaveCount(0);
   const known=(await page.locator('article').first().boundingBox())!,missing=(await page.locator('article').nth(1).boundingBox())!;
   expect(missing.y).toBe(known.y);expect(missing.height).toBe(known.height);
-  const tile=page.locator('article').nth(1),badge=tile.getByRole('button',{name:'Змінити партійний номер: Без партійного',exact:true}),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  const tile=page.locator('article').nth(1),badge=tile.getByRole('button',{name:'Змінити партійний номер: Без партійного',exact:true}),input=tile.getByRole('combobox',{name:'Партійний номер'});
   await expect(badge).toHaveAttribute('aria-expanded','false');await badge.click();await expect(input).toBeVisible();
   await expect(badge).toHaveAttribute('aria-expanded','true');await input.fill('DRAFT123');
   await badge.click();await expect(input).toBeHidden();await badge.click();await expect(input).toHaveValue('DRAFT123');
@@ -263,7 +263,7 @@ test('inline part number normalizes, saves and clears using the current version 
     const body=route.request().postDataJSON();writes.push(body);manual=body.partNumber;version=(version ?? 0)+1;
     await route.fulfill({json:{status:'applied',partNumber:{manual_part_number:manual,version}}});
   });
-  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('combobox',{name:'Партійний номер'});
   await expect(input).toBeHidden();await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
   await input.fill(' mxp93ll/a ');await tile.getByRole('button',{name:'Зберегти',exact:true}).click();
   await expect.poll(()=>writes.length).toBe(1);expect(writes[0]).toMatchObject({link,partNumber:'MXP93LL/A',version:null});
@@ -288,7 +288,7 @@ test('polling reloads the board only when the change signal moves',async({page})
 test('polling preserves an inline draft and requires reconciliation after a concurrent part-number change',async({page})=>{
   await page.clock.install();await fixtures(page);let manual='OLD123',version=1;
   await page.route('**/api/review/boards?**',async route=>route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,manual_part_number:manual,part_number_version:version}]},processed:{count:0,cards:[]}}}}));
-  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('combobox',{name:'Партійний номер'});
   await expect(input).toBeHidden();await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
   await input.fill('MY-DRAFT');manual='OTHER123';version=2;await page.clock.runFor(30300);
   await expect(input).toHaveValue('MY-DRAFT');await expect(tile.getByRole('button',{name:'Зберегти',exact:true})).toBeDisabled();
@@ -298,7 +298,7 @@ test('polling preserves an inline draft and requires reconciliation after a conc
 test('identified part number opens on badge click and closes without changing the automatic number',async({page})=>{
   await fixtures(page);
   await page.route('**/api/review/boards?**',async route=>route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,part_number:'MWWT3',part_number_status:'identified',part_number_source:'mpn',manual_part_number:null,part_number_version:1}]},processed:{count:0,cards:[]}}}}));
-  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('combobox',{name:'Партійний номер'});
   await expect(input).toBeHidden();await tile.getByRole('button',{name:'Змінити партійний номер: MWWT3',exact:true}).click();
   await expect(input).toBeVisible();await expect(input).toHaveAttribute('placeholder','MWWT3');
   await input.fill('UNSAVED123');await tile.getByRole('button',{name:'Закрити редагування партійного',exact:true}).click();await expect(input).toBeHidden();
@@ -308,7 +308,7 @@ test('identified part number opens on badge click and closes without changing th
 test('newly identified automatic part number does not collapse or erase an unsaved manual draft',async({page})=>{
   await page.clock.install();await fixtures(page);let identified=false;
   await page.route('**/api/review/boards?**',async route=>route.fulfill({json:{pending:1,columns:{new:{count:1,cards:[{...card,part_number:identified?'AUTO123':null,part_number_status:identified?'identified':'unknown',part_number_source:identified?'mpn':null,part_number_version:identified?2:1}]},processed:{count:0,cards:[]}}}}));
-  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('textbox',{name:'Партійний номер'});
+  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('combobox',{name:'Партійний номер'});
   await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
   await input.fill('MY-DRAFT');identified=true;await page.clock.runFor(30300);
   await expect(input).toBeVisible();await expect(input).toHaveValue('MY-DRAFT');await expect(tile.getByRole('button',{name:'Зберегти',exact:true})).toBeDisabled();
@@ -318,7 +318,7 @@ test.describe('mobile queue scrolling',()=>{
   test.use({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   for(const stage of ['new','processed'])test(`${stage} keeps the complete card list after keyboard viewport shrink and restore`,async({page})=>{
     await fixtures(page);await page.goto(`/zhezhemon/${stage==='new'?'processing':'processed'}`);
-    const queue=page.getByRole('region',{name:stage==='new'?'Нові картки':'Оброблені картки'}),input=page.locator('article').nth(1).getByRole('textbox',{name:'Партійний номер'});
+    const queue=page.getByRole('region',{name:stage==='new'?'Нові картки':'Оброблені картки'}),input=page.locator('article').nth(1).getByRole('combobox',{name:'Партійний номер'});
     await page.locator('article').nth(1).getByRole('button',{name:/Змінити партійний номер:/}).click();
     await input.fill('KEYBOARD-DRAFT');const listHeight=await queue.evaluate(el=>el.clientHeight);
     await page.setViewportSize({width:390,height:480});
@@ -517,4 +517,22 @@ test('tile shows condition, seller and margin under the title, a compact time an
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'node_modules/.cache/board-tile-facts-mobile.png'});
+});
+
+test('part number field offers CRM catalog matches and saves the picked model number',async({page})=>{
+  await fixtures(page);const queries:string[]=[],saved:unknown[]=[];
+  await page.route('**/api/review/catalog-search?**',async route=>{queries.push(new URL(route.request().url()).searchParams.get('q')!);
+    await route.fulfill({json:{items:[{id:7,modelNumber:'MXP63',name:'AirPods 4',fullName:'AirPods 4 (MXP63) White'},{id:8,modelNumber:'MXP93',name:'AirPods 4 ANC',fullName:'AirPods 4 ANC (MXP93)'}]}})});
+  await page.route('**/api/review/part-numbers',async route=>{saved.push(route.request().postDataJSON());
+    await route.fulfill({json:{status:'applied',partNumber:{part_number:'MXP93',status:'identified',source:'manual',manual_part_number:'MXP93',version:2}}})});
+  await page.goto('/zhezhemon/processing');const tile=page.locator('article').first(),input=tile.getByRole('combobox',{name:'Партійний номер'});
+  await tile.getByRole('button',{name:/Змінити партійний номер:/}).click();
+  await input.pressSequentially('airpods');
+  await expect(tile.getByRole('option')).toHaveCount(2);expect(queries.at(-1)).toBe('airpods');
+  await expect(tile.getByRole('option').first()).toContainText('AirPods 4 (MXP63) White');
+  await page.screenshot({path:'node_modules/.cache/board-part-number-picker.png'});
+  await input.press('ArrowDown');await input.press('ArrowDown');await input.press('Enter');
+  await expect(input).toHaveValue('MXP93');await expect(tile.getByRole('listbox')).toHaveCount(0);
+  await tile.getByRole('button',{name:'Зберегти',exact:true}).click();
+  await expect.poll(()=>saved.length).toBe(1);expect((saved[0] as {partNumber:string}).partNumber).toBe('MXP93');
 });
